@@ -1,0 +1,129 @@
+--- COMPARING CNH vs FOTOS ---
+
+[CNH] motorista_id meta:
+{
+  "id": 530,
+  "collection": "antt",
+  "field": "motorista_id",
+  "special": [
+    "m2o"
+  ],
+  "interface": "select-dropdown-m2o",
+  "options": null,
+  "display": "related-values",
+  "display_options": null,
+  "readonly": false,
+  "hidden": false,
+  "sort": 8,
+  "width": "full",
+  "translations": null,
+  "note": null,
+  "conditions": null,
+  "required": false,
+  "group": null,
+  "validation": null,
+  "validation_message": null,
+  "searchable": true
+}
+
+[FOTOS] motorista_id meta:
+{
+  "id": 530,
+  "collection": "antt",
+  "field": "motorista_id",
+  "special": [
+    "m2o"
+  ],
+  "interface": "select-dropdown-m2o",
+  "options": null,
+  "display": "related-values",
+  "display_options": null,
+  "readonly": false,
+  "hidden": false,
+  "sort": 8,
+  "width": "full",
+  "translations": null,
+  "note": null,
+  "conditions": null,
+  "required": false,
+  "group": null,
+  "validation": null,
+  "validation_message": null,
+  "searchable": true
+}
+
+[CNH] motorista_id schema:
+{
+  "name": "motorista_id",
+  "table": "antt",
+  "data_type": "integer",
+  "default_value": null,
+  "generation_expression": null,
+  "max_length": null,
+  "numeric_precision": 32,
+  "numeric_scale": 0,
+  "is_generated": false,
+  "is_nullable": true,
+  "is_unique": false,
+  "is_indexed": false,
+  "is_primary_key": false,
+  "has_auto_increment": false,
+  "foreign_key_schema": "public",
+  "foreign_key_table": "cadastro_motorista",
+  "foreign_key_column": "id",
+  "comment": null
+}
+
+[FOTOS] motorista_id schema:
+{
+  "name": "motorista_id",
+  "table": "antt",
+  "data_type": "integer",
+  "default_value": null,
+  "generation_expression": null,
+  "max_length": null,
+  "numeric_precision": 32,
+  "numeric_scale": 0,
+  "is_generated": false,
+  "is_nullable": true,
+  "is_unique": false,
+  "is_indexed": false,
+  "is_primary_key": false,
+  "has_auto_increment": false,
+  "foreign_key_schema": "public",
+  "foreign_key_table": "cadastro_motorista",
+  "foreign_key_column": "id",
+  "comment": null
+}
+
+[CNH] Relation:
+{
+  "collection": "cnh",
+  "field": "motorista_id",
+  "related_collection": "cadastro_motorista",
+  "schema": {
+    "constraint_name": "cnh_motorista_id_foreign",
+    "table": "cnh",
+    "column": "motorista_id",
+    "foreign_key_schema": "public",
+    "foreign_key_table": "cadastro_motorista",
+    "foreign_key_column": "id",
+    "on_update": "NO ACTION",
+    "on_delete": "SET NULL"
+  },
+  "meta": {
+    "id": 2,
+    "many_collection": "cnh",
+    "many_field": "motorista_id",
+    "one_collection": "cadastro_motorista",
+    "one_field": null,
+    "one_collection_field": null,
+    "one_allowed_collections": null,
+    "junction_field": null,
+    "sort_field": null,
+    "one_deselect_action": "nullify"
+  }
+}
+
+[FOTOS] Relation:
+undefined

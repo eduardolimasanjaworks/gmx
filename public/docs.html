@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentação GMX Frete Sync</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --bg: #f8fafc;
+      --text: #1e293b;
+      --code-bg: #1e1e1e;
+      --code-text: #d4d4d4;
+      --note-bg: #dbeafe;
+      --warn-bg: #fee2e2;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    h1,
+    h2,
+    h3 {
+      color: #0f172a;
+      margin-top: 2rem;
+    }
+
+    h1 {
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 0.5rem;
+    }
+
+    h2 {
+      margin-top: 3rem;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 0.5rem;
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+    }
+
+    code {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    p code,
+    li code {
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    .note {
+      background: var(--note-bg);
+      border-left: 4px solid var(--primary);
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+    }
+
+    .warning {
+      background: var(--warn-bg);
+      border-left: 4px solid #ef4444;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+    }
+
+    ul {
+      padding-left: 1.5rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Documentação GMX Frete Sync (Personalizada)</h1>
+
+  <p>Esta documentação é específica para o fluxo de trabalho do GMX Frete Sync.</p>
+
+  <div class="note">
+    <h2>🔐 Autenticação (Obrigatória)</h2>
+    <p>Você <strong>precisa</strong> enviar o Token de Acesso no cabeçalho da requisição para cadastrar motoristas.</p>
+    <p><strong>Header:</strong><br>
+      <code>Authorization: Bearer 1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah</code>
+    </p>
+    <p><small>(Token de desenvolvimento)</small></p>
+  </div>
+
+  <h2>🚛 Fluxo de Cadastro de Motorista (100% Unificado)</h2>
+  <p><b>Este é o endpoint único que você queria!</b> Ele cadastra o motorista e TODAS as tabelas relacionadas de uma
+    vez, incluindo as fotos e carretas.</p>
+
+  <p><strong>Endpoint:</strong> <code>POST /items/cadastro_motorista</code></p>
+
+  <h3>Estrutura do JSON Completo:</h3>
+  <pre><code>{
+  "status": "published",
+  "nome": "NOME DO MOTORISTA",
+  "sobrenome": "SOBRENOME",
+  "telefone": "5511999999999",
+  "forma_pagamento": "pix",
+  
+  // 1. Relacionamento com a Tabela Carreta
+  "carreta1": [
+      {
+          "placa": "ABC-1234",
+          "modelo": "GRANELEIRA",
+          "renavam": "12345678900",
+          "cap": "30 TON"
+          // Adicione outros campos da carreta conforme seu exemplo
+      }
+  ],
+
+  // 2. Relacionamento com a Tabela Fotos
+  // ATENÇÃO: Use ARRRAY [], pois é um relacionamento do banco
+  "fotos": [
+     {
+        "foto_cavalo": "https://link-da-imagem.com/cavalo.jpg",
+        "foto_lateral": "https://link-da-imagem.com/lateral.jpg",
+        "foto_traseira": "https://link-da-imagem.com/traseira.jpg"
+     }
+  ],
+  
+  // 3. Tabela CNH
+  "dados_cnh": [
+    {
+      "n_registro_cnh": "12345678900",
+      "categoria": "AE",
+      "validade": "2025-12-31"
+    }
+  ],
+  
+  // 4. Tabela ANTT
+  "dados_antt": [
+    {
+      "numero_antt": "12345678",
+      "cnpj_cpf": "123.456.789-00"
+    }
+  ],
+  
+  // 5. Tabela Comprovante de Endereço
+  "dados_endereco": [
+    {
+      "logradouro": "Rua das Flores",
+      "numero": "123",
+      "bairro": "Centro",
+      "cidade": "São Paulo",
+      "estado": "SP",
+      "cep": "01001-000"
+    }
+  ]
+}</code></pre>
+
+  <div class="warning">
+    <strong>Importante sobre Links de Fotos:</strong> O campo <code>foto_...</code> aceita texto (URL externa) se você
+    configurou assim. Se estiver usando o Upload do Directus, envie o <strong>UUID</strong> do arquivo.
+  </div>
+
+
+  <hr>
+
+  <h2>🟢 Controle de Disponibilidade</h2>
+  <p>Tabela <code>disponivel</code> controla onde o motorista está e se está livre para carga.</p>
+
+  <p><strong>Endpoint:</strong> <code>GET /items/disponivel</code></p>
+  <p><strong>Header:</strong> <code>Authorization: Bearer 1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah</code></p>
+
+  <p><strong>Atualizar Status:</strong><br>
+    <code>PATCH /items/disponivel/ID_DO_REGISTRO</code>
+  </p>
+  <pre><code>{
+  "status": "em_viagem",
+  "data_previsao_liberacao": "2024-12-20T18:00:00"
+}</code></pre>
+
+</body>
+
+</html>

@@ -1,0 +1,28 @@
+Field: dados_disponibilidade
+   Type: alias
+   Special: ["o2m"]
+   Interface: list-o2m
+Field: revisions
+   Type: alias
+   Special: ["o2m"]
+   Interface: list-o2m
+Field: panels
+   Type: alias
+   Special: ["o2m"]
+   Interface: null
+Field: operations
+   Type: alias
+   Special: ["o2m"]
+   Interface: null
+Field: permissions
+   Type: alias
+   Special: ["o2m"]
+   Interface: system-permissions
+Field: children
+   Type: alias
+   Special: ["o2m"]
+   Interface: list-o2m-tree-view
+Field: users
+   Type: alias
+   Special: ["o2m"]
+   Interface: list-o2m

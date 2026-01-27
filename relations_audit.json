@@ -1,0 +1,39 @@
+{
+  "carretas": "❌ NO 'motorista_id' RELATION FOUND",
+  "carreta": "❌ NO 'motorista_id' RELATION FOUND",
+  "cnh": [
+    {
+      "field": "motorista_id",
+      "related_collection": "cnh",
+      "one_field": "dados_cnh"
+    }
+  ],
+  "antt": [
+    {
+      "field": "motorista_id",
+      "related_collection": "antt",
+      "one_field": "dados_antt"
+    }
+  ],
+  "crlv": [
+    {
+      "field": "motorista_id",
+      "related_collection": "crlv",
+      "one_field": "dados_crlv"
+    }
+  ],
+  "comprovante_endereco": [
+    {
+      "field": "motorista_id",
+      "related_collection": "comprovante_endereco",
+      "one_field": "dados_endereco"
+    }
+  ],
+  "fotos": [
+    {
+      "field": "motorista_id",
+      "related_collection": "cadastro_motorista",
+      "one_field": "fotos"
+    }
+  ]
+}

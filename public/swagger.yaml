@@ -1,0 +1,390 @@
+
+openapi: 3.0.0
+info:
+  title: API de Cadastro de Motoristas (GMX)
+  description: |
+    API unificada para gestão de cadastros de motoristas e documentos relacionados (CNH, ANTT, CRLV, Carretas, Endereço).
+    
+    **Nota sobre Criação Aninhada:**
+    Para criar um motorista e seus documentos em uma única requisição POST, utilize a estrutura aninhada abaixo.
+    Isso requer que os Aliases (One-to-Many) estejam configurados no Directus (ex: `dados_cnh`, `dados_antt`).
+  version: 1.0.0
+servers:
+  - url: /api
+    description: Proxy Local (Evita CORS)
+
+security:
+  - bearerAuth: []
+
+paths:
+  /items/cadastro_motorista:
+    get:
+      summary: Listar todos os cadastros
+      description: Recupera a lista de motoristas com todas as tabelas relacionadas pré-carregadas.
+      parameters:
+        - in: query 
+          name: filter[telefone][_eq]
+          schema:
+            type: string
+            example: "5511999999999"
+          description: "🔎 **Buscar Motorista via Telefone** (Filtro Direto)"
+      responses:
+        '200':
+          description: Lista de motoristas recuperada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MotoristaCompleto'
+
+    post:
+      summary: Criar novo cadastro completo
+      description: Cria um novo motorista e insere automaticamente os registros nas tabelas filhas (CNH, ANTT, etc).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MotoristaInput'
+      responses:
+        '200':
+          description: Cadastro criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MotoristaCompleto'
+
+  /items/cadastro_motorista/{id}:
+    patch:
+      summary: Atualizar cadastro existente
+      description: Atualiza dados do motorista ou de seus documentos relacionados.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID do motorista
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MotoristaInput'
+      responses:
+        '200':
+          description: Atualizado com sucesso
+
+  /items/disponivel:
+    get:
+      summary: 🔎 Buscar Disponibilidade
+      description: Use isso para encontrar o **ID** do registro de disponibilidade atual do motorista.
+      parameters:
+        - in: query
+          name: filter[motorista_id][_eq]
+          schema:
+            type: integer
+          description: "🆔 ID do Motorista"
+        - in: query
+          name: sort
+          schema:
+            type: string
+            default: "-date_created"
+          description: "Ordenar por data (Padrão: mais recente primeiro)"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Lista de registros
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DisponivelInput'
+
+    post:
+      summary: 📍 Nova Localização (Check-in)
+      description: |
+        Use isso quando o motorista **mudar de cidade**.
+        Cria um NOVO registro histórico.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                    type: string
+                    default: "disponivel"
+                motorista_id:
+                    type: integer
+                localizacao_atual:
+                    type: string
+                latitude:
+                    type: number
+                longitude:
+                    type: number
+                observacao:
+                    type: string
+      responses:
+        '200':
+          description: Novo registro criado
+
+  /items/disponivel/{id}:
+    patch:
+      summary: 🔄 Atualizar Status
+      description: |
+        Use isso para mudar o status (ex: para `indisponivel`) **sem** mudar de cidade.
+        Requer o ID do registro de disponibilidade (pegue no GET acima).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID do registro de Disponibilidade (NÃO é o ID do motorista)
+      requestBody:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [disponivel, indisponivel]
+                  observacao:
+                    type: string
+      responses:
+        '200':
+          description: Status atualizado
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    MotoristaCompleto:
+      allOf:
+        - $ref: '#/components/schemas/MotoristaInput'
+        - type: object
+          properties:
+            id:
+              type: integer
+            date_created:
+              type: string
+              format: date-time
+
+    MotoristaInput:
+      type: object
+      required:
+        - nome
+        - sobrenome
+        - telefone
+      properties:
+        status:
+          type: string
+          enum: [active, inactive, blocked]
+          default: active
+        nome:
+          type: string
+        sobrenome:
+          type: string
+        telefone:
+          type: string
+        forma_pagamento:
+          type: string
+        
+        # Relacionamentos (Nested Create)
+        fotos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fotos'
+            
+        dados_antt:
+          type: array 
+          items:
+            $ref: '#/components/schemas/ANTT'
+        
+        dados_cnh:
+          type: array
+          items:
+            $ref: '#/components/schemas/CNH'
+            
+        dados_crlv:
+          type: array
+          items:
+            $ref: '#/components/schemas/CRLV'
+            
+        dados_endereco:
+          type: array
+          items:
+            $ref: '#/components/schemas/Endereco'
+            
+        carreta1:
+            type: array
+            items:
+                $ref: '#/components/schemas/Carreta'
+        carreta2:
+            type: array
+            items:
+                $ref: '#/components/schemas/Carreta'
+        carreta3:
+            type: array
+            items:
+                $ref: '#/components/schemas/Carreta'
+        
+        dados_disponibilidade:
+            type: array
+            items:
+                $ref: '#/components/schemas/DisponivelInput'
+
+    ANTT:
+      type: object
+      properties:
+        numero_antt:
+          type: string
+          description: Número da ANTT
+        cnpj_cpf:
+          type: string
+          description: CPF ou CNPJ vinculado à ANTT
+
+    CNH:
+      type: object
+      properties:
+        cpf:
+          type: string
+        data_nasc:
+          type: string
+          format: date
+        nome_mae:
+          type: string
+        n_registro_cnh:
+          type: string
+        n_formulario_cnh:
+          type: string
+        validade:
+          type: string
+          format: date
+        emissao_cnh:
+          type: string
+          format: date
+        n_cnh_seguranca:
+          type: string
+        n_cnh_renach:
+          type: string
+        primeira_habilitacao:
+          type: string
+          format: date
+        categoria:
+          type: string
+        cidade_emissao:
+          type: string
+
+    CRLV:
+      type: object
+      properties:
+        placa:
+          type: string
+        renavam:
+          type: string
+        # Adicionar outros campos conforme necessidade
+
+    Endereco:
+      type: object
+      properties:
+        cep:
+          type: string
+        logradouro:
+          type: string
+        numero:
+          type: string
+        bairro:
+          type: string
+        cidade:
+          type: string
+        estado:
+          type: string
+
+    Carreta:
+      type: object
+      description: Dados para Carreta 1, 2 ou 3
+      properties:
+        cap:
+          type: string
+          description: Capacidade
+        cnpj_cpf_proprietario:
+          type: string
+        proprietario_documento:
+          type: string
+        cep:
+          type: string
+        renavam:
+          type: string
+        modelo:
+          type: string
+        ano_fabricacao:
+          type: integer
+        ano_modelo:
+          type: integer
+        nr_certificado_doc:
+          type: string
+        exercicio_doc:
+          type: integer
+        cor:
+          type: string
+        chassi:
+          type: string
+        cidade_emplacado:
+          type: string
+        antt_numero:
+          type: string
+        antt_cnpj_cpf:
+          type: string
+        antt_nome:
+          type: string
+
+    Fotos:
+      type: object
+      properties:
+        foto_cavalo:
+          type: string
+          description: URL ou ID do arquivo
+        foto_lateral:
+          type: string
+        foto_traseira:
+          type: string
+
+    DisponivelInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [disponivel, indisponivel]
+          default: disponivel
+        localizacao_atual:
+           type: string
+           description: Cidade e Estado (ex. São Paulo - SP)
+        latitude:
+           type: number
+           format: float
+        longitude:
+           type: number
+           format: float
+        observacao:
+           type: string

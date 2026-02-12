@@ -12,6 +12,14 @@ export default defineConfig(({ mode }) => {
       host: "::",
       port: 8080,
       proxy: {
+        "/upload": {
+          target: "http://localhost:8099",
+          changeOrigin: true,
+        },
+        "/uploads": {
+          target: "http://localhost:8099",
+          changeOrigin: true,
+        },
         "/api": {
           target: env.VITE_DIRECTUS_URL || "http://91.99.137.101:8057",
           changeOrigin: true,

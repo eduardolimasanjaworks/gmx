@@ -73,6 +73,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const refreshTokenValue = localStorage.getItem('directus_refresh_token');
             if (!refreshTokenValue) {
+                // Estado comum quando o usuário tem apenas access_token antigo no storage
+                // (ex: limpou cookies/storage parcialmente). Tratar como logout.
                 throw new Error('No refresh token available');
             }
 
@@ -103,7 +105,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             return accessToken;
         } catch (error) {
-            Logger.error("Token refresh failed", error);
+            // Evitar ruído: ausência de refresh token é esperado em alguns cenários (primeiro acesso / storage inconsistente)
+            const msg = (error as any)?.message || String(error);
+            if (msg.includes('No refresh token available')) {
+                Logger.warn("Token refresh skipped (no refresh token)", error);
+            } else {
+                Logger.error("Token refresh failed", error);
+            }
             // If refresh fails, logout user
             setUser(null);
             localStorage.removeItem('directus_token');
@@ -133,6 +141,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // If token expired, try to refresh
             if (error?.message?.includes('expired') || error?.response?.status === 401) {
                 try {
+                    // Se não existir refresh token, não adianta tentar refresh; apenas força logout limpo
+                    if (!localStorage.getItem('directus_refresh_token')) {
+                        setUser(null);
+                        localStorage.removeItem('directus_token');
+                        localStorage.removeItem('directus_refresh_token');
+                        setToken(null);
+                        return;
+                    }
                     await refreshToken();
                     // Retry checkAuth after refresh
                     const userData = await directus.request(readMe({

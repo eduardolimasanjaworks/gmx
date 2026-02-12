@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Pencil, User, FileText, Truck, ScrollText, X, AlertCircle, Save, Loader2, ScanText, ImageIcon, File as FileIcon, Plus } from "lucide-react";
 import { directus, directusUrl } from "@/lib/directus";
-import { readItems, updateItem, createItem, uploadFiles } from "@directus/sdk";
+import { readItems, updateItem, createItem } from "@directus/sdk";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { createWorker } from 'tesseract.js';
+import { uploadPublicFile } from "@/lib/publicUpload";
 
 interface DriverProfileDialogProps {
   open: boolean;
@@ -148,49 +149,13 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     }
   };
 
-  const uploadToDirectusAndGetUrl = async (file: File) => {
-    const token = import.meta.env.VITE_DIRECTUS_TOKEN;
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const endpoint = `${directusUrl}/files`;
-
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        body: formData
-      });
-
-      if (!res.ok) {
-        let errorMsg = `Erro ${res.status}`;
-        try {
-          const errJson = await res.json();
-          errorMsg = errJson.errors?.[0]?.message || errorMsg;
-        } catch {
-          const text = await res.text();
-          // Limit text length to avoid huge error messages
-          errorMsg = text.substring(0, 100) || errorMsg;
-        }
-        throw new Error(errorMsg);
-      }
-
-      const json = await res.json();
-      const id = json.data?.id;
-      if (!id) throw new Error("Upload sem ID de retorno");
-
-      return `${directusUrl}/assets/${id}`;
-    } catch (e: any) {
-      console.error("Upload Error:", e);
-      const msg = e.message || String(e);
-      // Special check for Failed to fetch (network/CORS/proxy issue)
-      if (msg.includes("Failed to fetch")) {
-        throw new Error("Erro de conexão (Failed to fetch). Verifique se o servidor backend está online ou se há bloqueios de rede.");
-      }
-      throw new Error("Falha no upload: " + msg);
-    }
+  const uploadPublicAndGetUrl = async (file: File, key: string) => {
+    // Upload público local via /upload (sem precisar Supabase/Directus Files)
+    if (!localDriverData?.id) throw new Error("Motorista não carregado");
+    return await uploadPublicFile({
+      file,
+      path: `drivers/${localDriverData.id}/${key}`,
+    });
   };
 
   const AttachmentEditor = ({ label = "Anexo", value, onChange, uploadingId, onOcrResult }: any) => {
@@ -201,12 +166,12 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         <div className="grid gap-3">
           <div className="flex flex-col space-y-1.5">
             <span className="text-sm text-muted-foreground">Upload Arquivo</span>
-            <Input type="file" disabled={isUploading || !filesServiceAvailable} onChange={async (e) => {
+            <Input type="file" accept="image/*,application/pdf" disabled={isUploading || !filesServiceAvailable} onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
               try {
                 setUploadingKey(uploadingId);
-                const url = await uploadToDirectusAndGetUrl(file);
+                const url = await uploadPublicAndGetUrl(file, uploadingId);
                 onChange(url);
                 toast({ title: "Upload concluído" });
 
@@ -939,15 +904,17 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     <div className="text-muted-foreground text-sm mb-4">Fotos são gerenciadas principalmente via aplicativo móvel. Aqui você pode visualizar as fotos atuais.</div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {[
-                        { label: 'Foto Cavalo', url: data.fotos?.foto_cavalo },
-                        { label: 'Foto Lateral', url: data.fotos?.foto_lateral },
-                        { label: 'Foto Traseira', url: data.fotos?.foto_traseira }
+                        { label: 'Foto Cavalo', key: 'foto_cavalo', url: data.fotos?.foto_cavalo, uploadingId: 'foto_cavalo' },
+                        { label: 'Foto Lateral', key: 'foto_lateral', url: data.fotos?.foto_lateral, uploadingId: 'foto_lateral' },
+                        { label: 'Foto Traseira', key: 'foto_traseira', url: data.fotos?.foto_traseira, uploadingId: 'foto_traseira' }
                       ].map((item, idx) => (
                         <div key={idx} className="flex flex-col gap-2">
                           <span className="font-medium text-sm text-center">{item.label}</span>
                           {item.url ? (
-                            <div className="relative aspect-video bg-muted rounded-md overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity group"
-                              onClick={() => setDocumentUrl(item.url)}>
+                            <div
+                              className="relative aspect-video bg-muted rounded-md overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity group"
+                              onClick={() => setDocumentUrl(item.url)}
+                            >
                               <img src={item.url} alt={item.label} className="object-cover w-full h-full" />
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/20 transition-opacity">
                                 <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded">Visualizar</span>
@@ -959,6 +926,37 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                               Sem foto
                             </div>
                           )}
+
+                          {/* Upload direto (público) na própria tela, sem depender de app móvel */}
+                          <div className="pt-1">
+                            <AttachmentEditor
+                              label={`Enviar ${item.label}`}
+                              value=""
+                              uploadingId={item.uploadingId}
+                              onChange={async (url: string) => {
+                                if (!url || !driverData?.id) return;
+                                try {
+                                  // Garante que exista um registro em `fotos`
+                                  let fotosId = data.fotos?.id;
+                                  if (!fotosId) {
+                                    const created = await directus.request(createItem('fotos' as any, { motorista_id: driverData.id }));
+                                    fotosId = created?.id;
+                                    const refreshed = await directus.request(readItems('fotos', { filter: { motorista_id: { _eq: driverData.id } } }));
+                                    setData(prev => ({ ...prev, fotos: refreshed[0] || created }));
+                                  }
+
+                                  await updateItem('fotos' as any, fotosId, { [item.key]: url });
+                                  toast({ title: "Foto anexada", description: `${item.label} atualizada.` });
+
+                                  const newFotos = await directus.request(readItems('fotos', { filter: { motorista_id: { _eq: driverData.id } } }));
+                                  setData(prev => ({ ...prev, fotos: newFotos[0] || prev.fotos }));
+                                } catch (e) {
+                                  console.error(e);
+                                  toast({ title: "Erro ao salvar foto", description: "A foto foi enviada mas não pôde ser vinculada no Directus.", variant: "destructive" });
+                                }
+                              }}
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>

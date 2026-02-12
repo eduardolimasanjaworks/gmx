@@ -10,23 +10,35 @@ async function setupDocumentsPermissions() {
         const collections = [
             'delivery_receipts',
             'payment_receipts',
-            'shipment_documents',
-            'directus_files' // Necessário para upload de arquivos
+            'shipment_documents'
         ];
 
         // Ações necessárias
         const actions = ['read', 'create', 'update', 'delete'];
 
+        // Buscar policies (este Directus está no modelo baseado em Policies)
+        const getAllPolicies = async () => {
+            const policiesRes = await fetch(`${DIRECTUS_URL}/policies?limit=200`, {
+                headers: { 'Authorization': `Bearer ${TOKEN}` }
+            });
+            const policiesData = await policiesRes.json();
+            return policiesData.data || [];
+        };
+
         // Helper para verificar e criar permissão
-        const ensurePermission = async (collection, action, roleId = null) => {
+        const ensurePermission = async (collection, action, policyId) => {
             try {
-                // Verificar se a permissão já existe
-                let url = `${DIRECTUS_URL}/permissions?filter[collection][_eq]=${collection}&filter[action][_eq]=${action}`;
-                if (roleId) {
-                    url += `&filter[role][_eq]=${roleId}`;
-                } else {
-                    url += `&filter[role][_null]=true`;
+                if (!policyId) {
+                    console.error(`   ❌ Policy ID não fornecido para ${collection} (${action})`);
+                    return;
                 }
+
+                // No modelo baseado em Policies, o vínculo é por `policy` (role pode não ser gravado/retornado)
+                const url =
+                    `${DIRECTUS_URL}/permissions` +
+                    `?filter[collection][_eq]=${collection}` +
+                    `&filter[action][_eq]=${action}` +
+                    `&filter[policy][_eq]=${policyId}`;
 
                 const checkRes = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${TOKEN}` }
@@ -44,7 +56,7 @@ async function setupDocumentsPermissions() {
                         },
                         body: JSON.stringify({ fields: ['*'] })
                     });
-                    console.log(`   ✅ Permissão já existe e foi atualizada: ${collection} (${action}) para role ${roleId || 'Public'}`);
+                    console.log(`   ✅ Permissão já existe e foi atualizada: ${collection} (${action}) (policy ${policyId})`);
                 } else {
                     // Criar nova permissão
                     const createRes = await fetch(`${DIRECTUS_URL}/permissions`, {
@@ -54,12 +66,12 @@ async function setupDocumentsPermissions() {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
-                            role: roleId,
                             collection: collection,
                             action: action,
                             fields: ['*'],
                             permissions: {}, // Sem restrições
-                            validation: {} // Sem validações
+                            validation: {}, // Sem validações
+                            policy: policyId // ID da policy
                         })
                     });
 
@@ -67,7 +79,7 @@ async function setupDocumentsPermissions() {
                     if (createData.errors) {
                         console.error(`   ❌ Erro ao criar permissão ${collection} (${action}):`, createData.errors);
                     } else {
-                        console.log(`   ✨ Permissão criada: ${collection} (${action}) para role ${roleId || 'Public'}`);
+                        console.log(`   ✨ Permissão criada: ${collection} (${action}) (policy ${policyId})`);
                     }
                 }
             } catch (error) {
@@ -75,51 +87,23 @@ async function setupDocumentsPermissions() {
             }
         };
 
-        // 1. Obter o role do usuário autenticado
-        console.log('1️⃣ Verificando usuário autenticado...');
-        const meRes = await fetch(`${DIRECTUS_URL}/users/me`, {
-            headers: { 'Authorization': `Bearer ${TOKEN}` }
-        });
-        const meData = await meRes.json();
-        let tokenRole = null;
-        if (meData.data) {
-            tokenRole = meData.data.role;
-            console.log(`   Usuário: ${meData.data.first_name} ${meData.data.last_name} (${meData.data.email})`);
-            console.log(`   Role ID: ${tokenRole}\n`);
+        // 1) Buscar todas as policies e aplicar permissões nelas (tudo público / sem briga de permissão)
+        console.log('1️⃣ Buscando policies...');
+        const policies = await getAllPolicies();
+        if (!policies.length) {
+            console.error('❌ Nenhuma policy encontrada. Verifique o Directus.');
+            return;
         }
+        console.log(`   ✅ Policies encontradas: ${policies.length}\n`);
 
-        // 2. Configurar permissões para Public (null)
-        console.log('2️⃣ Configurando permissões PÚBLICAS (role: null)...');
-        for (const collection of collections) {
-            for (const action of actions) {
-                await ensurePermission(collection, action, null);
-            }
-        }
-
-        // 3. Configurar permissões para o role do usuário autenticado
-        if (tokenRole) {
-            console.log(`\n3️⃣ Configurando permissões para o role do usuário (ID: ${tokenRole})...`);
+        // 2) Configurar permissões para TODAS as policies (inclui Administrator e Public)
+        console.log('2️⃣ Configurando permissões em TODAS as policies (modo público)...');
+        for (const policy of policies) {
+            if (!policy?.id) continue;
+            console.log(`\n   🧩 Policy: ${policy.name || '(sem nome)'} (ID: ${policy.id})`);
             for (const collection of collections) {
                 for (const action of actions) {
-                    await ensurePermission(collection, action, tokenRole);
-                }
-            }
-        }
-
-        // 4. Configurar permissões para todos os roles existentes
-        console.log('\n4️⃣ Configurando permissões para TODOS os roles...');
-        const rolesRes = await fetch(`${DIRECTUS_URL}/roles`, {
-            headers: { 'Authorization': `Bearer ${TOKEN}` }
-        });
-        const rolesData = await rolesRes.json();
-        
-        if (rolesData.data) {
-            for (const role of rolesData.data) {
-                console.log(`   Processando role: ${role.name} (ID: ${role.id})...`);
-                for (const collection of collections) {
-                    for (const action of actions) {
-                        await ensurePermission(collection, action, role.id);
-                    }
+                    await ensurePermission(collection, action, policy.id);
                 }
             }
         }

@@ -8,8 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Package, DollarSign, Calendar, Mail, FileText, Upload, Eye, Download, Edit, Save, X, Trash2, FileSpreadsheet } from "lucide-react";
 import { OcrDocumentViewer } from "@/components/dashboard/OcrDocumentViewer";
-import { supabase } from "@/integrations/supabase/client";
-import { directus } from "@/lib/directus";
+import { uploadPublicFile, deletePublicFileByUrl } from "@/lib/publicUpload";
+import { directus, publicDirectus } from "@/lib/directus";
 import { readItems, createItem, updateItem, deleteItem, uploadFiles, deleteFile } from "@directus/sdk";
 import { updateEmbarque } from "@/lib/embarques";
 import { useToast } from "@/hooks/use-toast";
@@ -64,15 +64,15 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     if (!shipment?.id) return;
 
     try {
-      const data = await directus.request(readItems('delivery_receipts', {
+      const data = await publicDirectus.request(readItems('delivery_receipts', {
         filter: { shipment_id: { _eq: shipment.id } },
         sort: ['-date_created' as any],
-        fields: ['*', 'file.*']
+        fields: ['*']
       }));
       // Map Directus file object to flat structure if needed, or keeping it as is if frontend adapts
       const mappedData = data.map((item: any) => ({
         ...item,
-        file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url // Fallback to legacy
+        file_url: item.file_url
       }));
       setDeliveryReceipts(mappedData);
     } catch (error: any) {
@@ -81,14 +81,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         try {
           await refreshToken();
           // Retry a requisição após renovar o token
-          const data = await directus.request(readItems('delivery_receipts', {
+          const data = await publicDirectus.request(readItems('delivery_receipts', {
             filter: { shipment_id: { _eq: shipment.id } },
             sort: ['-date_created' as any],
-            fields: ['*', 'file.*']
+            fields: ['*']
           }));
           const mappedData = data.map((item: any) => ({
             ...item,
-            file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url
+            file_url: item.file_url
           }));
           setDeliveryReceipts(mappedData);
           return;
@@ -99,11 +99,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       // Tratamento para erro 403 (Forbidden)
       if (error?.response?.status === 403 || error?.status === 403) {
         console.error("Error fetching delivery receipts: Sem permissão (403). Execute setup_documents_permissions.js");
-        toast({
-          title: "Permissão negada",
-          description: "Você não tem permissão para acessar delivery receipts. Execute o script de configuração de permissões.",
-          variant: "destructive"
-        });
+        // Removido toast vermelho (pedido do usuário). Mantemos apenas log no console.
       } else {
         console.error("Error fetching delivery receipts:", error);
       }
@@ -114,14 +110,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     if (!shipment?.id) return;
 
     try {
-      const data = await directus.request(readItems('payment_receipts', {
+      const data = await publicDirectus.request(readItems('payment_receipts', {
         filter: { shipment_id: { _eq: shipment.id } },
         sort: ['-date_created' as any],
-        fields: ['*', 'file.*']
+        fields: ['*']
       }));
       const mappedData = data.map((item: any) => ({
         ...item,
-        file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url
+        file_url: item.file_url
       }));
       setPaymentReceipts(mappedData);
     } catch (error: any) {
@@ -130,14 +126,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         try {
           await refreshToken();
           // Retry a requisição após renovar o token
-          const data = await directus.request(readItems('payment_receipts', {
+          const data = await publicDirectus.request(readItems('payment_receipts', {
             filter: { shipment_id: { _eq: shipment.id } },
             sort: ['-date_created' as any],
-            fields: ['*', 'file.*']
+            fields: ['*']
           }));
           const mappedData = data.map((item: any) => ({
             ...item,
-            file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url
+            file_url: item.file_url
           }));
           setPaymentReceipts(mappedData);
           return;
@@ -148,11 +144,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       // Tratamento para erro 403 (Forbidden)
       if (error?.response?.status === 403 || error?.status === 403) {
         console.error("Error fetching payment receipts: Sem permissão (403). Execute setup_documents_permissions.js");
-        toast({
-          title: "Permissão negada",
-          description: "Você não tem permissão para acessar payment receipts. Execute o script de configuração de permissões.",
-          variant: "destructive"
-        });
+        // Removido toast vermelho (pedido do usuário). Mantemos apenas log no console.
       } else {
         console.error("Error fetching payment receipts:", error);
       }
@@ -163,14 +155,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     if (!shipment?.id) return;
 
     try {
-      const data = await directus.request(readItems('shipment_documents', {
+      const data = await publicDirectus.request(readItems('shipment_documents', {
         filter: { shipment_id: { _eq: shipment.id } },
         sort: ['-date_created' as any],
-        fields: ['*', 'file.*']
+        fields: ['*']
       }));
       const mappedData = data.map((item: any) => ({
         ...item,
-        file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url
+        file_url: item.file_url
       }));
       setShipmentDocuments(mappedData);
     } catch (error: any) {
@@ -179,14 +171,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         try {
           await refreshToken();
           // Retry a requisição após renovar o token
-          const data = await directus.request(readItems('shipment_documents', {
+          const data = await publicDirectus.request(readItems('shipment_documents', {
             filter: { shipment_id: { _eq: shipment.id } },
             sort: ['-date_created' as any],
-            fields: ['*', 'file.*']
+            fields: ['*']
           }));
           const mappedData = data.map((item: any) => ({
             ...item,
-            file_url: item.file ? `${import.meta.env.VITE_DIRECTUS_URL}/assets/${item.file.id}` : item.file_url
+            file_url: item.file_url
           }));
           setShipmentDocuments(mappedData);
           return;
@@ -197,11 +189,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       // Tratamento para erro 403 (Forbidden)
       if (error?.response?.status === 403 || error?.status === 403) {
         console.error("Error fetching shipment documents: Sem permissão (403). Execute setup_documents_permissions.js");
-        toast({
-          title: "Permissão negada",
-          description: "Você não tem permissão para acessar shipment documents. Execute o script de configuração de permissões.",
-          variant: "destructive"
-        });
+        // Removido toast vermelho (pedido do usuário). Mantemos apenas log no console.
       } else {
         console.error("Error fetching shipment documents:", error);
       }
@@ -213,6 +201,27 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
 
     setUploading(true);
     try {
+      // Upload público local (sem Directus Files / sem Supabase)
+      const publicUrl = await uploadPublicFile({
+        file,
+        path: `shipments/${shipment.id}/${tableName}`,
+      });
+
+      await publicDirectus.request(createItem(tableName, {
+        shipment_id: shipment.id,
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        ...additionalData
+      }));
+
+      toast({ title: "Upload realizado", description: "Arquivo enviado com sucesso" });
+
+      if (tableName === 'payment_receipts') await fetchPaymentReceipts();
+      if (tableName === 'delivery_receipts') await fetchDeliveryReceipts();
+      if (tableName === 'shipment_documents') await fetchShipmentDocuments();
+      return;
+
       const formData = new FormData();
       formData.append('file', file);
 
@@ -220,23 +229,17 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       const fileResult = await directus.request(uploadFiles(formData));
       const fileId = fileResult.id;
 
-      // 2. Create record in target table linking the file
-      const insertData = {
+      // 2. Create record in target table linking the file (Directus)
+      await directus.request(createItem(tableName, {
         shipment_id: shipment.id,
-        file: fileId, // Link to directus_files
+        file: fileId,
         file_name: file.name,
         file_size: file.size,
         ...additionalData
-      };
+      }));
 
-      await directus.request(createItem(tableName, insertData));
+      toast({ title: "Upload realizado", description: "Arquivo enviado com sucesso" });
 
-      toast({
-        title: "Upload realizado",
-        description: "Arquivo enviado com sucesso"
-      });
-
-      // Refresh data
       if (tableName === 'payment_receipts') await fetchPaymentReceipts();
       if (tableName === 'delivery_receipts') await fetchDeliveryReceipts();
       if (tableName === 'shipment_documents') await fetchShipmentDocuments();
@@ -246,7 +249,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       
       // Tratamento específico para erros comuns
       if (error?.response?.status === 503 || error?.status === 503) {
-        errorMessage = 'Serviço de arquivos indisponível. Verifique a configuração do Directus.';
+        errorMessage = 'Serviço de arquivos indisponível.';
       } else if (error?.response?.status === 403 || error?.status === 403) {
         errorMessage = 'Sem permissão para fazer upload. Execute o script setup_documents_permissions.js';
       } else if (error?.response?.status === 401 || error?.status === 401) {
@@ -284,11 +287,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         }
       }
       
-      toast({
-        title: "Erro no upload",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      // Removido toast vermelho (pedido do usuário). Se precisar, você pode adicionar um aviso não-destrutivo aqui.
       console.error("Upload error details:", error);
     } finally {
       setUploading(false);
@@ -301,9 +300,11 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       const fileId = fileUrl.split('/').pop();
 
       // 1. Delete the record in the table (delivery_receipts, etc)
-      await directus.request(deleteItem(tableName, id));
+      await publicDirectus.request(deleteItem(tableName, id));
 
       // 2. Delete the actual file if we have the ID (and it looks like a valid UUID/ID)
+      await deletePublicFileByUrl(fileUrl);
+
       if (fileId && !fileUrl.includes('supabase')) {
         await directus.request(deleteFile(fileId));
       }

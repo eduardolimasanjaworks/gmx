@@ -13,7 +13,6 @@ import { LogisticsSaturationMap } from "@/components/dashboard/LogisticsSaturati
 import { DailyVehicleProposals } from "@/components/dashboard/DailyVehicleProposals";
 import { CriticalPendencies } from "@/components/dashboard/CriticalPendencies";
 import { GlobalMatchingPanel } from "@/components/dashboard/GlobalMatchingPanel";
-import { DebugLogViewer } from "@/components/dashboard/DebugLogViewer";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -128,7 +127,7 @@ const Dashboard = () => {
               Docs
             </a>
 
-            {isAdmin && <DebugLogViewer />}
+            {/* Removido botão/diálogo "Logs de Sistema" (DebugLogViewer) */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

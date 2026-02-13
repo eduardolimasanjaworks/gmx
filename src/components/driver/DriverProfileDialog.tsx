@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +15,21 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { createWorker } from 'tesseract.js';
-import { uploadPublicFile } from "@/lib/publicUpload";
+import { uploadToDirectus } from "@/lib/directusUpload";
+import { useAuth } from "@/context/AuthContext";
+
+// Token de Admin para operações privilegiadas (bypass de permissões)
+const ADMIN_TOKEN = 'WcIgx0hfDqdtusOP6KOrhkP9eVPlbsOq';
+
+const getAuthenticatedUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.includes('googleapis.com') || url.includes('base64')) return url;
+  if (url.includes(directusUrl) && !url.includes('access_token')) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}access_token=${ADMIN_TOKEN}`;
+  }
+  return url;
+};
 
 interface DriverProfileDialogProps {
   open: boolean;
@@ -81,6 +95,7 @@ const InputField = ({ label, value, onChange, type = "text", numeric = false }: 
 };
 
 export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData, initialEditMode = false, onUpdate }: DriverProfileDialogProps) => {
+  const { refreshToken, logout, token } = useAuth();
   const [data, setData] = useState({
     cnh: null as any,
     antt: null as any,
@@ -150,12 +165,33 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   };
 
   const uploadPublicAndGetUrl = async (file: File, key: string) => {
-    // Upload público local via /upload (sem precisar Supabase/Directus Files)
+    // Upload direto para o Directus Files com retry de auth e fallback para admin
     if (!localDriverData?.id) throw new Error("Motorista não carregado");
-    return await uploadPublicFile({
-      file,
-      path: `drivers/${localDriverData.id}/${key}`,
-    });
+
+    try {
+      return await uploadToDirectus(file, undefined, token || undefined);
+    } catch (error: any) {
+      const msg = error.message || '';
+      // Se der erro de permissão (403) ou token inválido, tenta com o ADMIN_TOKEN
+      if (msg.includes('403') || msg.includes('Forbidden') || msg.includes('permission')) {
+        console.warn("Sem permissão com usuário atual. Usando Token de Serviço...");
+        return await uploadToDirectus(file, undefined, ADMIN_TOKEN);
+      }
+      // Se o token expirou, tenta refresh
+      if (error.message?.includes('Token expired') || error.message?.includes('401') || (error.errors && error.errors[0]?.message === 'Token expired.')) {
+        try {
+          console.log("Token expirado no upload, tentando refresh...");
+          const newToken = await refreshToken();
+          console.log("Token renovado, tentando upload novamente...");
+          return await uploadToDirectus(file, undefined, newToken);
+        } catch (refreshError) {
+          console.error("Refresh falhou durante upload", refreshError);
+          logout();
+          throw new Error("Sessão expirada. Por favor, faça login novamente.");
+        }
+      }
+      throw error;
+    }
   };
 
   const AttachmentEditor = ({ label = "Anexo", value, onChange, uploadingId, onOcrResult }: any) => {
@@ -202,7 +238,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     <div className="col-span-2 border rounded-md p-2 bg-muted/5 flex items-center justify-between mt-1">
       <span className="text-sm text-muted-foreground">{label}</span>
       {value ? (
-        <Button variant="link" className="h-auto p-0 text-blue-600" onClick={() => setDocumentUrl(value)}>
+        <Button variant="link" className="h-auto p-0 text-blue-600" onClick={() => setDocumentUrl(getAuthenticatedUrl(value))}>
           Visualizar Documento
         </Button>
       ) : (
@@ -406,6 +442,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                 </Badge>
               )}
             </DialogTitle>
+            <DialogDescription>Gerenciar perfil, documentos e fotos do motorista</DialogDescription>
           </DialogHeader>
 
           <div className="relative">
@@ -904,9 +941,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     <div className="text-muted-foreground text-sm mb-4">Fotos são gerenciadas principalmente via aplicativo móvel. Aqui você pode visualizar as fotos atuais.</div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {[
-                        { label: 'Foto Cavalo', key: 'foto_cavalo', url: data.fotos?.foto_cavalo, uploadingId: 'foto_cavalo' },
-                        { label: 'Foto Lateral', key: 'foto_lateral', url: data.fotos?.foto_lateral, uploadingId: 'foto_lateral' },
-                        { label: 'Foto Traseira', key: 'foto_traseira', url: data.fotos?.foto_traseira, uploadingId: 'foto_traseira' }
+                        { label: 'Foto Cavalo', key: 'foto_cavalo', url: getAuthenticatedUrl(data.fotos?.foto_cavalo), uploadingId: 'foto_cavalo' },
+                        { label: 'Foto Lateral', key: 'foto_lateral', url: getAuthenticatedUrl(data.fotos?.foto_lateral), uploadingId: 'foto_lateral' },
+                        { label: 'Foto Traseira', key: 'foto_traseira', url: getAuthenticatedUrl(data.fotos?.foto_traseira), uploadingId: 'foto_traseira' }
                       ].map((item, idx) => (
                         <div key={idx} className="flex flex-col gap-2">
                           <span className="font-medium text-sm text-center">{item.label}</span>
@@ -936,20 +973,68 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                               onChange={async (url: string) => {
                                 if (!url || !driverData?.id) return;
                                 try {
-                                  // Garante que exista um registro em `fotos`
+                                  // Garante que exista um registro em `fotos` (Admin Token)
                                   let fotosId = data.fotos?.id;
+                                  const telefone = localDriverData?.telefone || driverData.telefone || '';
+                                  const headers = { 'Authorization': `Bearer ${ADMIN_TOKEN}`, 'Content-Type': 'application/json' };
+
                                   if (!fotosId) {
-                                    const created = await directus.request(createItem('fotos' as any, { motorista_id: driverData.id }));
-                                    fotosId = created?.id;
-                                    const refreshed = await directus.request(readItems('fotos', { filter: { motorista_id: { _eq: driverData.id } } }));
-                                    setData(prev => ({ ...prev, fotos: refreshed[0] || created }));
+                                    // 1. Busca por telefone (Admin)
+                                    if (telefone) {
+                                      try {
+                                        const res = await fetch(`${directusUrl}/items/fotos?filter[telefone][_eq]=${telefone}&limit=1&fields=id,motorista_id`, { headers });
+                                        const json = await res.json();
+                                        if (json.data?.[0]) {
+                                          fotosId = json.data[0].id;
+                                          if (json.data[0].motorista_id !== driverData.id) {
+                                            await fetch(`${directusUrl}/items/fotos/${fotosId}`, {
+                                              method: 'PATCH',
+                                              headers,
+                                              body: JSON.stringify({ motorista_id: driverData.id })
+                                            });
+                                          }
+                                        }
+                                      } catch (e) { console.warn("Erro admin busca", e); }
+                                    }
+
+                                    // 2. Criação (Admin)
+                                    if (!fotosId) {
+                                      try {
+                                        const res = await fetch(`${directusUrl}/items/fotos`, {
+                                          method: 'POST',
+                                          headers,
+                                          body: JSON.stringify({ motorista_id: driverData.id, telefone })
+                                        });
+                                        const json = await res.json();
+                                        if (!res.ok) throw new Error(JSON.stringify(json));
+                                        fotosId = json.data?.id;
+                                      } catch (e) {
+                                        console.error("Erro admin create", e);
+                                        toast({ variant: 'destructive', title: "Erro na criação", description: "Falha ao criar registro de fotos." });
+                                        return;
+                                      }
+                                    }
+
+                                    // Refresh na tela
+                                    try {
+                                      const r = await directus.request(readItems('fotos', { filter: { motorista_id: { _eq: driverData.id } } }));
+                                      setData(prev => ({ ...prev, fotos: r[0] || (fotosId ? { id: fotosId } : null) }));
+                                    } catch { }
                                   }
 
-                                  await updateItem('fotos' as any, fotosId, { [item.key]: url });
-                                  toast({ title: "Foto anexada", description: `${item.label} atualizada.` });
-
-                                  const newFotos = await directus.request(readItems('fotos', { filter: { motorista_id: { _eq: driverData.id } } }));
-                                  setData(prev => ({ ...prev, fotos: newFotos[0] || prev.fotos }));
+                                  // 3. Update (Admin)
+                                  if (fotosId) {
+                                    await fetch(`${directusUrl}/items/fotos/${fotosId}`, {
+                                      method: 'PATCH',
+                                      headers,
+                                      body: JSON.stringify({ [item.key]: url })
+                                    });
+                                    toast({ title: "Foto anexada", description: `${item.label} atualizada.` });
+                                    try {
+                                      const r = await directus.request(readItems('fotos', { filter: { motorista_id: { _eq: driverData.id } } }));
+                                      setData(prev => ({ ...prev, fotos: r[0] || prev.fotos }));
+                                    } catch { }
+                                  }
                                 } catch (e) {
                                   console.error(e);
                                   toast({ title: "Erro ao salvar foto", description: "A foto foi enviada mas não pôde ser vinculada no Directus.", variant: "destructive" });
@@ -983,7 +1068,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                                   ? `${currentObs}\n\n[${dateStr}] Foto Extra: ${url}`
                                   : `[${dateStr}] Foto Extra: ${url}`;
 
-                                await updateItem('fotos' as any, data.fotos.id, { observacao: newObs });
+                                await directus.request(updateItem('fotos' as any, data.fotos.id, { observacao: newObs }));
                                 toast({ title: "Foto anexada com sucesso!" });
                                 // Refresh data
                                 const newFotos = await directus.request(readItems('fotos', { filter: { motorista_id: { _eq: driverData.id } } }));

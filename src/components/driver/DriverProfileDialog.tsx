@@ -94,6 +94,73 @@ const InputField = ({ label, value, onChange, type = "text", numeric = false }: 
   );
 };
 
+// Componente especial para validar CPF contra o CPF do cadastro principal
+const CpfInputField = ({ label, value, onChange, referenceCpf }: any) => {
+  const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+
+    // Validar apenas números
+    if (newVal === "") {
+      onChange("");
+      setError("");
+      setWarning("");
+      return;
+    }
+
+    if (!/^\d+$/.test(newVal)) {
+      setError("Apenas números são permitidos");
+      return;
+    }
+
+    setError("");
+    onChange(newVal);
+
+    // Validar se é igual ao CPF de referência
+    if (referenceCpf && newVal !== referenceCpf) {
+      setWarning(`❌ CPF diferente do cadastrado (${referenceCpf})`);
+    } else if (referenceCpf && newVal === referenceCpf) {
+      setWarning("✅ CPF confirmado");
+    } else {
+      setWarning("");
+    }
+  };
+
+  const isValid = referenceCpf && value === referenceCpf;
+  const isInvalid = referenceCpf && value && value !== referenceCpf;
+
+  return (
+    <div className="flex flex-col space-y-1.5">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <Input
+        type="text"
+        value={value || ''}
+        onChange={handleChange}
+        className={`${error || isInvalid
+          ? "border-red-500 focus-visible:ring-red-500"
+          : isValid
+            ? "border-green-500 focus-visible:ring-green-500"
+            : ""
+          }`}
+        placeholder={referenceCpf || "Digite o CPF"}
+      />
+      {error && <span className="text-xs text-red-500 font-medium animate-pulse">{error}</span>}
+      {!error && isInvalid && (
+        <span className="text-xs text-red-500 font-medium animate-pulse">
+          ❌ CPF deve ser igual ao cadastrado: {referenceCpf}
+        </span>
+      )}
+      {!error && isValid && (
+        <span className="text-xs text-green-600 font-medium">
+          ✅ CPF confirmado
+        </span>
+      )}
+    </div>
+  );
+};
+
 export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData, initialEditMode = false, onUpdate }: DriverProfileDialogProps) => {
   const { refreshToken, logout, token } = useAuth();
   const [data, setData] = useState({
@@ -322,8 +389,21 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     try {
       setLoading(true);
       if (!localDriverData?.id) { toast({ variant: "destructive", title: "Salve o motorista antes." }); return; }
+
+      // Validar se o motorista tem telefone cadastrado (campo obrigatório no Directus)
+      if (!localDriverData.telefone) {
+        toast({
+          variant: "destructive",
+          title: "Telefone Obrigatório",
+          description: "O motorista precisa ter um telefone cadastrado antes de definir disponibilidade."
+        });
+        setLoading(false);
+        return;
+      }
+
       await directus.request(createItem('disponivel', {
         motorista_id: localDriverData.id,
+        telefone: localDriverData.telefone, // Campo obrigatório no schema
         status: editFormData.status,
         localizacao_atual: editFormData.localizacao_atual,
         local_disponibilidade: editFormData.localizacao_atual,
@@ -349,8 +429,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     setIsEditingInfo(true);
   };
   const handleSaveInfo = async () => {
-    try {
-      setLoading(true);
+    const performSave = async () => {
       let resultDriver: any = null;
       if (localDriverData?.id) {
         const updated = await directus.request(updateItem('cadastro_motorista', localDriverData.id, {
@@ -365,8 +444,38 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         }));
         setLocalDriverData(newDriver); resultDriver = newDriver; toast({ title: "Motorista criado!" });
       }
-      setIsEditingInfo(false); if (onUpdate) onUpdate(resultDriver || undefined);
-    } catch (error) { toast({ variant: "destructive", title: "Erro", description: String(error) }); } finally { setLoading(false); }
+      return resultDriver;
+    };
+
+    try {
+      setLoading(true);
+      try {
+        const resultDriver = await performSave();
+        setIsEditingInfo(false);
+        if (onUpdate) onUpdate(resultDriver || undefined);
+      } catch (error: any) {
+        if (error.message?.includes('Token expired') || error.message?.includes('401') ||
+          (error.errors && error.errors[0]?.message === 'Token expired.')) {
+          console.log('Token expirado, tentando refresh...');
+          try {
+            await refreshToken();
+            const resultDriver = await performSave();
+            setIsEditingInfo(false);
+            if (onUpdate) onUpdate(resultDriver || undefined);
+          } catch (refreshError) {
+            console.error('Refresh falhou', refreshError);
+            logout();
+            toast({ variant: 'destructive', title: 'Sessão Expirada', description: 'Por favor, faça login novamente.' });
+          }
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: String(error) });
+    } finally {
+      setLoading(false);
+    }
   };
   const handleCancelEditInfo = () => { setIsEditingInfo(false); setInfoFormData({}); };
 
@@ -383,16 +492,56 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     try {
       setLoading(true);
       const stateMap = { cnh: setIsEditingCNH, crlv: setIsEditingCRLV, antt: setIsEditingANTT, comprovante_endereco: setIsEditingAddress };
-      if (currentData?.id) {
-        await directus.request(updateItem(type, currentData.id, formData));
-        toast({ title: `${type.toUpperCase()} atualizado` });
-      } else {
-        await directus.request(createItem(type, { ...formData, motorista_id: driverData.id }));
-        toast({ title: `${type.toUpperCase()} criado` });
+
+      try {
+        if (currentData?.id) {
+          await directus.request(updateItem(type, currentData.id, formData));
+          toast({ title: `${type.toUpperCase()} atualizado` });
+        } else {
+          await directus.request(createItem(type, { ...formData, motorista_id: driverData.id }));
+          toast({ title: `${type.toUpperCase()} criado` });
+        }
+      } catch (error: any) {
+        // Se o token expirou, tenta refresh e retry
+        if (error.message?.includes('Token expired') || error.message?.includes('401') ||
+          (error.errors && error.errors[0]?.message === 'Token expired.')) {
+          console.log('Token expirado ao salvar documento, tentando refresh...');
+          try {
+            await refreshToken();
+            console.log('Token renovado, tentando salvar novamente...');
+
+            // Retry a operação após refresh
+            if (currentData?.id) {
+              await directus.request(updateItem(type, currentData.id, formData));
+              toast({ title: `${type.toUpperCase()} atualizado` });
+            } else {
+              await directus.request(createItem(type, { ...formData, motorista_id: driverData.id }));
+              toast({ title: `${type.toUpperCase()} criado` });
+            }
+          } catch (refreshError) {
+            console.error('Refresh falhou durante salvamento de documento', refreshError);
+            logout();
+            toast({
+              variant: 'destructive',
+              title: 'Sessão Expirada',
+              description: 'Por favor, faça login novamente.'
+            });
+            return;
+          }
+        } else {
+          // Outro tipo de erro, propaga
+          throw error;
+        }
       }
+
       stateMap[type](false);
       await fetchRelatedData();
-    } catch (e) { console.error(e); toast({ variant: 'destructive', title: 'Erro', description: String(e) }); } finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Erro', description: String(e) });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancelDoc = (type: 'cnh' | 'crlv' | 'antt' | 'comprovante_endereco') => {
@@ -410,8 +559,8 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     if (currentCarretaIndex === null) return;
     const currentCarreta = data.carretas[currentCarretaIndex];
     if (!currentCarreta) return;
-    try {
-      setLoading(true);
+
+    const performSave = async () => {
       if (currentCarreta.data?.id) {
         await directus.request(updateItem(currentCarreta.collection, currentCarreta.data.id, carretaForm));
         toast({ title: `${currentCarreta.type} atualizada` });
@@ -419,8 +568,39 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         await directus.request(createItem(currentCarreta.collection, { ...carretaForm, motorista_id: driverData.id }));
         toast({ title: `${currentCarreta.type} criada` });
       }
-      setIsEditingCarreta(false); setCurrentCarretaIndex(null); await fetchRelatedData();
-    } catch (error) { toast({ variant: "destructive", title: "Erro", description: String(error) }); } finally { setLoading(false); }
+    };
+
+    try {
+      setLoading(true);
+      try {
+        await performSave();
+        setIsEditingCarreta(false);
+        setCurrentCarretaIndex(null);
+        await fetchRelatedData();
+      } catch (error: any) {
+        if (error.message?.includes('Token expired') || error.message?.includes('401') ||
+          (error.errors && error.errors[0]?.message === 'Token expired.')) {
+          console.log('Token expirado, tentando refresh...');
+          try {
+            await refreshToken();
+            await performSave();
+            setIsEditingCarreta(false);
+            setCurrentCarretaIndex(null);
+            await fetchRelatedData();
+          } catch (refreshError) {
+            console.error('Refresh falhou', refreshError);
+            logout();
+            toast({ variant: 'destructive', title: 'Sessão Expirada', description: 'Por favor, faça login novamente.' });
+          }
+        } else {
+          throw error;
+        }
+      }
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro", description: String(error) });
+    } finally {
+      setLoading(false);
+    }
   };
   const handleCancelCarreta = () => { setIsEditingCarreta(false); setCurrentCarretaIndex(null); setCarretaForm({}); };
 
@@ -584,7 +764,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                   <CardContent className="p-4 grid gap-1 md:grid-cols-2">
                     {isEditingCNH ? (
                       <>
-                        <InputField label="CPF" numeric value={cnhForm.cpf} onChange={(v: any) => setCnhForm({ ...cnhForm, cpf: v })} />
+                        <CpfInputField label="CPF" value={cnhForm.cpf} onChange={(v: any) => setCnhForm({ ...cnhForm, cpf: v })} referenceCpf={localDriverData?.cpf} />
                         <InputField label="Data Nasc" type="date" value={cnhForm.data_nasc} onChange={(v: any) => setCnhForm({ ...cnhForm, data_nasc: v })} />
                         <InputField label="Nome Mãe" value={cnhForm.nome_mae} onChange={(v: any) => setCnhForm({ ...cnhForm, nome_mae: v })} />
                         <InputField label="Registro CNH" value={cnhForm.n_registro_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_registro_cnh: v })} />
@@ -659,7 +839,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                       <>
                         <InputField label="Placa" value={crlvForm.placa_cavalo} onChange={(v: any) => setCrlvForm({ ...crlvForm, placa_cavalo: v })} />
                         <InputField label="Proprietário" value={crlvForm.nome_proprietario} onChange={(v: any) => setCrlvForm({ ...crlvForm, nome_proprietario: v })} />
-                        <InputField label="CPF/CNPJ Prop." numeric value={crlvForm.cnpj_cpf} onChange={(v: any) => setCrlvForm({ ...crlvForm, cnpj_cpf: v })} />
+                        <CpfInputField label="CPF/CNPJ Prop." value={crlvForm.cnpj_cpf} onChange={(v: any) => setCrlvForm({ ...crlvForm, cnpj_cpf: v })} referenceCpf={localDriverData?.cpf} />
                         <InputField label="Renavam" numeric value={crlvForm.renavam} onChange={(v: any) => setCrlvForm({ ...crlvForm, renavam: v })} />
                         <InputField label="Modelo" value={crlvForm.modelo} onChange={(v: any) => setCrlvForm({ ...crlvForm, modelo: v })} />
                         <InputField label="Ano Fab" value={crlvForm.ano_fabricacao} onChange={(v: any) => setCrlvForm({ ...crlvForm, ano_fabricacao: v })} />
@@ -790,7 +970,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     {isEditingANTT ? (
                       <>
                         <InputField label="Número ANTT" value={anttForm.numero_antt} onChange={(v: any) => setAnttForm({ ...anttForm, numero_antt: v })} />
-                        <InputField label="CNPJ/CPF" numeric value={anttForm.cnpj_cpf} onChange={(v: any) => setAnttForm({ ...anttForm, cnpj_cpf: v })} />
+                        <CpfInputField label="CNPJ/CPF" value={anttForm.cnpj_cpf} onChange={(v: any) => setAnttForm({ ...anttForm, cnpj_cpf: v })} referenceCpf={localDriverData?.cpf} />
                         <InputField label="Nome" value={anttForm.nome} onChange={(v: any) => setAnttForm({ ...anttForm, nome: v })} />
                         <div className="col-span-2">
                           <span className="text-sm text-muted-foreground">Dados OCR / Observações</span>

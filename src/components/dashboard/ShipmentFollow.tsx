@@ -18,7 +18,9 @@ import {
   AlertCircle,
   CheckCircle,
   TrendingUp,
-  Navigation
+  Navigation,
+  Calendar,
+  FileText,
 } from "lucide-react";
 import {
   Table,
@@ -43,28 +45,126 @@ export function ShipmentFollow() {
   const { data: journeys = [] } = useQuery({
     queryKey: ['vehicle-journeys-all'],
     queryFn: async () => {
-      // MOCK DATA
+      // MOCK DATA EXPANDIDO - Para visualização do layout completo
       return [
         {
           id: 'j1',
-          embarque_id: 'e1', // Must match an ID from useEmbarques mock if possible, or be ignored
+          embarque_id: 'e1',
           driver_id: 'd1',
           departure_time: new Date(Date.now() - 3600000).toISOString(),
           estimated_arrival: new Date(Date.now() + 7200000).toISOString(),
           current_status: 'in_transit',
           is_on_time: true,
-          delay_justification: null, // Fixed: Added missing property
-          driver: { name: 'João (MOCK)', truck_plate: 'ABC-1234', vehicle_type: 'Truck' },
+          delay_justification: null,
+          driver: { name: 'João Silva', truck_plate: 'ABC-1234', vehicle_type: 'Truck' },
           embarque: {}
         }
       ];
     },
   });
 
-  const filteredEmbarques = embarques.filter(e =>
+  // DADOS MOCK BASEADOS NO JSON REAL FORNECIDO PELO USUÁRIO
+  const embarquesWithAllFields = [
+    {
+      id: '1',
+      pedido: 'ME',
+      data_pedido: '2/10/2026',
+      data_carregado: '2/10/2026',
+      origin: 'F. ESTANCIA',
+      destination: 'BALL JACAREI',
+      uf: 'SP',
+      client_name: 'Ball Corporation',
+      nome_tp: 'CARGO X',
+      cargo_type: 'MATERIAL EMBALAGEM',
+      palets: 'ME',
+      status: 'TRANSITO DESCARGA',
+      data_chega_fornecedor: '',
+      data_chega_ambev: '2/15/26 0:16',
+      placa: 'AKN1J94',
+      motorista_nome: 'Huxley Silva de Souza',
+      nf: '317828',
+      cte: '756751',
+      contrato: '89198',
+      proprietario: '',
+      fechado: 'R$ 8.000',
+      carga_extra: 'ME',
+      instrucao_viagem: 'OK',
+      lead_time: '100:19:12',
+      data_carregamento_real: '2/10/26 19:57',
+      data_descarga_real: '',
+      data_prevista_lead_time: '2/15/26 0:16',
+      status_final: '',
+      ocorrencia: 'SIM 139',
+    },
+    {
+      id: '2',
+      pedido: '5800493466',
+      data_pedido: '2/20/2026',
+      data_carregado: '',
+      origin: 'BALL RECIFE',
+      destination: 'F. TERESINA',
+      uf: 'PE',
+      client_name: 'Fazenda Teresina',
+      nome_tp: 'CARGOX',
+      cargo_type: 'LATAS',
+      palets: '25',
+      status: 'AGUARDANDO CTE',
+      data_chega_fornecedor: '',
+      data_chega_ambev: '',
+      placa: '',
+      motorista_nome: '',
+      nf: '',
+      cte: '',
+      contrato: '',
+      proprietario: '',
+      fechado: 'R$ 6.500',
+      carga_extra: '',
+      instrucao_viagem: '',
+      lead_time: '63:36:00',
+      data_carregamento_real: '',
+      data_descarga_real: '',
+      data_prevista_lead_time: '1/1/00 15:36',
+      status_final: '',
+      ocorrencia: '',
+    },
+    {
+      id: '3',
+      pedido: '5800495037',
+      data_pedido: '2/20/2026',
+      data_carregado: '',
+      origin: 'BALL TRÊS RIOS',
+      destination: 'F. LAGES',
+      uf: 'SC',
+      client_name: 'Fazenda Lages',
+      nome_tp: 'CARGOX',
+      cargo_type: 'LATAS',
+      palets: '25',
+      status: 'AGUARDANDO CTE',
+      data_chega_fornecedor: '',
+      data_chega_ambev: '',
+      placa: '',
+      motorista_nome: '',
+      nf: '',
+      cte: '',
+      contrato: '',
+      proprietario: '',
+      fechado: 'R$ 8.000',
+      carga_extra: '',
+      instrucao_viagem: '',
+      lead_time: '70:48:00',
+      data_carregamento_real: '',
+      data_descarga_real: '',
+      data_prevista_lead_time: '1/1/00 22:48',
+      status_final: '',
+      ocorrencia: '',
+    },
+  ];
+
+  const filteredEmbarques = embarquesWithAllFields.filter(e =>
     e.origin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.destination?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.client_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    e.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    e.pedido?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getJourneyForEmbarque = (embarqueId: string) => {
@@ -163,14 +263,13 @@ export function ShipmentFollow() {
   }
 
   return (
-    <Card className="opacity-50">
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-gray-400">
+          <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Follow - Acompanhamento de Cargas
           </CardTitle>
-          <div className="text-gray-400 text-4xl">🚧</div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">Total: {filteredEmbarques.length}</Badge>
             <Badge variant="default">
@@ -188,7 +287,7 @@ export function ShipmentFollow() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por origem, destino ou cliente..."
+              placeholder="Buscar por pedido, origem, destino ou cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -200,19 +299,18 @@ export function ShipmentFollow() {
           </Button>
         </div>
 
-        {/* Table */}
+        {/* Table simplificada com 6 colunas principais */}
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Rota</TableHead>
-                <TableHead>Produto</TableHead>
-                <TableHead>Veículo</TableHead>
-                <TableHead>Transit Time</TableHead>
-                <TableHead>ETA</TableHead>
-                <TableHead>Progresso</TableHead>
+                <TableHead className="min-w-[100px]">Pedido</TableHead>
+                <TableHead className="min-w-[150px]">Origem</TableHead>
+                <TableHead className="min-w-[150px]">Destino</TableHead>
+                <TableHead className="min-w-[60px]">UF</TableHead>
+                <TableHead className="min-w-[150px]">Cliente</TableHead>
+                <TableHead className="min-w-[120px]">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,176 +324,241 @@ export function ShipmentFollow() {
                   <Collapsible key={embarque.id} asChild open={isExpanded}>
                     <>
                       <TableRow
-                        className={hasJourney ? "cursor-pointer hover:bg-muted/50" : ""}
-                        onClick={() => hasJourney && toggleRow(embarque.id)}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => toggleRow(embarque.id)}
                       >
                         <TableCell>
-                          {hasJourney && (
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
-                                {isExpanded ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </CollapsibleTrigger>
-                          )}
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-6 w-6">
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
                         </TableCell>
+
+                        {/* Pedido */}
+                        <TableCell className="font-medium">
+                          {embarque.pedido}
+                        </TableCell>
+
+                        {/* Origem */}
+                        <TableCell>
+                          <span className="text-sm">{embarque.origin || '-'}</span>
+                        </TableCell>
+
+                        {/* Destino */}
+                        <TableCell>
+                          <span className="text-sm">{embarque.destination || '-'}</span>
+                        </TableCell>
+
+                        {/* UF */}
+                        <TableCell>
+                          <span className="text-sm font-medium">{embarque.uf || '-'}</span>
+                        </TableCell>
+
+                        {/* Cliente */}
+                        <TableCell>
+                          <span className="text-sm">{embarque.client_name || '-'}</span>
+                        </TableCell>
+
+                        {/* Status */}
                         <TableCell>
                           {getStatusBadge(journey?.current_status || embarque.status)}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-sm font-medium">
-                              {embarque.origin} → {embarque.destination}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">{embarque.cargo_type || '-'}</span>
-                        </TableCell>
-                        <TableCell>
-                          {journey ? (
-                            <div className="flex items-center gap-1">
-                              <Truck className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-sm">{journey.driver?.name || 'Alocado'}</span>
-                            </div>
-                          ) : embarque.driver_id ? (
-                            <div className="flex items-center gap-1">
-                              <Truck className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-sm">Alocado</span>
-                            </div>
-                          ) : (
-                            <Badge variant="destructive" className="text-xs">
-                              SEM VEÍCULO
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-sm">
-                              {embarque.pickup_date && embarque.delivery_date
-                                ? `${Math.floor((new Date(embarque.delivery_date).getTime() - new Date(embarque.pickup_date).getTime()) / (1000 * 60 * 60))}h`
-                                : '-'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`text-sm font-medium ${eta.color}`}>
-                            {eta.text}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="w-20">
-                            <Progress value={calculateProgress(embarque)} className="h-2" />
-                          </div>
-                        </TableCell>
                       </TableRow>
 
-                      {hasJourney && (
-                        <CollapsibleContent asChild>
-                          <TableRow className="bg-muted/30">
-                            <TableCell colSpan={8} className="p-0">
-                              <div className="p-4 space-y-4">
-                                {/* Timeline Header */}
-                                <div className="flex items-center gap-2 mb-4">
-                                  <Navigation className="h-5 w-5 text-primary" />
-                                  <span className="font-semibold">Timeline da Viagem</span>
-                                  {!journey.is_on_time && (
-                                    <Badge variant="outline" className="border-yellow-500 text-yellow-600">
-                                      <AlertCircle className="h-3 w-3 mr-1" />
-                                      Fora do LeadTime
-                                    </Badge>
-                                  )}
-                                </div>
+                      {/* Painel de Detalhes Completo - Sempre disponível */}
+                      <CollapsibleContent asChild>
+                        <TableRow>
+                          <TableCell colSpan={7} className="bg-muted/30 p-6">
+                            <div className="space-y-6">
 
-                                {/* Driver Info */}
-                                <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <Truck className="h-5 w-5 text-primary" />
+                              {/* Título do Painel */}
+                              <div className="flex items-center gap-2">
+                                <Package className="h-5 w-5 text-primary" />
+                                <h3 className="font-semibold text-lg">Detalhes Completos do Embarque</h3>
+                              </div>
+
+                              {/* Grid de Informações - 3 colunas */}
+                              <div className="grid grid-cols-3 gap-4">
+
+                                {/* Datas */}
+                                <div className="p-4 border rounded-lg bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="font-medium">Datas</h4>
                                   </div>
-                                  <div>
-                                    <p className="font-medium">{journey.driver?.name || 'Motorista'}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {journey.driver?.truck_plate || 'Sem placa'} • {journey.driver?.vehicle_type || 'Tipo não informado'}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Timeline */}
-                                <div className="relative pl-8 space-y-3">
-                                  <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-border" />
-
-                                  {/* Departure */}
-                                  <div className="relative">
-                                    <div className="absolute -left-[26px] h-4 w-4 rounded-full bg-green-500 border-2 border-background" />
+                                  <div className="space-y-2 text-sm">
                                     <div>
-                                      <p className="text-sm font-medium">Partida</p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {new Date(journey.departure_time).toLocaleString('pt-BR')}
-                                      </p>
+                                      <span className="text-muted-foreground">Pedido:</span>
+                                      <p className="font-medium">{embarque.data_pedido}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Carregado:</span>
+                                      <p className="font-medium">{embarque.data_carregado}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Chega Fornecedor:</span>
+                                      <p className="font-medium text-xs">{embarque.data_chega_fornecedor}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Chega Ambev:</span>
+                                      <p className="font-medium text-xs">{embarque.data_chega_ambev}</p>
                                     </div>
                                   </div>
+                                </div>
 
-                                  {/* Current Status */}
-                                  <div className="relative">
-                                    <div className={`absolute -left-[26px] h-4 w-4 rounded-full border-2 border-background ${getStatusColor(journey.current_status)}`} />
+                                {/* Transportadora e Produto */}
+                                <div className="p-4 border rounded-lg bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Package className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="font-medium">Carga</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
                                     <div>
-                                      <p className="text-sm font-medium">{getStatusLabel(journey.current_status)}</p>
-                                      <p className="text-xs text-muted-foreground">Status atual</p>
+                                      <span className="text-muted-foreground">Nome da TP:</span>
+                                      <p className="font-medium">{embarque.nome_tp}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Produto:</span>
+                                      <p className="font-medium">{embarque.cargo_type || 'Grãos'}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Palets:</span>
+                                      <p className="font-medium">{embarque.palets || '-'}</p>
                                     </div>
                                   </div>
+                                </div>
 
-                                  {/* ETA */}
-                                  <div className="relative">
-                                    <div className="absolute -left-[26px] h-4 w-4 rounded-full bg-blue-500 border-2 border-background" />
-                                    <div className="flex items-center gap-4">
-                                      <div>
-                                        <p className="text-sm font-medium">ETA - Chegada Prevista</p>
-                                        <p className="text-xs text-muted-foreground">
-                                          {new Date(journey.estimated_arrival).toLocaleString('pt-BR')}
-                                        </p>
-                                      </div>
-                                      <Badge variant="outline" className={eta.color}>
-                                        <Clock className="h-3 w-3 mr-1" />
-                                        {eta.text}
+                                {/* Veículo e Motorista */}
+                                <div className="p-4 border rounded-lg bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Truck className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="font-medium">Veículo</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div>
+                                      <span className="text-muted-foreground">Placa:</span>
+                                      <p className="font-medium font-mono">{embarque.placa}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Motorista:</span>
+                                      <p className="font-medium">{embarque.motorista_nome}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Proprietário:</span>
+                                      <p className="font-medium">{embarque.proprietario}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Documentação */}
+                                <div className="p-4 border rounded-lg bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="font-medium">Documentação</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div>
+                                      <span className="text-muted-foreground">NF:</span>
+                                      <p className="font-medium font-mono">{embarque.nf}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">CTE:</span>
+                                      <p className="font-medium font-mono">{embarque.cte}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Contrato:</span>
+                                      <p className="font-medium">{embarque.contrato}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Status e Flags */}
+                                <div className="p-4 border rounded-lg bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="font-medium">Status</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
+                                    <div>
+                                      <span className="text-muted-foreground">Fechado:</span>
+                                      <p className="font-medium text-green-600">{embarque.fechado || '-'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Carga Extra:</span>
+                                      <Badge variant={embarque.carga_extra ? 'secondary' : 'outline'}>
+                                        {embarque.carga_extra || 'Não'}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-muted-foreground">Status Final:</span>
+                                      <Badge variant={
+                                        embarque.status_final === 'Concluído' ? 'default' :
+                                          embarque.status_final === 'Em Andamento' ? 'secondary' : 'outline'
+                                      }>
+                                        {embarque.status_final}
                                       </Badge>
                                     </div>
                                   </div>
+                                </div>
 
-                                  {/* Next Availability */}
-                                  <div className="relative">
-                                    <div className="absolute -left-[26px] h-4 w-4 rounded-full bg-purple-500 border-2 border-background" />
+                                {/* Lead Times */}
+                                <div className="p-4 border rounded-lg bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="font-medium">Lead Times</h4>
+                                  </div>
+                                  <div className="space-y-2 text-sm">
                                     <div>
-                                      <p className="text-sm font-medium flex items-center gap-2">
-                                        <TrendingUp className="h-4 w-4 text-purple-500" />
-                                        Disponível para nova carga
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        Previsão: {calculateNextAvailability(journey.estimated_arrival)}
-                                      </p>
+                                      <span className="text-muted-foreground">Lead Time:</span>
+                                      <p className="font-medium">{embarque.lead_time}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Carregamento Real:</span>
+                                      <p className="font-medium text-xs">{embarque.data_carregamento_real}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Descarga Real:</span>
+                                      <p className="font-medium text-xs">{embarque.data_descarga_real}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground">Prevista Lead Time:</span>
+                                      <p className="font-medium text-xs">{embarque.data_prevista_lead_time}</p>
                                     </div>
                                   </div>
                                 </div>
 
-                                {/* Justification */}
-                                {journey.delay_justification && (
-                                  <div className="bg-muted/50 rounded-lg p-3 flex items-start gap-2">
-                                    <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                                    <div>
-                                      <p className="text-sm font-medium">Justificativa do Atraso:</p>
-                                      <p className="text-sm text-muted-foreground">{journey.delay_justification}</p>
+                              </div>
+
+                              {/* Instruções e Ocorrências - Full Width */}
+                              <div className="grid grid-cols-1 gap-4">
+                                <div className="p-4 border rounded-lg bg-background">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground" />
+                                    <h4 className="font-medium">Instruções de Viagem</h4>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{embarque.instrucao_viagem}</p>
+                                </div>
+
+                                {embarque.ocorrencia && (
+                                  <div className="p-4 border rounded-lg border-orange-200 bg-orange-50">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <AlertCircle className="h-4 w-4 text-orange-600" />
+                                      <h4 className="font-medium text-orange-900">Ocorrência</h4>
                                     </div>
+                                    <p className="text-sm text-orange-700">{embarque.ocorrencia}</p>
                                   </div>
                                 )}
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        </CollapsibleContent>
-                      )}
+
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      </CollapsibleContent>
                     </>
                   </Collapsible>
                 );

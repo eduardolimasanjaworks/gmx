@@ -15,9 +15,11 @@ import { FieldConfigManager } from "./FieldConfigManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { directus } from "@/lib/directus";
 import { readItems, createItem } from "@directus/sdk";
+import { useAuth } from "@/context/AuthContext";
 
 export const DynamicDriverRegistry = () => {
   const { toast } = useToast();
+  const { refreshToken, logout } = useAuth();
   const { cardFields, tableFields, isLoading: fieldsLoading } = useDriverFields();
   const [drivers, setDrivers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,12 +47,10 @@ export const DynamicDriverRegistry = () => {
 
   /* Fetch Drivers from Directus manually joining Availability */
   const fetchDrivers = async () => {
-    try {
-      setIsLoading(true);
-
+    const performFetch = async () => {
       // 1. Fetch Drivers
       const driversData = await directus.request(readItems('cadastro_motorista', {
-        fields: ['id', 'nome', 'sobrenome', 'telefone'], // Remove 'status' and 'disponivel' alias
+        fields: ['id', 'nome', 'sobrenome', 'telefone'],
         sort: ['-date_created']
       }));
 
@@ -63,13 +63,13 @@ export const DynamicDriverRegistry = () => {
           filter: {
             motorista_id: { _in: driverIds }
           },
-          sort: ['-date_created'], // Sort by newest
-          limit: -1 // Fetch all relevant history for these drivers to find latest per driver
+          sort: ['-date_created'],
+          limit: -1
         }));
 
         // Populate map with the first (latest) record for each driver
         availabilityData.forEach((record: any) => {
-          const mId = record.motorista_id?.id || record.motorista_id; // Handle expanded or ID
+          const mId = record.motorista_id?.id || record.motorista_id;
           if (mId && !availabilityMap[mId]) {
             availabilityMap[mId] = record;
           }
@@ -89,7 +89,36 @@ export const DynamicDriverRegistry = () => {
         };
       });
 
-      setDrivers(formatted);
+      return formatted;
+    };
+
+    try {
+      setIsLoading(true);
+      try {
+        const formatted = await performFetch();
+        setDrivers(formatted);
+      } catch (error: any) {
+        // Tratamento de token expirado
+        if (error.message?.includes('Token expired') || error.message?.includes('401') ||
+          (error.errors && error.errors[0]?.message === 'Token expired.')) {
+          console.log('Token expirado ao buscar motoristas, tentando refresh...');
+          try {
+            await refreshToken();
+            const formatted = await performFetch();
+            setDrivers(formatted);
+          } catch (refreshError) {
+            console.error('Refresh falhou ao buscar motoristas', refreshError);
+            logout();
+            toast({
+              title: "Sessão Expirada",
+              description: "Por favor, faça login novamente.",
+              variant: "destructive"
+            });
+          }
+        } else {
+          throw error;
+        }
+      }
     } catch (error) {
       console.error("Error fetching drivers:", error);
       toast({
@@ -117,27 +146,45 @@ export const DynamicDriverRegistry = () => {
     const currentStatus = currentRecord?.status === 'disponivel' ? 'disponivel' : 'indisponivel';
     const newStatus = currentStatus === 'disponivel' ? 'indisponivel' : 'disponivel';
 
-    try {
-      // Always create a new record for history tracking
+    const performToggle = async () => {
       const payload: any = {
         motorista_id: driver.id,
+        telefone: driver.telefone, // Campo obrigatório
         status: newStatus,
         data_previsao_disponibilidade: new Date().toISOString(),
       };
 
-      // Copy relevant fields from previous record if it exists to maintain context
       if (currentRecord) {
         if (currentRecord.local_disponibilidade) payload.local_disponibilidade = currentRecord.local_disponibilidade;
-        if (currentRecord.localizacao_atual) payload.localizacao_atual = currentRecord.localizacao_atual; // Field alias check
-        // Add other fields if necessary based on schema inspection (cidade, estado, etc. if they exist in 'disponivel')
+        if (currentRecord.localizacao_atual) payload.localizacao_atual = currentRecord.localizacao_atual;
       }
 
       await directus.request(createItem('disponivel', payload));
+    };
 
-      // Removed sync to 'cadastro_motorista' as per instructions
-
-      toast({ title: `Status atualizado para ${newStatus === 'disponivel' ? 'Disponível' : 'Indisponível'}` });
-      fetchDrivers(); // Refresh list to get the latest record as current
+    try {
+      try {
+        await performToggle();
+        toast({ title: `Status atualizado para ${newStatus === 'disponivel' ? 'Disponível' : 'Indisponível'}` });
+        fetchDrivers();
+      } catch (error: any) {
+        if (error.message?.includes('Token expired') || error.message?.includes('401') ||
+          (error.errors && error.errors[0]?.message === 'Token expired.')) {
+          console.log('Token expirado ao alterar status, tentando refresh...');
+          try {
+            await refreshToken();
+            await performToggle();
+            toast({ title: `Status atualizado para ${newStatus === 'disponivel' ? 'Disponível' : 'Indisponível'}` });
+            fetchDrivers();
+          } catch (refreshError) {
+            console.error('Refresh falhou', refreshError);
+            logout();
+            toast({ variant: 'destructive', title: 'Sessão Expirada', description: 'Por favor, faça login novamente.' });
+          }
+        } else {
+          throw error;
+        }
+      }
     } catch (error) {
       console.error("Error toggling status:", error);
       toast({ variant: "destructive", title: "Erro ao atualizar status" });

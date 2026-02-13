@@ -1,0 +1,54 @@
+=== TESTE DE CRIAÇÃO EM DISPONIVEL ===
+
+Motorista ID: 281
+
+TESTE 1: Payload básico
+{
+  "motorista_id": 281,
+  "status": "disponivel",
+  "localizacao_atual": "São Paulo",
+  "local_disponibilidade": "São Paulo"
+}
+
+Status: 400
+Response:
+{
+  "errors": [
+    {
+      "message": "Validation failed for field \"telefone\". Value is required.",
+      "extensions": {
+        "field": "telefone",
+        "path": [],
+        "type": "required",
+        "code": "FAILED_VALIDATION"
+      }
+    }
+  ]
+}
+
+
+=== TESTE 2: Com data_liberacao ===
+
+{
+  "motorista_id": 281,
+  "status": "disponivel",
+  "localizacao_atual": "São Paulo",
+  "local_disponibilidade": "São Paulo",
+  "data_liberacao": "2026-02-13"
+}
+
+Status: 400
+Response:
+{
+  "errors": [
+    {
+      "message": "Validation failed for field \"telefone\". Value is required.",
+      "extensions": {
+        "field": "telefone",
+        "path": [],
+        "type": "required",
+        "code": "FAILED_VALIDATION"
+      }
+    }
+  ]
+}

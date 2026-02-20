@@ -14,7 +14,7 @@ import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
 import { FieldConfigManager } from "./FieldConfigManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { directus } from "@/lib/directus";
-import { readItems, createItem } from "@directus/sdk";
+import { readItems, createItem, updateItem } from "@directus/sdk";
 import { useAuth } from "@/context/AuthContext";
 
 export const DynamicDriverRegistry = () => {
@@ -79,7 +79,7 @@ export const DynamicDriverRegistry = () => {
       // 3. Merge
       const formatted = driversData.map((item: any) => {
         const latestRecord = availabilityMap[item.id];
-        const displayStatus = (latestRecord && latestRecord.status === 'disponivel') ? 'Disponível' : 'Indisponível';
+        const displayStatus = (latestRecord && latestRecord.disponivel === true) ? 'Disponível' : 'Indisponível';
 
         return {
           ...item,
@@ -143,14 +143,16 @@ export const DynamicDriverRegistry = () => {
   const handleToggleStatus = async (driver: any, e: React.MouseEvent) => {
     e.stopPropagation();
     const currentRecord = driver.current_availability;
-    const currentStatus = currentRecord?.status === 'disponivel' ? 'disponivel' : 'indisponivel';
-    const newStatus = currentStatus === 'disponivel' ? 'indisponivel' : 'disponivel';
+    const currentIsAvailable = currentRecord?.disponivel === true;
+    const newIsAvailable = !currentIsAvailable;
+    const newStatusLabel = newIsAvailable ? 'Disponível' : 'Indisponível';
 
     const performToggle = async () => {
       const payload: any = {
         motorista_id: driver.id,
         telefone: driver.telefone, // Campo obrigatório
-        status: newStatus,
+        status: 'published',
+        disponivel: newIsAvailable,
         data_previsao_disponibilidade: new Date().toISOString(),
       };
 
@@ -159,13 +161,18 @@ export const DynamicDriverRegistry = () => {
         if (currentRecord.localizacao_atual) payload.localizacao_atual = currentRecord.localizacao_atual;
       }
 
-      await directus.request(createItem('disponivel', payload));
+      // Check if we have an existing record ID to update instead of creating new (Unique constraint on telefone)
+      if (currentRecord?.id) {
+        await directus.request(updateItem('disponivel', currentRecord.id, payload));
+      } else {
+        await directus.request(createItem('disponivel', payload));
+      }
     };
 
     try {
       try {
         await performToggle();
-        toast({ title: `Status atualizado para ${newStatus === 'disponivel' ? 'Disponível' : 'Indisponível'}` });
+        toast({ title: `Status atualizado para ${newStatusLabel}` });
         fetchDrivers();
       } catch (error: any) {
         if (error.message?.includes('Token expired') || error.message?.includes('401') ||
@@ -174,7 +181,7 @@ export const DynamicDriverRegistry = () => {
           try {
             await refreshToken();
             await performToggle();
-            toast({ title: `Status atualizado para ${newStatus === 'disponivel' ? 'Disponível' : 'Indisponível'}` });
+            toast({ title: `Status atualizado para ${newStatusLabel}` });
             fetchDrivers();
           } catch (refreshError) {
             console.error('Refresh falhou', refreshError);

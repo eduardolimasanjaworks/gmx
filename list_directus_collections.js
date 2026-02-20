@@ -1,7 +1,7 @@
 import { createDirectus, rest, readCollections } from '@directus/sdk';
 
 const directusUrl = process.env.VITE_DIRECTUS_URL || 'http://91.99.137.101:8057';
-const directusToken = process.env.VITE_DIRECTUS_TOKEN || '1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah';
+const directusToken = process.env.VITE_DIRECTUS_TOKEN || '4JddQcHU_IcUS9WmZEPGbitqvy_fI9Dn';
 
 const client = createDirectus(directusUrl).with(rest());
 

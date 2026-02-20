@@ -64,7 +64,7 @@ export const AvailableDrivers = () => {
 
       // 3. Keep only those whose LATEST status is 'disponivel'
       const activeDrivers = Array.from(latestStatusMap.values())
-        .filter((item: any) => item.status === 'disponivel');
+        .filter((item: any) => item.disponivel === true);
 
       // 4. Fetch Vehicle Info (CRLV) for these drivers
       const driverIds = activeDrivers

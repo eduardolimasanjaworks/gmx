@@ -401,21 +401,32 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         return;
       }
 
-      await directus.request(createItem('disponivel', {
+      const payload: any = {
         motorista_id: localDriverData.id,
         telefone: localDriverData.telefone, // Campo obrigatório no schema
-        status: editFormData.status,
+        status: editFormData.status || 'published',
+        disponivel: editFormData.status === 'disponivel', // Adding the boolean field logic
         localizacao_atual: editFormData.localizacao_atual,
         local_disponibilidade: editFormData.localizacao_atual,
         latitude: parseNumberOrUndefined(editFormData.latitude),
         longitude: parseNumberOrUndefined(editFormData.longitude),
         data_liberacao: editFormData.data_liberacao,
         observacao: editFormData.observacao
-      }));
+      };
+
+      if (data.disponivel?.id) {
+        await directus.request(updateItem('disponivel', data.disponivel.id, payload));
+      } else {
+        await directus.request(createItem('disponivel', payload));
+      }
+
       setIsEditingAvailability(false);
-      await fetchRelatedData();
+      await fetchRelatedData(); // This refreshes data.disponivel with the new ID
       toast({ title: "Disponibilidade atualizada" });
-    } catch (error) { toast({ variant: "destructive", title: "Erro", description: String(error) }); } finally { setLoading(false); }
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Erro ao salvar", description: error.message || String(error) });
+    } finally { setLoading(false); }
   };
 
   const handleCancelEdit = () => { setIsEditingAvailability(false); setEditFormData({}); };

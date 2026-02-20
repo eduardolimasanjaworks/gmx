@@ -13,6 +13,7 @@ import { LogisticsSaturationMap } from "@/components/dashboard/LogisticsSaturati
 import { DailyVehicleProposals } from "@/components/dashboard/DailyVehicleProposals";
 import { CriticalPendencies } from "@/components/dashboard/CriticalPendencies";
 import { GlobalMatchingPanel } from "@/components/dashboard/GlobalMatchingPanel";
+import { VehicleTrackingMap } from "@/components/tracking/VehicleTrackingMap";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -28,7 +29,8 @@ import {
   Activity,
   Book,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  Map as MapIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +76,7 @@ const Dashboard = () => {
   const allTabs = [
     { id: 'registry', label: 'Cadastros', icon: Users, perm: 'cadastros' },
     { id: 'available', label: 'Disponíveis', icon: UserCheck, perm: 'disponiveis' },
+    { id: 'tracking', label: 'Rastreamento', icon: MapIcon, perm: 'disponiveis' },
     { id: 'shipments', label: 'Embarques', icon: Package, perm: 'embarques' },
     { id: 'history', label: 'Histórico', icon: History, perm: 'historico' },
     { id: 'operators', label: 'Operadores', icon: Activity, perm: 'usuarios' },
@@ -126,8 +129,6 @@ const Dashboard = () => {
               <Book className="h-3.5 w-3.5" />
               Docs
             </a>
-
-            {/* Removido botão/diálogo "Logs de Sistema" (DebugLogViewer) */}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -229,6 +230,12 @@ const Dashboard = () => {
               {activeTab === 'available' && hasPermission('disponiveis') && (
                 <TabsContent value="available" className="space-y-6 mt-0">
                   <AvailableDrivers />
+                </TabsContent>
+              )}
+
+              {activeTab === 'tracking' && hasPermission('disponiveis') && (
+                <TabsContent value="tracking" className="space-y-6 mt-0">
+                  <VehicleTrackingMap />
                 </TabsContent>
               )}
 

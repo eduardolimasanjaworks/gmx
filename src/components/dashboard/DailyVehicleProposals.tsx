@@ -32,7 +32,7 @@ export function DailyVehicleProposals() {
             date_created: {
               _between: [startOfDay.toISOString(), endOfDay.toISOString()]
             },
-            status: { _eq: 'disponivel' }
+            disponivel: { _eq: true }
           },
           fields: ['*', 'motorista_id.*'],
           sort: ['-date_created']

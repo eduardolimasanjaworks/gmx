@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import MapTestPage from "./pages/MapTestPage";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,10 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+
+            {/* Rotas de Teste de Mapa */}
+            <Route path="/teste3" element={<MapTestPage styleName="Google Hybrid" initialLayer="google-hybrid" description="Visão de satélite com nomes de ruas." />} />
+            <Route path="/teste4" element={<MapTestPage styleName="Google Maps" initialLayer="google-streets" description="Estilo de mapa de ruas tradicional do Google." />} />
 
             {/* Rota Protegida do Dashboard */}
             <Route

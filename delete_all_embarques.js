@@ -1,38 +1,38 @@
-import { createDirectus, rest, readItems, deleteItems } from '@directus/sdk';
+import { createDirectus, rest, staticToken, readItems, deleteItems } from '@directus/sdk';
 
-const directusUrl = process.env.VITE_DIRECTUS_URL || 'http://91.99.137.101:8057';
+const directus = createDirectus('http://91.99.137.101:8057')
+    .with(staticToken('WcIgx0hfDqdtusOP6KOrhkP9eVPlbsOq'))
+    .with(rest());
 
-const client = createDirectus(directusUrl).with(rest());
-
-async function deleteAllEmbarques() {
+async function deleteAll() {
     try {
-        console.log(`\n🔗 Conectando ao Directus: ${directusUrl}\n`);
-
-        const items = await client.request(
-            readItems('embarques', {
-                fields: ['id'],
-                limit: -1
-            })
-        );
+        console.log("Fetching embarques to delete...");
+        // Get all IDs
+        const items = await directus.request(readItems('embarques', {
+            fields: ['id'],
+            limit: -1
+        }));
 
         if (items.length === 0) {
-            console.log('✅ A tabela embarques já está vazia.\n');
+            console.log("No embarques found to delete.");
             return;
         }
 
-        console.log(`🗑️ Deletando ${items.length} embarques...\n`);
+        const ids = items.map(i => i.id);
+        console.log(`Found ${ids.length} embarques. Deleting...`);
 
-        const ids = items.map(item => item.id);
+        // Delete in batches of 100 to avoid request limits
+        const batchSize = 100;
+        for (let i = 0; i < ids.length; i += batchSize) {
+            const batch = ids.slice(i, i + batchSize);
+            await directus.request(deleteItems('embarques', batch));
+            console.log(`Deleted batch ${i / batchSize + 1} (${batch.length} items)`);
+        }
 
-        // Exclui passando todos os IDs em lote
-        await client.request(deleteItems('embarques', ids));
-
-        console.log(`✅ Sucesso! Foram deletados ${ids.length} registros.\n`);
-
+        console.log("Successfully deleted all embarques.");
     } catch (error) {
-        console.error('❌ Erro ao deletar:', error.message);
-        console.error('Detalhes:', error);
+        console.error("Error deleting embarques:", error);
     }
 }
 
-deleteAllEmbarques();
+deleteAll();

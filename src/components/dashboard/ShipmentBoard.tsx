@@ -507,7 +507,7 @@ export const ShipmentBoard = () => {
               return (
                 <div
                   key={column.status}
-                  className="flex-shrink-0 w-[350px] flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm"
+                  className="flex-shrink-0 w-[350px] flex flex-col h-full bg-slate-50/50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative z-0"
                 >
                   {/* Column Header */}
                   <div className={`p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-inherit z-10 rounded-t-xl backdrop-blur-sm ${column.color}`}>

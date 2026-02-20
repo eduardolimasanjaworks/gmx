@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, X, FileSpreadsheet, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
-import { useEmbarques } from "@/hooks/useEmbarques";
+import { useFollow } from "@/hooks/useFollow";
 
 interface CsvImportDialogProps {
     open: boolean;
@@ -16,8 +16,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const { createEmbarquesBatch } = useEmbarques();
+    const { importFollow } = useFollow();
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -32,7 +31,6 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragActive(false);
-
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             handleFileSelection(e.dataTransfer.files[0]);
         }
@@ -56,12 +54,14 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
 
     const processFile = () => {
         if (!selectedFile) return;
-
         setIsProcessing(true);
 
         Papa.parse(selectedFile, {
             header: true,
             skipEmptyLines: true,
+            skipFirstNLines: 0,
+            // Excel CSV pode ter BOM (\uFEFF) no início - remover automaticamente
+            transformHeader: (header) => header.replace(/^\uFEFF/, '').trim(),
             complete: async (results) => {
                 try {
                     const rows = results.data as any[];
@@ -74,48 +74,67 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
                         return;
                     }
 
-                    // Basic validation to check headers
-                    const firstRow = rows[0];
-                    // Validar colunas essenciais dependendo do mapeamento pré-acordado.
-                    if (!("codigo do pedido" in firstRow || "Pedido" in firstRow || "pedido" in firstRow)) {
-                        toast.warning("Atenção com as colunas", {
-                            description: "A coluna 'codigo do pedido' não foi encontrada, os dados podem estar incompletos."
-                        });
-                    }
+                    console.log("Parsed CSV rows:", rows);
+                    console.log("CSV Headers detected:", Object.keys(rows[0] || {}));
 
-                    console.log("Parsed CSV:", rows);
+                    // Normaliza chave: remove BOM + minúscula + remove acentos
+                    const norm = (s: string) => s
+                        .replace(/^\uFEFF/, '')  // remove BOM do Excel
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .trim();
 
-                    // Aqui mapeamos as colunas do seu CSV para as colunas do banco (Directus)
-                    const lotToInsert = rows.map((row) => ({
-                        pedido: row['codigo do pedido'] || row['Pedido'] || row['pedido'] || '',
-                        origin: row['Nome original'] || row['Origem'] || row['origin'] || '',
-                        destination: row['nome do destino'] || row['Destino'] || row['destination'] || '',
-                        uf: row['UF'] || row['uf'] || '',
-                        client_name: row['Cliente'] || row['cliente'] || row['client_name'] || '',
-                        status: 'new', // status padrão
-                        nome_tp: row['razao social'] || row['TP'] || row['nome_tp'] || row['Transportadora'] || '',
-                        cargo_type: row['tipo de material'] || row['Produto'] || row['cargo_type'] || '',
-                        // Adicione outros campos se necessário (ex.: data_pedido, carga_extra)
-                    }));
+                    // Debug: mostra os headers normalizados
+                    const allKeys = Object.keys(rows[0] || {});
+                    console.log('Headers RAW:', allKeys);
+                    console.log('Headers normalizados:', allKeys.map(norm));
 
-                    // Chamada para a mutation inserindo tudo de uma vez
-                    if (createEmbarquesBatch) {
-                        await createEmbarquesBatch(lotToInsert);
-                        toast.success("Importação concluída", {
-                            description: `${rows.length} embarques importados com sucesso.`
-                        });
-                        closeDialog();
-                    } else {
-                        // Fallback/Simulated timeout
-                        setTimeout(() => {
-                            toast.success("Processamento simulado", { description: `${rows.length} linhas lidas.` });
-                            closeDialog();
-                        }, 1000);
-                    }
-                } catch (error) {
-                    console.error("Erro na importação: ", error);
-                    toast.error("Erro na importação", {
-                        description: "Não foi possível salvar os registros. Tente novamente."
+                    // Busca valor da row pela chave normalizada
+                    const get = (row: any, ...keys: string[]) => {
+                        const normalized = Object.fromEntries(
+                            Object.entries(row).map(([k, v]) => [norm(k), v])
+                        );
+                        for (const key of keys) {
+                            const val = normalized[norm(key)];
+                            if (val !== undefined && val !== '') return String(val);
+                        }
+                        return '';
+                    };
+
+                    // Mapeamento: Coluna CSV -> Campo da collection 'follow'
+                    // Headers reais: "codigo de pedido", "nome original", "nome do destino",
+                    //                "razão social", "numero de paletes"
+                    const lotToInsert = rows.map((row) => {
+                        let ped = get(row, 'codigo de pedido de insumos', 'código de pedido de insumos', 'Código de pedido', 'Codigo de pedido', 'código de pedido', 'codigo de pedido', 'codigo do pedido', 'Pedido', 'pedido');
+                        if (!ped) {
+                            ped = `[Raw Headers: ${Object.keys(row).join(' | ')}]`;
+                        }
+                        return {
+                            status: 'novo',
+                            pedido: ped,
+                            origem: get(row, 'nome original', 'Nome original', 'Origem', 'origem'),
+                            destino: get(row, 'nome do destino', 'Destino', 'destino'),
+                            uf: get(row, 'UF', 'uf'),
+                            cliente: get(row, 'Cliente', 'cliente', 'nome do cliente'),
+                            tp: get(row, 'razao social', 'razão social', 'TP', 'tp', 'Transportadora'),
+                            produto: get(row, 'tipo de material', 'Produto', 'produto'),
+                            paletes: get(row, 'numero de paletes', 'numero de palets', 'paletes', 'Paletes'),
+                        };
+                    });
+
+                    console.log("Payload to insert:", lotToInsert);
+
+                    await importFollow(lotToInsert);
+
+                    toast.success("Importação concluída!", {
+                        description: `${rows.length} registros importados com sucesso.`
+                    });
+                    closeDialog();
+                } catch (error: any) {
+                    console.error("Erro na importação:", error);
+                    toast.error("Erro ao importar", {
+                        description: error?.errors?.[0]?.message || error?.message || "Não foi possível salvar. Veja o console."
                     });
                 } finally {
                     setIsProcessing(false);
@@ -123,9 +142,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
             },
             error: (error) => {
                 console.error("Papa Parse Error:", error);
-                toast.error("Falha ao ler o arquivo", {
-                    description: error.message
-                });
+                toast.error("Falha ao ler o arquivo", { description: error.message });
                 setIsProcessing(false);
             }
         });
@@ -141,17 +158,16 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
         <Dialog open={open} onOpenChange={closeDialog}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Importar Embarques</DialogTitle>
+                    <DialogTitle>Importar Follow (CSV)</DialogTitle>
                     <DialogDescription>
-                        Faça upload de um arquivo CSV para carregar múltiplos embarques de uma vez.
+                        Colunas esperadas: <strong>Pedido, Origem, Destino, UF, Cliente, TP, Produto</strong>
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 my-4">
                     {!selectedFile ? (
                         <div
-                            className={`border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center space-y-4 cursor-pointer transition-colors ${isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
-                                }`}
+                            className={`border-2 border-dashed rounded-lg p-10 flex flex-col items-center justify-center space-y-4 cursor-pointer transition-colors ${isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"}`}
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onDrop={handleDrop}
@@ -162,17 +178,9 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
                             </div>
                             <div className="text-center">
                                 <p className="text-sm font-medium">Clique ou arraste o arquivo aqui</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Somente arquivos .csv (máximo 5MB)
-                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">Somente arquivos .csv</p>
                             </div>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                className="hidden"
-                                accept=".csv, text/csv"
-                                onChange={handleFileChange}
-                            />
+                            <input type="file" ref={fileInputRef} className="hidden" accept=".csv, text/csv" onChange={handleFileChange} />
                         </div>
                     ) : (
                         <div className="border rounded-lg p-4 flex items-center justify-between bg-muted/30">
@@ -182,18 +190,10 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
                                 </div>
                                 <div className="truncate">
                                     <p className="text-sm font-medium truncate">{selectedFile.name}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {(selectedFile.size / 1024).toFixed(1)} KB
-                                    </p>
+                                    <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
                                 </div>
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setSelectedFile(null)}
-                                disabled={isProcessing}
-                                className="shrink-0 ml-2"
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => setSelectedFile(null)} disabled={isProcessing} className="shrink-0 ml-2">
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
@@ -201,22 +201,11 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
                 </div>
 
                 <DialogFooter className="sm:justify-between">
-                    <Button variant="outline" onClick={closeDialog} disabled={isProcessing}>
-                        Cancelar
-                    </Button>
-                    <Button
-                        onClick={processFile}
-                        disabled={!selectedFile || isProcessing}
-                        className="w-full sm:w-auto"
-                    >
+                    <Button variant="outline" onClick={closeDialog} disabled={isProcessing}>Cancelar</Button>
+                    <Button onClick={processFile} disabled={!selectedFile || isProcessing} className="w-full sm:w-auto">
                         {isProcessing ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Processando...
-                            </>
-                        ) : (
-                            "Importar Dados"
-                        )}
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
+                        ) : "Importar Dados"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

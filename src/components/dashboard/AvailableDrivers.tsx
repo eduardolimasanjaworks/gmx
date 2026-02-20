@@ -12,10 +12,12 @@ import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
 import { directus } from "@/lib/directus";
 import { readItems } from "@directus/sdk";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 
 export const AvailableDrivers = () => {
   const { toast } = useToast();
+  const { refreshToken } = useAuth();
   const [drivers, setDrivers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -124,7 +126,18 @@ export const AvailableDrivers = () => {
 
       setDrivers(formattedDrivers);
 
-    } catch (error) {
+    } catch (error: any) {
+      // Se o token expirou, tenta renovar e refazer a requisição
+      if (error?.message?.includes('expired') || error?.response?.status === 401 || error?.status === 401) {
+        try {
+          await refreshToken();
+          // Retry após renovar token
+          fetchAvailableDrivers();
+          return;
+        } catch (refreshErr) {
+          console.error('Erro ao renovar token:', refreshErr);
+        }
+      }
       console.error("Error fetching available drivers:", error);
       toast({
         title: "Erro ao carregar",

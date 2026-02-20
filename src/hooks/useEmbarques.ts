@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { directus } from "@/lib/directus";
-import { readItems, updateItem } from "@directus/sdk";
+import { readItems, updateItem, createItems } from "@directus/sdk";
 import { useEffect } from "react";
 import { Embarque, EmbarqueStatus, transformEmbarqueToCard } from "@/types/embarque";
 import { useAuth } from "@/context/AuthContext";
@@ -138,12 +138,42 @@ export function useEmbarques() {
     },
   });
 
+  // Mutation for creating multiple embarques (batch insert)
+  const createEmbarquesBatchMutation = useMutation({
+    mutationFn: async (payload: any[]) => {
+      try {
+        const response = await directus.request(createItems('embarques', payload));
+        return response;
+      } catch (err: any) {
+        if (err?.message?.includes('expired') || err?.response?.status === 401 || err?.status === 401) {
+          try {
+            await refreshToken();
+            const response = await directus.request(createItems('embarques', payload));
+            return response;
+          } catch (refreshErr) {
+            console.error("Error refreshing token during batch insert:", refreshErr);
+            throw err;
+          }
+        }
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['embarques'] });
+    },
+    onError: (err) => {
+      console.error("Error inserting embarques batch:", err);
+    }
+  });
+
   return {
     embarques,
     embarquesByStatus,
     isLoading,
     error,
     updateStatus: (id: string, newStatus: EmbarqueStatus) =>
-      updateStatusMutation.mutateAsync({ id, newStatus })
+      updateStatusMutation.mutateAsync({ id, newStatus }),
+    createEmbarquesBatch: async (payload: any[]) =>
+      createEmbarquesBatchMutation.mutateAsync(payload)
   };
 }

@@ -21,6 +21,7 @@ import {
   Navigation,
   Calendar,
   FileText,
+  Upload,
 } from "lucide-react";
 import {
   Table,
@@ -36,11 +37,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { CsvImportDialog } from "./CsvImportDialog";
 
 export function ShipmentFollow() {
   const { embarques, isLoading } = useEmbarques();
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
 
   const { data: journeys = [] } = useQuery({
     queryKey: ['vehicle-journeys-all'],
@@ -63,104 +66,7 @@ export function ShipmentFollow() {
     },
   });
 
-  // DADOS MOCK BASEADOS NO JSON REAL FORNECIDO PELO USUÁRIO
-  const embarquesWithAllFields = [
-    {
-      id: '1',
-      pedido: 'ME',
-      data_pedido: '2/10/2026',
-      data_carregado: '2/10/2026',
-      origin: 'F. ESTANCIA',
-      destination: 'BALL JACAREI',
-      uf: 'SP',
-      client_name: 'Ball Corporation',
-      nome_tp: 'CARGO X',
-      cargo_type: 'MATERIAL EMBALAGEM',
-      palets: 'ME',
-      status: 'TRANSITO DESCARGA',
-      data_chega_fornecedor: '',
-      data_chega_ambev: '2/15/26 0:16',
-      placa: 'AKN1J94',
-      motorista_nome: 'Huxley Silva de Souza',
-      nf: '317828',
-      cte: '756751',
-      contrato: '89198',
-      proprietario: '',
-      fechado: 'R$ 8.000',
-      carga_extra: 'ME',
-      instrucao_viagem: 'OK',
-      lead_time: '100:19:12',
-      data_carregamento_real: '2/10/26 19:57',
-      data_descarga_real: '',
-      data_prevista_lead_time: '2/15/26 0:16',
-      status_final: '',
-      ocorrencia: 'SIM 139',
-    },
-    {
-      id: '2',
-      pedido: '5800493466',
-      data_pedido: '2/20/2026',
-      data_carregado: '',
-      origin: 'BALL RECIFE',
-      destination: 'F. TERESINA',
-      uf: 'PE',
-      client_name: 'Fazenda Teresina',
-      nome_tp: 'CARGOX',
-      cargo_type: 'LATAS',
-      palets: '25',
-      status: 'AGUARDANDO CTE',
-      data_chega_fornecedor: '',
-      data_chega_ambev: '',
-      placa: '',
-      motorista_nome: '',
-      nf: '',
-      cte: '',
-      contrato: '',
-      proprietario: '',
-      fechado: 'R$ 6.500',
-      carga_extra: '',
-      instrucao_viagem: '',
-      lead_time: '63:36:00',
-      data_carregamento_real: '',
-      data_descarga_real: '',
-      data_prevista_lead_time: '1/1/00 15:36',
-      status_final: '',
-      ocorrencia: '',
-    },
-    {
-      id: '3',
-      pedido: '5800495037',
-      data_pedido: '2/20/2026',
-      data_carregado: '',
-      origin: 'BALL TRÊS RIOS',
-      destination: 'F. LAGES',
-      uf: 'SC',
-      client_name: 'Fazenda Lages',
-      nome_tp: 'CARGOX',
-      cargo_type: 'LATAS',
-      palets: '25',
-      status: 'AGUARDANDO CTE',
-      data_chega_fornecedor: '',
-      data_chega_ambev: '',
-      placa: '',
-      motorista_nome: '',
-      nf: '',
-      cte: '',
-      contrato: '',
-      proprietario: '',
-      fechado: 'R$ 8.000',
-      carga_extra: '',
-      instrucao_viagem: '',
-      lead_time: '70:48:00',
-      data_carregamento_real: '',
-      data_descarga_real: '',
-      data_prevista_lead_time: '1/1/00 22:48',
-      status_final: '',
-      ocorrencia: '',
-    },
-  ];
-
-  const filteredEmbarques = embarquesWithAllFields.filter(e =>
+  const filteredEmbarques = embarques.filter((e: any) =>
     e.origin?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.destination?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -293,6 +199,10 @@ export function ShipmentFollow() {
               className="pl-10"
             />
           </div>
+          <Button variant="outline" size="sm" onClick={() => setIsCsvImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Importar CSV
+          </Button>
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
             Exportar
@@ -575,6 +485,11 @@ export function ShipmentFollow() {
           </div>
         )}
       </CardContent>
+
+      <CsvImportDialog
+        open={isCsvImportOpen}
+        onOpenChange={setIsCsvImportOpen}
+      />
     </Card>
   );
 }

@@ -15,6 +15,19 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { useSearchParams } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { createItem } from "@directus/sdk";
+import { useToast } from "@/components/ui/use-toast";
 
 // Haversine formula
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -30,17 +43,33 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
 }
 
 export const VehicleTrackingMap = () => {
+  const [searchParams] = useSearchParams();
+  const urlDate = searchParams.get('load_date');
+  const urlLat = searchParams.get('load_lat');
+  const urlLng = searchParams.get('load_lng');
+
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-15.7801, -47.9292]);
-  const [mapZoom, setMapZoom] = useState<number>(4);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(
+    urlLat && urlLng ? [Number(urlLat), Number(urlLng)] : [-15.7801, -47.9292]
+  );
+  const [mapZoom, setMapZoom] = useState<number>(urlLat && urlLng ? 8 : 4);
 
   // Filters State
-  const [timeTravelDate, setTimeTravelDate] = useState<Date | undefined>(undefined);
-  const [radiusKm, setRadiusKm] = useState<number[]>([50]); // Slider uses array
-  const [originPoint, setOriginPoint] = useState<[number, number] | null>(null);
+  const [timeTravelDate, setTimeTravelDate] = useState<Date | undefined>(
+    urlDate ? new Date(urlDate) : undefined
+  );
+  const [radiusKm, setRadiusKm] = useState<number[]>([150]); // Default slightly larger for loads
+  const [originPoint, setOriginPoint] = useState<[number, number] | null>(
+    urlLat && urlLng ? [Number(urlLat), Number(urlLng)] : null
+  );
   const [isSelectingOrigin, setIsSelectingOrigin] = useState(false);
 
-  const { refreshToken } = useAuth();
+  // Saving locations
+  const [isSavingLoc, setIsSavingLoc] = useState(false);
+  const [savedLocName, setSavedLocName] = useState("");
+  const { toast } = useToast();
+
+  const { refreshToken, user } = useAuth();
 
   const fetchDrivers = async () => {
     let filterQuery: any = undefined;
@@ -143,6 +172,113 @@ export const VehicleTrackingMap = () => {
     popup: `Raio de busca: ${radiusKm[0]}km`
   }] : [];
 
+  const { data: driverHistory = [] } = useQuery({
+    queryKey: ['driver-history', selectedDriver?.motorista_id?.id || selectedDriver?.motorista_id],
+    enabled: !!selectedDriver,
+    queryFn: async () => {
+      const motoristaId = selectedDriver.motorista_id?.id || selectedDriver.motorista_id;
+      if (!motoristaId) return [];
+      try {
+        const history = await directus.request(readItems('historico_localizacao', {
+          filter: { motorista_id: { _eq: motoristaId } },
+          sort: ['date_created'],
+          limit: 100
+        }));
+        return history;
+      } catch (err) {
+        return [];
+      }
+    }
+  });
+
+  const polylines = useMemo(() => {
+    const lines: any[] = [];
+    if (!selectedDriver) return lines;
+
+    const currentLat = Number(selectedDriver.latitude);
+    const currentLng = Number(selectedDriver.longitude);
+
+    // 1. Draw Path History
+    if (driverHistory.length > 0) {
+      const historyPositions = driverHistory
+        .filter((h: any) => h.latitude && h.longitude)
+        .map((h: any) => [Number(h.latitude), Number(h.longitude)] as [number, number]);
+
+      if (historyPositions.length > 0) {
+        // Connect the last history point to the current location
+        historyPositions.push([currentLat, currentLng]);
+        lines.push({
+          positions: historyPositions,
+          style: { color: '#6366f1', weight: 4, dashArray: '5, 10' },
+          popup: 'Histórico de Trajetória (De onde veio)'
+        });
+      }
+    }
+
+    // 2. Draw Future Path to the Target Load (if origin filter is active)
+    if (originPoint && currentLat && currentLng) {
+      lines.push({
+        positions: [[currentLat, currentLng], originPoint],
+        style: { color: '#10b981', weight: 4, dashArray: '8, 8' },
+        popup: 'Trajetória Prevista até a Origem da Carga'
+      });
+    }
+
+    // 3. Draw Future Path to the next defined destination of the Driver (if he is moving somewhere else)
+    if (selectedDriver.destino_lat && selectedDriver.destino_lng && currentLat && currentLng) {
+      lines.push({
+        positions: [[currentLat, currentLng], [Number(selectedDriver.destino_lat), Number(selectedDriver.destino_lng)]],
+        style: { color: '#f59e0b', weight: 3, dashArray: '5, 5' },
+        popup: 'Indo para o próximo Destino'
+      });
+    }
+
+    return lines;
+  }, [selectedDriver, driverHistory, originPoint]);
+
+  // Merge Custom markers for Future and History destinations of the Selected Driver
+  const mapMarkers = useMemo(() => {
+    const defaultMarkers = [...markers];
+
+    if (selectedDriver) {
+      const currentLat = Number(selectedDriver.latitude);
+      const currentLng = Number(selectedDriver.longitude);
+
+      // Add driver's planned destination pin if it exists
+      if (selectedDriver.destino_lat && selectedDriver.destino_lng) {
+        defaultMarkers.push({
+          id: 'driver-dest',
+          position: [Number(selectedDriver.destino_lat), Number(selectedDriver.destino_lng)],
+          color: 'orange',
+          size: 'medium',
+          popup: {
+            title: 'Destino Final do Motorista',
+            content: selectedDriver.destino_atual || 'Destino Relatado'
+          }
+        });
+      }
+
+      // Add past starting point if history exists
+      if (driverHistory.length > 0) {
+        const firstP = driverHistory[0];
+        if (firstP.latitude && firstP.longitude) {
+          defaultMarkers.push({
+            id: 'driver-start',
+            position: [Number(firstP.latitude), Number(firstP.longitude)],
+            color: 'purple',
+            size: 'small',
+            popup: {
+              title: 'Ponto de Partida Histórico',
+              content: new Date(firstP.date_created).toLocaleString()
+            }
+          });
+        }
+      }
+    }
+
+    return defaultMarkers;
+  }, [markers, selectedDriver, driverHistory]);
+
   const handleMarkerClick = (marker: any) => {
     const driver = drivers.find((d: any) => d.id === marker.id);
     setSelectedDriver(driver);
@@ -163,6 +299,54 @@ export const VehicleTrackingMap = () => {
       setOriginPoint([latlng.lat, latlng.lng]);
       setIsSelectingOrigin(false);
       setMapCenter([latlng.lat, latlng.lng]);
+    }
+  };
+
+  const getSynergyScore = (driver: any) => {
+    if (!originPoint || !timeTravelDate) return null;
+
+    let score = 0;
+
+    // Distância score
+    const dist = getDistanceFromLatLonInKm(originPoint[0], originPoint[1], Number(driver.latitude), Number(driver.longitude));
+    if (dist <= 50) score += 3;
+    else if (dist <= 150) score += 2;
+    else if (dist <= 300) score += 1;
+
+    // Tempo Score
+    const loadDate = new Date(timeTravelDate);
+    const driverDate = driver.data_previsao_disponibilidade ? new Date(driver.data_previsao_disponibilidade) : new Date(driver.date_created);
+
+    // Se o motorista estiver livre antes ou no dia
+    if (driverDate <= loadDate) {
+      score += 3;
+    } else {
+      const diffDays = (driverDate.getTime() - loadDate.getTime()) / (1000 * 3600 * 24);
+      if (diffDays <= 1) score += 1;
+      else score -= 2; // Ta atrasado pra carga
+    }
+
+    if (score >= 5) return { label: "Sinergia Alta", bg: "bg-emerald-100", text: "text-emerald-800", border: "border-emerald-300", icon: "🟢" };
+    if (score >= 3) return { label: "Sinergia Média", bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-300", icon: "🟡" };
+    return { label: "Sinergia Baixa", bg: "bg-red-100", text: "text-red-800", border: "border-red-300", icon: "🔴" };
+  };
+
+  const handleSaveLocation = async () => {
+    if (!originPoint || !savedLocName.trim() || !user) return;
+
+    try {
+      await directus.request(createItem('locais_salvos', {
+        nome: savedLocName,
+        latitude: originPoint[0],
+        longitude: originPoint[1],
+        icone: 'map-pin',
+        usuario_id: user.id
+      }));
+      toast({ title: "Local Salvo!", description: "O local foi salvo com sucesso em seu registro global." });
+      setIsSavingLoc(false);
+      setSavedLocName("");
+    } catch (e) {
+      toast({ title: "Erro", description: "Não foi possível salvar o local.", variant: "destructive" });
     }
   };
 
@@ -217,14 +401,14 @@ export const VehicleTrackingMap = () => {
                     {timeTravelDate ? format(timeTravelDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                <PopoverContent className="w-auto p-0 z-[10000]" align="start">
                   <Calendar
                     mode="single"
                     selected={timeTravelDate}
                     onSelect={setTimeTravelDate}
                     initialFocus
                     locale={ptBR}
-                    disabled={(date) => date > new Date()}
+                    disabled={(date) => false} // Allow future dates for prediction
                   />
                 </PopoverContent>
               </Popover>
@@ -236,28 +420,60 @@ export const VehicleTrackingMap = () => {
             {/* 2. Ponto de Origem */}
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ponto de Busca (Mapa)</Label>
-              <Button
-                variant={isSelectingOrigin ? "default" : (originPoint ? "secondary" : "outline")}
-                onClick={() => setIsSelectingOrigin(!isSelectingOrigin)}
-                className="w-[200px]"
-              >
-                {isSelectingOrigin ? (
-                  <>
-                    <Crosshair className="animate-pulse mr-2 h-4 w-4" />
-                    Clique no mapa...
-                  </>
-                ) : originPoint ? (
-                  <>
-                    <MapPin className="mr-2 h-4 w-4 text-emerald-600" />
-                    Ponto Selecionado
-                  </>
-                ) : (
-                  <>
-                    <MapIcon className="mr-2 h-4 w-4" />
-                    Selecionar Ponto
-                  </>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={isSelectingOrigin ? "default" : (originPoint ? "secondary" : "outline")}
+                  onClick={() => setIsSelectingOrigin(!isSelectingOrigin)}
+                  className="w-[200px]"
+                >
+                  {isSelectingOrigin ? (
+                    <>
+                      <Crosshair className="animate-pulse mr-2 h-4 w-4" />
+                      Clique no mapa...
+                    </>
+                  ) : originPoint ? (
+                    <>
+                      <MapPin className="mr-2 h-4 w-4 text-emerald-600" />
+                      Ponto Selecionado
+                    </>
+                  ) : (
+                    <>
+                      <MapIcon className="mr-2 h-4 w-4" />
+                      Selecionar Ponto
+                    </>
+                  )}
+                </Button>
+
+                {originPoint && (
+                  <Dialog open={isSavingLoc} onOpenChange={setIsSavingLoc}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" title="Salvar Ponto">
+                        <MapPin className="h-4 w-4 text-emerald-600" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Salvar Localização</DialogTitle>
+                        <DialogDescription>Dê um nome a este ponto no mapa para utilizá-lo frequentemente (ex: Centro Logístico SP).</DialogDescription>
+                      </DialogHeader>
+                      <div className="py-4 space-y-4">
+                        <div className="space-y-2">
+                          <Label>Nome do Local</Label>
+                          <Input value={savedLocName} onChange={e => setSavedLocName(e.target.value)} placeholder="Ex: Armazém Sudeste" />
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center justify-between bg-muted/50 p-3 rounded border">
+                          <span>Coordenadas:</span>
+                          <span className="font-mono">{originPoint[0].toFixed(5)}, {originPoint[1].toFixed(5)}</span>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsSavingLoc(false)}>Cancelar</Button>
+                        <Button onClick={handleSaveLocation} disabled={!savedLocName.trim()}>Salvar Ponto</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 )}
-              </Button>
+              </div>
             </div>
 
             {/* 3. Raio de Distância */}
@@ -267,13 +483,12 @@ export const VehicleTrackingMap = () => {
                 <span className="text-xs font-bold text-emerald-600">{radiusKm[0]} km</span>
               </div>
               <Slider
-                disabled={!originPoint && !isSelectingOrigin}
                 value={radiusKm}
                 onValueChange={setRadiusKm}
                 max={2000}
                 min={10}
                 step={10}
-                className={`mt-1 ${(!originPoint && !isSelectingOrigin) ? 'opacity-50' : ''}`}
+                className="mt-1"
               />
             </div>
 
@@ -320,8 +535,9 @@ export const VehicleTrackingMap = () => {
                 <AdvancedMap
                   center={mapCenter}
                   zoom={mapZoom}
-                  markers={markers}
+                  markers={mapMarkers}
                   circles={circles}
+                  polylines={polylines}
                   onMarkerClick={handleMarkerClick}
                   onMapClick={handleMapClick}
                   enableClustering={true}
@@ -361,6 +577,9 @@ export const VehicleTrackingMap = () => {
                   distLabel = `${Math.round(dist)} km`;
                 }
 
+                const isFuture = driver.data_previsao_disponibilidade && new Date(driver.data_previsao_disponibilidade) > new Date();
+                const synergy = getSynergyScore(driver);
+
                 return (
                   <div
                     key={driver.id}
@@ -378,9 +597,16 @@ export const VehicleTrackingMap = () => {
                         </span>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <Badge variant="outline" className={`text-[9px] uppercase font-bold tracking-wider ${!timeTravelDate ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                          {timeTravelDate ? "Histórico" : "Ao Vivo"}
-                        </Badge>
+                        {synergy && (
+                          <Badge variant="outline" className={`text-[9px] uppercase font-bold tracking-wider flex items-center gap-1 ${synergy.bg} ${synergy.text} ${synergy.border}`}>
+                            {synergy.icon} {synergy.label}
+                          </Badge>
+                        )}
+                        {isFuture && (
+                          <Badge variant="outline" className="text-[9px] uppercase font-bold tracking-wider bg-indigo-50 text-indigo-700 border-indigo-200">
+                            Previsão
+                          </Badge>
+                        )}
                         {!hasGps && (
                           <Badge variant="outline" className="text-[9px] bg-slate-50 text-slate-500 uppercase tracking-wider">Sem GPS</Badge>
                         )}
@@ -390,9 +616,16 @@ export const VehicleTrackingMap = () => {
                     <div className="text-xs text-muted-foreground space-y-2 mt-3">
                       <div className="flex items-start gap-2">
                         <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
-                        <p className="line-clamp-2 leading-relaxed">
-                          {driver.localizacao_atual || 'Local desconhecido'}
-                        </p>
+                        <div className="flex flex-col">
+                          <p className="line-clamp-2 leading-relaxed">
+                            {driver.localizacao_atual || 'Local desconhecido'}
+                          </p>
+                          {isFuture && driver.local_disponibilidade && (
+                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-1 flex items-center gap-1">
+                              ↳ Estará em: {driver.local_disponibilidade}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">

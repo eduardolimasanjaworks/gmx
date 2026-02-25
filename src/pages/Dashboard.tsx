@@ -16,7 +16,7 @@ import { GlobalMatchingPanel } from "@/components/dashboard/GlobalMatchingPanel"
 import { VehicleTrackingMap } from "@/components/tracking/VehicleTrackingMap";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import { useAuth } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   Users,
@@ -87,7 +87,24 @@ const Dashboard = () => {
 
   const availableTabs = allTabs.filter(tab => hasPermission(tab.perm));
 
-  const [activeTab, setActiveTab] = useState(availableTabs[0]?.id || 'unauthorized');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+
+  const [activeTab, setActiveTab] = useState(tabParam || availableTabs[0]?.id || 'unauthorized');
+
+  useEffect(() => {
+    if (tabParam && availableTabs.find(t => t.id === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam, availableTabs]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setSearchParams(prev => {
+      prev.set('tab', value);
+      return prev;
+    });
+  };
 
   useEffect(() => {
     if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
@@ -179,7 +196,7 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <div className="bg-muted/30 border rounded-xl p-1 shadow-inner overflow-x-auto">
               <TabsList className="flex w-full justify-start lg:justify-between gap-1 bg-transparent h-auto p-0">
                 <div className="flex gap-1">

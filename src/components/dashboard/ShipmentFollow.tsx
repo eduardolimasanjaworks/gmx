@@ -28,12 +28,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { CsvImportDialog } from "./CsvImportDialog";
+import { useNavigate } from "react-router-dom";
 
 export function ShipmentFollow() {
   const { followItems, isLoading } = useFollow();
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
+  const navigate = useNavigate();
 
   const filteredItems = followItems.filter((item: any) =>
     item.origem?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -200,6 +202,22 @@ export function ShipmentFollow() {
                                   <div><span className="text-muted-foreground">Status:</span><p className="font-medium">{item.status || '-'}</p></div>
                                 </div>
                               </div>
+                            </div>
+
+                            {/* Actions Panel */}
+                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                              <Button
+                                onClick={() => {
+                                  const lat = item.origem_lat || "";
+                                  const lng = item.origem_lng || "";
+                                  const data = item.data_coleta || ""; // If there is a date field in follow, pass it
+                                  navigate(`/?tab=tracking&load_origin=${encodeURIComponent(item.origem || '')}&load_lat=${lat}&load_lng=${lng}&load_date=${data}`);
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              >
+                                <MapPin className="mr-2 h-4 w-4" />
+                                Encontrar Motorista no Mapa
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>

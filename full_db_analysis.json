@@ -1,0 +1,3909 @@
+{
+  "antt": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "numero_antt",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cnpj_cpf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "link",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_antt",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file_antt",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "app_roles": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "description",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "permissions",
+        "type": "json",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "color",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": []
+  },
+  "app_users": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "email",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "display_name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "role_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "app_roles"
+        }
+      },
+      {
+        "field": "password_hash",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "active",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "permissions",
+        "type": "json",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "role_id",
+        "related_collection": "app_roles"
+      }
+    ]
+  },
+  "cadastro_motorista": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "sobrenome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "forma_pagamento",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "rastreador",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "login",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "senha",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "pis",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cliente",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_created",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_updated",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cpf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cidade",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "estado",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "tipo_rota",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "dados_disponibilidade",
+        "type": "alias",
+        "schema": null
+      }
+    ],
+    "relations": []
+  },
+  "canhoto_entrega": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "sort",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_created",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_updated",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "link",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "file_canhoto_entrega",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      },
+      {
+        "field": "nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file_canhoto_entrega",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      },
+      {
+        "field": "user_updated",
+        "related_collection": "directus_users"
+      },
+      {
+        "field": "user_created",
+        "related_collection": "directus_users"
+      }
+    ]
+  },
+  "carreta_1": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cap",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cnpj_cpf_proprietario",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "proprietario_documento",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cep",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "renavam",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "modelo",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_fabricacao",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_modelo",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nr_certificado_doc",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "exercicio_doc",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cor",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "chassi",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cidade_emplacado",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_numero",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_cnpj_cpf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "carreta_2": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cap",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cnpj_cpf_proprietario",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "proprietario_documento",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cep",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "renavam",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "modelo",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_fabricacao",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_modelo",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nr_certificado_doc",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "exercicio_doc",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cor",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "chassi",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cidade_emplacado",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_numero",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_cnpj_cpf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "carreta_3": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cap",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cnpj_cpf_proprietario",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "proprietario_documento",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cep",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "renavam",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "modelo",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_fabricacao",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_modelo",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nr_certificado_doc",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "exercicio_doc",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cor",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "chassi",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cidade_emplacado",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_numero",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_cnpj_cpf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt_nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "check_list": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "crlv",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cnh",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "antt",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "comprovante_ende",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "foto_cavalo",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "foto_lateral_carreta",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "foto_trazeira_carreta",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "comprovante_entrega",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "canhoto_entrega",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "documento_diversos",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "cnh": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cpf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "data_nasc",
+        "type": "date",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome_mae",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "n_registro_cnh",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "n_formulario_cnh",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "validade",
+        "type": "date",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "emissao_cnh",
+        "type": "date",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "n_cnh_seguranca",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "n_cnh_renach",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "primeira_habilitacao",
+        "type": "date",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "categoria",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cidade_emissao",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "link",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_cnh",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      },
+      {
+        "field": "file_cnh",
+        "related_collection": "directus_files"
+      }
+    ]
+  },
+  "comprovante_endereco": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cep",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "link",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_comprovante_endereco",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file_comprovante_endereco",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "comprovante_entrega": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "sort",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_created",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_updated",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "link",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "file_comprovante_entrega",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file_comprovante_entrega",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "user_updated",
+        "related_collection": "directus_users"
+      },
+      {
+        "field": "user_created",
+        "related_collection": "directus_users"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "crlv": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "placa_cavalo",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cnpj_cpf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome_proprietario",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "renavam",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "modelo",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_fabricacao",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ano_modelo",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nr_certificado",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "exercicio_doc",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cor",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "chassi",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cidade_emplacado",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "link",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_crlv",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file_crlv",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "delivery_receipts": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_url",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_size",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "verified",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "ocr_raw_data",
+        "type": "json",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "delivery_date",
+        "type": "date",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "delivery_time",
+        "type": "time",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "receiver_name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "receiver_signature",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "observations",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "shipment_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "embarques"
+        }
+      },
+      {
+        "field": "file",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "shipment_id",
+        "related_collection": "embarques"
+      }
+    ]
+  },
+  "disponivel": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "operador",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "data_contato",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "local_disponibilidade",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "data_previsao_disponibilidade",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "observacao",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "longitude",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "latitude",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "localizacao_atual",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "disponivel",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "documentos_diversos": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "sort",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_created",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_updated",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "link",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "user_updated",
+        "related_collection": "directus_users"
+      },
+      {
+        "field": "user_created",
+        "related_collection": "directus_users"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "driver_field_config": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "field_name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "label",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "visible",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "display_name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "visible_in_card",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "visible_in_table",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "display_order",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "field_type",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": []
+  },
+  "embarques": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "total_value",
+        "type": "decimal",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "pickup_date",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "delivery_window_start",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "delivery_window_end",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "actual_arrival_time",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "rejected_drivers_count",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "email_content",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "needs_manual_review",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "driver_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "tipo_rota",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "origin_lat",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "origin_long",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cargo_type",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "destino_lat",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "destino_long",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "origin",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "destination",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "pedido",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "data_carregamento",
+        "type": "dateTime",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome_tp",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "produto",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "palets",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status_smartcargas",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status_tms",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "razao_social",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "uf_origem",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "uf_destino",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "driver_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "follow": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "pedido",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "origem",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "destino",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "uf",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cliente",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "tp",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "produto",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "sort",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "paletes",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": []
+  },
+  "fotos": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "foto_cavalo",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "foto_lateral",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "foto_traseira",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "telefone",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_uuid_cavalo",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      },
+      {
+        "field": "file_uuid_lateral",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      },
+      {
+        "field": "file_uuid_traseira",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file_uuid_lateral",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "file_uuid_cavalo",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "file_uuid_traseira",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "historico_ofertas": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "sort",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_created",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_updated",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_users"
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "match_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "sugestoes_match"
+        }
+      },
+      {
+        "field": "tipo_evento",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "descricao",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "match_id",
+        "related_collection": "sugestoes_match"
+      },
+      {
+        "field": "user_updated",
+        "related_collection": "directus_users"
+      },
+      {
+        "field": "user_created",
+        "related_collection": "directus_users"
+      }
+    ]
+  },
+  "locais_salvos": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "nome",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "latitude",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "longitude",
+        "type": "float",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "raio_padrao",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "descricao",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "cor",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "user_created",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": []
+  },
+  "operational_alerts": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "title",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "description",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "severity",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "alert_type",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "entity_type",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "entity_id",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "action_required",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "is_resolved",
+        "type": "boolean",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "resolved_at",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "resolved_by",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": []
+  },
+  "payment_receipts": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_url",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_size",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "receipt_type",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "shipment_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "embarques"
+        }
+      },
+      {
+        "field": "file",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "shipment_id",
+        "related_collection": "embarques"
+      }
+    ]
+  },
+  "shipment_documents": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_url",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_name",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "file_size",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "document_title",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "document_type",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "shipment_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "embarques"
+        }
+      },
+      {
+        "field": "file",
+        "type": "uuid",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "directus_files"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "file",
+        "related_collection": "directus_files"
+      },
+      {
+        "field": "shipment_id",
+        "related_collection": "embarques"
+      }
+    ]
+  },
+  "status": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "venc_gr",
+        "type": "date",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status_gr",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "inf_complementares",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      }
+    ]
+  },
+  "sugestoes_match": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "embarque_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "embarques"
+        }
+      },
+      {
+        "field": "motorista_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      },
+      {
+        "field": "disponibilidade_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "disponivel"
+        }
+      },
+      {
+        "field": "score",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "classificacao",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "motivo_match",
+        "type": "text",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "match_unico",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "data_ultimo_disparo",
+        "type": "timestamp",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_created",
+        "type": "dateTime",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "date_updated",
+        "type": "dateTime",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "disponibilidade_id",
+        "related_collection": "disponivel"
+      },
+      {
+        "field": "motorista_id",
+        "related_collection": "cadastro_motorista"
+      },
+      {
+        "field": "embarque_id",
+        "related_collection": "embarques"
+      }
+    ]
+  },
+  "vehicle_matches": {
+    "fields": [
+      {
+        "field": "id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": true,
+          "has_auto_increment": true,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "compatibility_score",
+        "type": "decimal",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "compatibility_level",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "factors",
+        "type": "json",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "status",
+        "type": "string",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": null,
+          "foreign_key_table": null
+        }
+      },
+      {
+        "field": "embarque_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "embarques"
+        }
+      },
+      {
+        "field": "driver_id",
+        "type": "integer",
+        "schema": {
+          "is_primary_key": false,
+          "has_auto_increment": false,
+          "foreign_key_column": "id",
+          "foreign_key_table": "cadastro_motorista"
+        }
+      }
+    ],
+    "relations": [
+      {
+        "field": "driver_id",
+        "related_collection": "cadastro_motorista"
+      },
+      {
+        "field": "embarque_id",
+        "related_collection": "embarques"
+      }
+    ]
+  }
+}

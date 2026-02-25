@@ -1,0 +1,11 @@
+{
+  "errors": [
+    {
+      "message": "Invalid payload. Field \"origem_lat\" already exists in collection \"follow\".",
+      "extensions": {
+        "reason": "Field \"origem_lat\" already exists in collection \"follow\"",
+        "code": "INVALID_PAYLOAD"
+      }
+    }
+  ]
+}

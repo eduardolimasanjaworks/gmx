@@ -1,0 +1,228 @@
+{
+  "disponivel": [
+    {
+      "field": "id",
+      "type": "integer"
+    },
+    {
+      "field": "operador",
+      "type": "string"
+    },
+    {
+      "field": "data_contato",
+      "type": "timestamp"
+    },
+    {
+      "field": "local_disponibilidade",
+      "type": "string"
+    },
+    {
+      "field": "data_previsao_disponibilidade",
+      "type": "timestamp"
+    },
+    {
+      "field": "status",
+      "type": "string"
+    },
+    {
+      "field": "observacao",
+      "type": "text"
+    },
+    {
+      "field": "longitude",
+      "type": "float"
+    },
+    {
+      "field": "latitude",
+      "type": "float"
+    },
+    {
+      "field": "date_created",
+      "type": "timestamp"
+    },
+    {
+      "field": "date_updated",
+      "type": "timestamp"
+    },
+    {
+      "field": "motorista_id",
+      "type": "integer"
+    },
+    {
+      "field": "telefone",
+      "type": "string"
+    },
+    {
+      "field": "localizacao_atual",
+      "type": "string"
+    },
+    {
+      "field": "disponivel",
+      "type": "boolean"
+    }
+  ],
+  "follow": [
+    {
+      "field": "id",
+      "type": "integer"
+    },
+    {
+      "field": "pedido",
+      "type": "string"
+    },
+    {
+      "field": "origem",
+      "type": "text"
+    },
+    {
+      "field": "destino",
+      "type": "text"
+    },
+    {
+      "field": "uf",
+      "type": "string"
+    },
+    {
+      "field": "cliente",
+      "type": "string"
+    },
+    {
+      "field": "tp",
+      "type": "string"
+    },
+    {
+      "field": "produto",
+      "type": "string"
+    },
+    {
+      "field": "status",
+      "type": "string"
+    },
+    {
+      "field": "sort",
+      "type": "integer"
+    },
+    {
+      "field": "paletes",
+      "type": "string"
+    }
+  ],
+  "embarques": [
+    {
+      "field": "id",
+      "type": "integer"
+    },
+    {
+      "field": "status",
+      "type": "string"
+    },
+    {
+      "field": "total_value",
+      "type": "decimal"
+    },
+    {
+      "field": "pickup_date",
+      "type": "timestamp"
+    },
+    {
+      "field": "delivery_window_start",
+      "type": "timestamp"
+    },
+    {
+      "field": "delivery_window_end",
+      "type": "timestamp"
+    },
+    {
+      "field": "actual_arrival_time",
+      "type": "timestamp"
+    },
+    {
+      "field": "rejected_drivers_count",
+      "type": "integer"
+    },
+    {
+      "field": "email_content",
+      "type": "text"
+    },
+    {
+      "field": "needs_manual_review",
+      "type": "boolean"
+    },
+    {
+      "field": "driver_id",
+      "type": "integer"
+    },
+    {
+      "field": "tipo_rota",
+      "type": "string"
+    },
+    {
+      "field": "origin_lat",
+      "type": "float"
+    },
+    {
+      "field": "origin_long",
+      "type": "float"
+    },
+    {
+      "field": "cargo_type",
+      "type": "text"
+    },
+    {
+      "field": "destino_lat",
+      "type": "float"
+    },
+    {
+      "field": "destino_long",
+      "type": "float"
+    },
+    {
+      "field": "origin",
+      "type": "text"
+    },
+    {
+      "field": "destination",
+      "type": "text"
+    },
+    {
+      "field": "pedido",
+      "type": "string"
+    },
+    {
+      "field": "data_carregamento",
+      "type": "dateTime"
+    },
+    {
+      "field": "nome_tp",
+      "type": "string"
+    },
+    {
+      "field": "produto",
+      "type": "string"
+    },
+    {
+      "field": "palets",
+      "type": "integer"
+    },
+    {
+      "field": "status_smartcargas",
+      "type": "string"
+    },
+    {
+      "field": "status_tms",
+      "type": "string"
+    },
+    {
+      "field": "razao_social",
+      "type": "string"
+    },
+    {
+      "field": "uf_origem",
+      "type": "string"
+    },
+    {
+      "field": "uf_destino",
+      "type": "string"
+    }
+  ]
+}

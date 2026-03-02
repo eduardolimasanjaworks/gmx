@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Settings, Save } from "lucide-react";
 import { useDriverFields } from "@/hooks/useDriverFields";
 
 export const FieldConfigManager = () => {
   const { toast } = useToast();
-  const { allFields, isLoading, refetch } = useDriverFields();
+  const { allFields, isLoading, refetch, saveConfig } = useDriverFields();
   const [localConfig, setLocalConfig] = useState(allFields);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -23,10 +22,10 @@ export const FieldConfigManager = () => {
       prev.map(field =>
         field.id === fieldId
           ? {
-              ...field,
-              [type === "card" ? "visible_in_card" : "visible_in_table"]:
-                !(type === "card" ? field.visible_in_card : field.visible_in_table)
-            }
+            ...field,
+            [type === "card" ? "visible_in_card" : "visible_in_table"]:
+              !(type === "card" ? field.visible_in_card : field.visible_in_table)
+          }
           : field
       )
     );
@@ -35,23 +34,7 @@ export const FieldConfigManager = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const updates = localConfig.map(field => ({
-        id: field.id,
-        visible_in_card: field.visible_in_card,
-        visible_in_table: field.visible_in_table
-      }));
-
-      for (const update of updates) {
-        const { error } = await supabase
-          .from("driver_field_config")
-          .update({
-            visible_in_card: update.visible_in_card,
-            visible_in_table: update.visible_in_table
-          })
-          .eq("id", update.id);
-
-        if (error) throw error;
-      }
+      saveConfig(localConfig);
 
       toast({
         title: "Configuração salva",

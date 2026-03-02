@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, User, List, Grid, Download, Settings as SettingsIcon, Pencil } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, User, List, Grid, Download, Settings as SettingsIcon, Pencil, RefreshCw } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 // import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,7 @@ export const DynamicDriverRegistry = () => {
   const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   const [startInEditMode, setStartInEditMode] = useState(false);
   const itemsPerPage = 20;
@@ -38,12 +40,25 @@ export const DynamicDriverRegistry = () => {
     // Realtime removed
   }, []);
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (autoRefresh) {
+      interval = setInterval(fetchDrivers, 30000); // 30s refresh
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh]);
+
   /* Custom Fields Definition for Display */
-  const displayFields = [
+  const fallbackDisplayFields = [
     { id: 'name_full', field_name: 'nome_completo', display_name: 'Nome Completo', field_type: 'text' },
     { id: 'phone', field_name: 'telefone', display_name: 'Telefone', field_type: 'text' },
     { id: 'status', field_name: 'status_logistica', display_name: 'Status', field_type: 'status' },
   ];
+
+  const activeDisplayFields = tableFields.length > 0 ? tableFields : fallbackDisplayFields;
+  const activeCardFields = cardFields.length > 0 ? cardFields : fallbackDisplayFields;
 
   /* Fetch Drivers from Directus manually joining Availability */
   const fetchDrivers = async () => {
@@ -213,9 +228,9 @@ export const DynamicDriverRegistry = () => {
   const exportToCSV = () => {
     if (filteredDrivers.length === 0) return;
 
-    const headers = displayFields.map(f => f.display_name);
+    const headers = activeDisplayFields.map(f => f.display_name);
     const rows = filteredDrivers.map(driver =>
-      displayFields.map(field => driver[field.field_name] || "")
+      activeDisplayFields.map(field => driver[field.field_name] || "")
     );
 
     const csvContent = [
@@ -245,38 +260,59 @@ export const DynamicDriverRegistry = () => {
           <h2 className="text-3xl font-bold tracking-tight">Cadastro de Motoristas</h2>
           <p className="text-muted-foreground">{filteredDrivers.length} motoristas</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => {
-            setSelectedDriver(null);
-            setStartInEditMode(true);
-            setIsProfileOpen(true);
-          }}>
-            <User className="h-4 w-4 mr-2" />
-            Adicionar Motorista
-          </Button>
-          <Button variant="outline" onClick={() => setIsConfigOpen(true)}>
-            <SettingsIcon className="h-4 w-4 mr-2" />
-            Configurar Campos
-          </Button>
-          <Button variant="outline" onClick={exportToCSV} disabled={filteredDrivers.length === 0}>
-            <Download className="h-4 w-4 mr-2" />
-            Exportar CSV
-          </Button>
-          <Button
-            variant={viewMode === "grid" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("grid")}
-          >
-            <Grid className="h-4 w-4 mr-2" />
-            Cards
-          </Button>
-          <Button
-            variant={viewMode === "table" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("table")}
-          >
-            <List className="h-4 w-4 mr-2" />
-            Tabela
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2">
+            <Button onClick={() => {
+              setSelectedDriver(null);
+              setStartInEditMode(true);
+              setIsProfileOpen(true);
+            }}>
+              <User className="h-4 w-4 mr-2" />
+              Adicionar Motorista
+            </Button>
+            <Button variant="outline" onClick={() => setIsConfigOpen(true)}>
+              <SettingsIcon className="h-4 w-4 mr-2" />
+              Configurar Campos
+            </Button>
+            <Button variant="outline" onClick={exportToCSV} disabled={filteredDrivers.length === 0}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+            >
+              <Grid className="h-4 w-4 mr-2" />
+              Cards
+            </Button>
+            <Button
+              variant={viewMode === "table" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+            >
+              <List className="h-4 w-4 mr-2" />
+              Tabela
+            </Button>
+          </div>
+
+          <div className="flex items-center space-x-2 border rounded-md px-3 h-10">
+            <Checkbox
+              id="auto-refresh"
+              checked={autoRefresh}
+              onCheckedChange={(checked) => setAutoRefresh(checked as boolean)}
+            />
+            <label
+              htmlFor="auto-refresh"
+              className="text-sm font-medium leading-none cursor-pointer"
+            >
+              Auto-refresh
+            </label>
+          </div>
+
+          <Button variant="outline" onClick={fetchDrivers} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
           </Button>
         </div>
       </div>
@@ -343,12 +379,11 @@ export const DynamicDriverRegistry = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {displayFields.map((field) => (
+                  {activeCardFields.map((field) => (
                     <div key={field.id} className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">{field.display_name}:</span>
-                      <span className="text-muted-foreground">{field.display_name}:</span>
                       <span className="font-medium">
-                        {field.id === 'status' ? (
+                        {(field.id === 'status' || field.field_name === 'status_logistica') ? (
                           <Button
                             variant={driver.status_logistica === 'Disponível' ? "default" : "destructive"}
                             size="sm"
@@ -373,7 +408,7 @@ export const DynamicDriverRegistry = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                {displayFields.map((field) => (
+                {activeDisplayFields.map((field) => (
                   <TableHead key={field.id}>{field.display_name}</TableHead>
                 ))}
                 <TableHead className="w-[80px]">Ações</TableHead>
@@ -382,7 +417,7 @@ export const DynamicDriverRegistry = () => {
             <TableBody>
               {currentDrivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={displayFields.length + 1} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={activeDisplayFields.length + 1} className="text-center py-8 text-muted-foreground">
                     Nenhum motorista encontrado
                   </TableCell>
                 </TableRow>
@@ -397,9 +432,9 @@ export const DynamicDriverRegistry = () => {
                       setIsProfileOpen(true);
                     }}
                   >
-                    {displayFields.map((field) => (
+                    {activeDisplayFields.map((field) => (
                       <TableCell key={field.id}>
-                        {field.id === 'status' ? (
+                        {(field.id === 'status' || field.field_name === 'status_logistica') ? (
                           <Button
                             variant={driver.status_logistica === 'Disponível' ? "default" : "destructive"}
                             size="sm"

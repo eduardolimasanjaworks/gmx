@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, MapPin, Clock, Truck, List, Grid } from "lucide-react";
+import { RefreshCw, MapPin, Clock, Truck, List, Grid, Settings as SettingsIcon, Download, MessageCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
@@ -13,6 +13,9 @@ import { directus } from "@/lib/directus";
 import { readItems } from "@directus/sdk";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import { useAvailableDriverFields } from "@/hooks/useAvailableDriverFields";
+import { AvailableDriverFieldConfigManager } from "./AvailableDriverFieldConfigManager";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 
 export const AvailableDrivers = () => {
@@ -25,6 +28,8 @@ export const AvailableDrivers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const { cardFields, tableFields, isLoading: fieldsLoading } = useAvailableDriverFields();
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -107,7 +112,11 @@ export const AvailableDrivers = () => {
           vehicle_type: vehicle.modelo || "Desconhecido", // Or generic "Veículo"
 
           // Location from the Availability Record
-          current_location: item.localizacao_atual || "Local não informado",
+          current_location: item.localizacao_atual || item.local_disponibilidade || "Local não informado",
+          local_disponibilidade: item.local_disponibilidade || "-",
+          latitude: item.latitude || "-",
+          longitude: item.longitude || "-",
+          data_previsao_disponibilidade: item.data_previsao_disponibilidade ? new Date(item.data_previsao_disponibilidade).toLocaleDateString('pt-BR') : "-",
           city: item.localizacao_atual, // Simplified mapping
           state: "", // hard to parse state from just a string without structure, keep empty or Try parsing
 
@@ -116,6 +125,12 @@ export const AvailableDrivers = () => {
 
           status: "available", // If they are in this list, they are per definition available
           current_availability: item, // Pass full record context
+          status_logistica: "Disponível",
+          telefone: driver.telefone || "-",
+          cpf: driver.cpf || "-",
+          nome_completo: driver.nome ? `${driver.nome} ${driver.sobrenome || ''}`.trim() : `Motorista #${driver.id}`,
+          last_update_date: item.date_created ? new Date(item.date_created).toLocaleDateString('pt-BR') : "N/A",
+          last_update_time: item.date_created ? new Date(item.date_created).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "N/A",
 
           // Original Objects for Dialog
           raw_driver: driver,
@@ -167,7 +182,55 @@ export const AvailableDrivers = () => {
     setIsProfileOpen(true);
   };
 
-  if (isLoading && drivers.length === 0) {
+  const openWhatsApp = (e: React.MouseEvent, phone?: string) => {
+    e.stopPropagation();
+    if (!phone || phone === "-") {
+      toast({
+        title: "Telefone Indisponível",
+        description: "Este motorista não possui um número de telefone cadastrado.",
+        variant: "destructive"
+      });
+      return;
+    }
+    const cleanedPhone = phone.replace(/\D/g, '');
+    window.open(`https://wa.me/55${cleanedPhone}`, '_blank');
+  };
+
+  const exportToCSV = () => {
+    if (drivers.length === 0) return;
+
+    // We can export either the table fields if custom configured, or an overarching dataset
+    const activeDisplayFields = tableFields.length > 0 ? tableFields : [
+      { field_name: 'name', display_name: 'Nome' },
+      { field_name: 'truck_plate', display_name: 'Placa' },
+      { field_name: 'vehicle_type', display_name: 'Tipo Veículo' },
+      { field_name: 'current_location', display_name: 'Localização' },
+      { field_name: 'last_update_date', display_name: 'Disponível desde' },
+      { field_name: 'last_update_time', display_name: 'Hora' },
+    ];
+
+    const headers = activeDisplayFields.map((f: any) => f.display_name);
+    const rows = drivers.map(driver =>
+      activeDisplayFields.map((field: any) => driver[field.field_name] || "")
+    );
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `motoristas_disponiveis_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if ((isLoading && drivers.length === 0) || fieldsLoading) {
     return <div className="p-8 text-center text-muted-foreground">Carregando motoristas disponíveis...</div>;
   }
 
@@ -184,6 +247,14 @@ export const AvailableDrivers = () => {
         </div>
         <div className="flex items-center gap-4">
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsConfigOpen(true)}>
+              <SettingsIcon className="h-4 w-4 mr-2" />
+              Configurar Campos
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportToCSV} disabled={drivers.length === 0}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </Button>
             <Button
               variant={viewMode === "grid" ? "default" : "outline"}
               size="sm"
@@ -201,7 +272,7 @@ export const AvailableDrivers = () => {
               Tabela
             </Button>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 border rounded-md px-3 h-9">
             <Checkbox
               id="auto-refresh"
               checked={autoRefresh}
@@ -243,18 +314,33 @@ export const AvailableDrivers = () => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex items-center gap-2 text-xs">
-                  <Truck className="h-3 w-3 text-muted-foreground" />
-                  <span className="truncate">{driver.vehicle_type || "N/A"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <MapPin className="h-3 w-3 text-muted-foreground" />
-                  <span className="truncate" title={driver.current_location}>{driver.current_location}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>{driver.last_update ? new Date(driver.last_update).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "N/A"}</span>
-                </div>
+                {cardFields.length > 0 ? cardFields.map((field) => (
+                  <div key={field.id} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{field.display_name}:</span>
+                    <span className="font-medium">
+                      {(field.id === 'status' || field.field_name === 'status_logistica') ? (
+                        <Badge className="bg-success text-success-foreground text-xs">Disponível</Badge>
+                      ) : (
+                        driver[field.field_name] || "N/A"
+                      )}
+                    </span>
+                  </div>
+                )) : (
+                  <>
+                    <div className="flex items-center gap-2 text-xs">
+                      <Truck className="h-3 w-3 text-muted-foreground" />
+                      <span className="truncate">{driver.vehicle_type || "N/A"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                      <span className="truncate" title={driver.current_location}>{driver.current_location}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{driver.last_update ? new Date(driver.last_update).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "N/A"}</span>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -264,13 +350,19 @@ export const AvailableDrivers = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Placa</TableHead>
-                <TableHead>Tipo Veículo</TableHead>
-                <TableHead>Localização</TableHead>
-                <TableHead>Disponível desde</TableHead>
-                <TableHead>Hora</TableHead>
-                <TableHead>Status</TableHead>
+                {tableFields.length > 0 ? tableFields.map((field) => (
+                  <TableHead key={field.id}>{field.display_name}</TableHead>
+                )) : (
+                  <>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Placa</TableHead>
+                    <TableHead>Tipo Veículo</TableHead>
+                    <TableHead>Localização</TableHead>
+                    <TableHead>Disponível desde</TableHead>
+                    <TableHead>Hora</TableHead>
+                    <TableHead>Status</TableHead>
+                  </>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -281,15 +373,27 @@ export const AvailableDrivers = () => {
                     className="hover:bg-muted/50 cursor-pointer"
                     onClick={() => handleDriverClick(driver)}
                   >
-                    <TableCell className="font-medium">{driver.name}</TableCell>
-                    <TableCell>{driver.truck_plate || "N/A"}</TableCell>
-                    <TableCell>{driver.vehicle_type || "N/A"}</TableCell>
-                    <TableCell>{driver.current_location}</TableCell>
-                    <TableCell>{driver.last_update ? new Date(driver.last_update).toLocaleDateString('pt-BR') : "N/A"}</TableCell>
-                    <TableCell>{driver.last_update ? new Date(driver.last_update).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "N/A"}</TableCell>
-                    <TableCell>
-                      <Badge className="bg-success text-success-foreground">Disponível</Badge>
-                    </TableCell>
+                    {tableFields.length > 0 ? tableFields.map((field) => (
+                      <TableCell key={field.id}>
+                        {(field.id === 'status' || field.field_name === 'status_logistica') ? (
+                          <Badge className="bg-success text-success-foreground">Disponível</Badge>
+                        ) : (
+                          driver[field.field_name] || "-"
+                        )}
+                      </TableCell>
+                    )) : (
+                      <>
+                        <TableCell className="font-medium">{driver.name}</TableCell>
+                        <TableCell>{driver.truck_plate || "N/A"}</TableCell>
+                        <TableCell>{driver.vehicle_type || "N/A"}</TableCell>
+                        <TableCell>{driver.current_location}</TableCell>
+                        <TableCell>{driver.last_update ? new Date(driver.last_update).toLocaleDateString('pt-BR') : "N/A"}</TableCell>
+                        <TableCell>{driver.last_update ? new Date(driver.last_update).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "N/A"}</TableCell>
+                        <TableCell>
+                          <Badge className="bg-success text-success-foreground">Disponível</Badge>
+                        </TableCell>
+                      </>
+                    )}
                   </TableRow>
                 ))
               ) : (
@@ -343,6 +447,15 @@ export const AvailableDrivers = () => {
         driverName={selectedDriver?.name || null}
         driverData={selectedDriver}
       />
+
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configuração de Campos</DialogTitle>
+          </DialogHeader>
+          <AvailableDriverFieldConfigManager />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

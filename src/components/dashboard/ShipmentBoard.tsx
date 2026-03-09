@@ -235,7 +235,17 @@ export const ShipmentBoard = () => {
       }
     };
 
-    const statuses: EmbarqueStatus[] = ['new', 'needs_attention', 'sent', 'waiting_confirmation', 'confirmed', 'in_transit', 'waiting_receipt'];
+    const statuses: EmbarqueStatus[] = [
+      'new',
+      'needs_attention',
+      'sent',
+      'waiting_confirmation',
+      'confirmed',
+      'in_transit',
+      'waiting_receipt',
+      'delivered',
+      'no_show'
+    ];
 
     const columns = statuses.map(status => {
       const config = statusMapping[status];
@@ -257,26 +267,6 @@ export const ShipmentBoard = () => {
         badgeColor: config.badgeColor,
         shipments
       };
-    });
-
-    // Add "Concluídos" column with period filter
-    const delivered = filterByPeriod(embarquesByStatus['delivered'] || [])
-      .map(embarque => ({
-        ...embarque,
-        deadline: formatDistanceToNow(embarque.created_at, { addSuffix: true, locale: ptBR }),
-        hasPaymentProof: false,
-        driver: embarque.driver?.name,
-        pickupDate: formatDate(embarque.pickup_date),
-        deliveryDate: formatDate(embarque.delivery_date),
-        actual_arrival: embarque.actual_arrival ? formatDistanceToNow(embarque.actual_arrival, { addSuffix: true, locale: ptBR }) : undefined,
-      }));
-
-    columns.push({
-      title: 'Concluídos',
-      status: 'delivered' as EmbarqueStatus,
-      color: 'bg-emerald-50 dark:bg-emerald-950/20',
-      badgeColor: 'bg-emerald-500',
-      shipments: delivered
     });
 
     return columns;

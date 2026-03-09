@@ -39,47 +39,47 @@ export interface ShipmentCard {
 
 export const statusMapping: Record<EmbarqueStatus, { title: string; color: string; badgeColor: string }> = {
   new: {
-    title: 'Novas Ofertas',
+    title: 'Cargas Aceitas',
     color: 'bg-blue-50 dark:bg-blue-950/20',
     badgeColor: 'bg-blue-500'
   },
   needs_attention: {
-    title: 'Verificação Necessária',
+    title: 'Cargas Confirmadas',
     color: 'bg-rose-50 dark:bg-rose-950/20',
     badgeColor: 'bg-rose-500'
   },
   sent: {
-    title: 'Ofertas Enviadas',
+    title: 'Cargas com Motoristas Alocados',
     color: 'bg-purple-50 dark:bg-purple-950/20',
     badgeColor: 'bg-purple-500'
   },
   waiting_confirmation: {
-    title: 'Aguardando Confirmação GMX',
+    title: 'Carregamento',
     color: 'bg-amber-50 dark:bg-amber-950/20',
     badgeColor: 'bg-amber-500'
   },
   confirmed: {
-    title: 'Confirmados - Aguardando Adiantamento',
+    title: 'Aguardando Carregamento',
     color: 'bg-orange-50 dark:bg-orange-950/20',
     badgeColor: 'bg-orange-500'
   },
   in_transit: {
-    title: 'Corridas em Andamento',
+    title: 'Viagem',
     color: 'bg-green-50 dark:bg-green-950/20',
     badgeColor: 'bg-green-500'
   },
   waiting_receipt: {
-    title: 'Aguardando Canhoto',
+    title: 'Aguardando Descarregamento',
     color: 'bg-cyan-50 dark:bg-cyan-950/20',
     badgeColor: 'bg-cyan-500'
   },
   delivered: {
-    title: 'Entregues',
-    color: 'bg-gray-50 dark:bg-gray-950/20',
-    badgeColor: 'bg-gray-500'
+    title: 'Descarregado',
+    color: 'bg-emerald-50 dark:bg-emerald-950/20',
+    badgeColor: 'bg-emerald-500'
   },
   no_show: {
-    title: 'No Show',
+    title: 'Esperando Carregamento',
     color: 'bg-yellow-50 dark:bg-yellow-950/20',
     badgeColor: 'bg-yellow-500'
   },

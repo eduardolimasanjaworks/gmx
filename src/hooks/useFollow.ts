@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { directus } from "@/lib/directus";
-import { readItems, createItems, deleteItems } from "@directus/sdk";
+import { readItems, createItems, deleteItems, updateItem } from "@directus/sdk";
 import { useAuth } from "@/context/AuthContext";
 
 export interface FollowItem {
@@ -12,7 +12,10 @@ export interface FollowItem {
     cliente: string;
     tp: string;        // Transportadora
     produto: string;
+    paletes?: string | number;
     status: string;
+    data_pedido?: string;
+    data_carregado?: string;
     date_created?: string;
     date_updated?: string;
 }
@@ -100,12 +103,37 @@ export function useFollow() {
         }
     });
 
+    // Mutation: update a single item
+    const updateFollowMutation = useMutation({
+        mutationFn: async ({ id, data }: { id: number | string; data: Partial<FollowItem> }) => {
+            await ensureToken();
+            try {
+                return await directus.request(updateItem('follow', id, data));
+            } catch (err: any) {
+                if (err?.message?.includes('expired') || err?.response?.status === 401 || err?.status === 401) {
+                    const newToken = await refreshToken();
+                    await directus.setToken(newToken);
+                    return await directus.request(updateItem('follow', id, data));
+                }
+                throw err;
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['follow'] });
+        },
+        onError: (err) => {
+            console.error("Error updating follow item:", err);
+        }
+    });
+
     return {
         followItems,
         isLoading,
         error,
         importFollow: (payload: Omit<FollowItem, 'id'>[]) => importFollowMutation.mutateAsync(payload),
         deleteAllFollow: () => deleteAllFollowMutation.mutateAsync(),
-        isImporting: importFollowMutation.isPending
+        updateFollow: (id: string | number, data: Partial<FollowItem>) => updateFollowMutation.mutateAsync({ id, data }),
+        isImporting: importFollowMutation.isPending,
+        isUpdating: updateFollowMutation.isPending
     };
 }

@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Upload,
+  Calendar,
 } from "lucide-react";
 import {
   Table,
@@ -31,7 +32,7 @@ import { CsvImportDialog } from "./CsvImportDialog";
 import { useNavigate } from "react-router-dom";
 
 export function ShipmentFollow() {
-  const { followItems, isLoading } = useFollow();
+  const { followItems, isLoading, updateFollow } = useFollow();
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [isCsvImportOpen, setIsCsvImportOpen] = useState(false);
@@ -54,6 +55,14 @@ export function ShipmentFollow() {
       newExpanded.add(id);
     }
     setExpandedRows(newExpanded);
+  };
+
+  const handleUpdateField = async (id: string, field: 'data_pedido' | 'data_carregado' | 'paletes', value: string) => {
+    try {
+      await updateFollow(id, { [field]: value || null });
+    } catch (err) {
+      console.error(`Failed to update ${field}`, err);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -164,16 +173,31 @@ export function ShipmentFollow() {
                       <CollapsibleContent asChild>
                         <TableRow>
                           <TableCell colSpan={7} className="bg-muted/30 p-6">
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-4 gap-4">
                               {/* Carga */}
                               <div className="p-4 border rounded-lg bg-background">
                                 <div className="flex items-center gap-2 mb-3">
                                   <Package className="h-4 w-4 text-muted-foreground" />
                                   <h4 className="font-medium">Carga</h4>
                                 </div>
-                                <div className="space-y-2 text-sm">
+                                <div className="space-y-3 text-sm">
                                   <div><span className="text-muted-foreground">Pedido:</span><p className="font-medium">{item.pedido || '-'}</p></div>
                                   <div><span className="text-muted-foreground">Produto:</span><p className="font-medium">{item.produto || '-'}</p></div>
+                                  <div>
+                                    <label className="text-muted-foreground block mb-1">Paletes:</label>
+                                    <Input
+                                      type="text"
+                                      defaultValue={item.paletes || ''}
+                                      placeholder="Ex: 12"
+                                      onBlur={(e) => {
+                                        const newVal = e.target.value;
+                                        if (newVal !== (item.paletes || '')) {
+                                          handleUpdateField(rowId, 'paletes' as any, newVal);
+                                        }
+                                      }}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
                                 </div>
                               </div>
 
@@ -200,6 +224,44 @@ export function ShipmentFollow() {
                                   <div><span className="text-muted-foreground">Cliente:</span><p className="font-medium">{item.cliente || '-'}</p></div>
                                   <div><span className="text-muted-foreground">Transportadora:</span><p className="font-medium">{item.tp || '-'}</p></div>
                                   <div><span className="text-muted-foreground">Status:</span><p className="font-medium">{item.status || '-'}</p></div>
+                                </div>
+                              </div>
+
+                              {/* Datas (Editáveis) */}
+                              <div className="p-4 border rounded-lg bg-background">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <h4 className="font-medium">Datas</h4>
+                                </div>
+                                <div className="space-y-3 text-sm">
+                                  <div>
+                                    <label className="text-muted-foreground block mb-1">Data Pedido:</label>
+                                    <Input
+                                      type="date"
+                                      defaultValue={item.data_pedido ? item.data_pedido.split('T')[0] : ''}
+                                      onBlur={(e) => {
+                                        const newVal = e.target.value;
+                                        if (newVal !== (item.data_pedido ? item.data_pedido.split('T')[0] : '')) {
+                                          handleUpdateField(rowId, 'data_pedido', newVal);
+                                        }
+                                      }}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-muted-foreground block mb-1">Data Carregado:</label>
+                                    <Input
+                                      type="date"
+                                      defaultValue={item.data_carregado ? item.data_carregado.split('T')[0] : ''}
+                                      onBlur={(e) => {
+                                        const newVal = e.target.value;
+                                        if (newVal !== (item.data_carregado ? item.data_carregado.split('T')[0] : '')) {
+                                          handleUpdateField(rowId, 'data_carregado', newVal);
+                                        }
+                                      }}
+                                      className="h-8 text-xs"
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </div>

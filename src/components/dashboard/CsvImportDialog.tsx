@@ -106,20 +106,17 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
                     // Headers reais: "codigo de pedido", "nome original", "nome do destino",
                     //                "razão social", "numero de paletes"
                     const lotToInsert = rows.map((row) => {
-                        let ped = get(row, 'codigo de pedido de insumos', 'código de pedido de insumos', 'Código de pedido', 'Codigo de pedido', 'código de pedido', 'codigo de pedido', 'codigo do pedido', 'Pedido', 'pedido');
-                        if (!ped) {
-                            ped = `[Raw Headers: ${Object.keys(row).join(' | ')}]`;
-                        }
+                        let ped = get(row, 'Código de pedido de insumos', 'código de pedido de insumos', 'codigo de pedido de insumos');
                         return {
                             status: 'novo',
-                            pedido: ped,
+                            pedido: ped || '-',
                             origem: get(row, 'nome original', 'Nome original', 'Origem', 'origem'),
                             destino: get(row, 'nome do destino', 'Destino', 'destino'),
                             uf: get(row, 'UF', 'uf'),
                             cliente: get(row, 'Cliente', 'cliente', 'nome do cliente'),
                             tp: get(row, 'razao social', 'razão social', 'TP', 'tp', 'Transportadora'),
                             produto: get(row, 'tipo de material', 'Produto', 'produto'),
-                            paletes: get(row, 'numero de paletes', 'numero de palets', 'paletes', 'Paletes'),
+                            paletes: get(row, 'numero de paletes', 'número de paletes', 'numero de palets', 'paletes', 'Paletes'),
                         };
                     });
 

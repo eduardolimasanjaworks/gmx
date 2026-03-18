@@ -38,6 +38,9 @@ export const UserManagement = () => {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const usersPerPage = 6;
 
+  // New state to manage the inputs for the currently editing user
+  const [editingData, setEditingData] = useState<{ email: string; role: string }>({ email: "", role: "" });
+
   const [formData, setFormData] = useState({
     displayName: "",
     email: "",
@@ -116,15 +119,25 @@ export const UserManagement = () => {
       // For now, if permissions match a known role, we use that role.
 
       let matchedRoleName = "personalizado";
-      for (const role of roles) {
-        if (JSON.stringify(userPermissions?.sort()) === JSON.stringify(role.permissions.sort())) {
-          matchedRoleName = role.name;
-          break;
+
+      // Allow the user to force a standard role or personalized directly through the Select input
+      // If the user explicitly sets a role in the dropdown, we prioritize that. 
+      // If they leave it on 'personalizado' or if we want to guess based on perms, we fall back to the old logic.
+      if (editingData.role && editingData.role !== 'none') {
+        matchedRoleName = editingData.role;
+      } else {
+        // Fallback or explicit 'personalizado'
+        for (const role of roles) {
+          if (JSON.stringify(userPermissions?.sort()) === JSON.stringify(role.permissions.sort())) {
+            matchedRoleName = role.name;
+            break;
+          }
         }
       }
 
-      await updateUser(userId, undefined, matchedRoleName, userPermissions as Permission[]);
+      await updateUser(userId, undefined, matchedRoleName, userPermissions as Permission[], editingData.email);
       setEditingUser(null);
+      setEditingData({ email: "", role: "" });
     } catch (error) {
       console.error(error);
     }
@@ -157,12 +170,16 @@ export const UserManagement = () => {
     });
   };
 
-  const startEditing = (userId: string, userPermissions: Permission[]) => {
+  const startEditing = (userId: string, userPermissions: Permission[], email: string, roleName: string) => {
     setEditingUser(userId);
     setSelectedPermissions(prev => ({
       ...prev,
       [userId]: userPermissions
     }));
+    setEditingData({
+      email: email,
+      role: roleName === 'personalizado' ? 'none' : roleName
+    });
   };
 
   const handleCreateRole = async () => {
@@ -429,7 +446,7 @@ export const UserManagement = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => startEditing(user.id, user.permissions)}
+                        onClick={() => startEditing(user.id, user.permissions, user.email, user.role)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -451,24 +468,58 @@ export const UserManagement = () => {
               </Badge>
 
               {editingUser === user.id && (
-                <div className="space-y-2 pt-2 border-t">
-                  <Label className="text-xs font-semibold">Editar Permissões (Personalizado):</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {permissionsList.map((permission) => (
-                      <div key={permission.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`${user.id}-${permission.id}`}
-                          checked={selectedPermissions[user.id]?.includes(permission.id)}
-                          onCheckedChange={() => togglePermission(user.id, permission.id)}
-                        />
-                        <label
-                          htmlFor={`${user.id}-${permission.id}`}
-                          className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          {permission.label}
-                        </label>
-                      </div>
-                    ))}
+                <div className="space-y-4 pt-4 border-t mt-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Editar E-mail:</Label>
+                    <Input 
+                      value={editingData.email} 
+                      onChange={(e) => setEditingData(prev => ({ ...prev, email: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Editar Cargo:</Label>
+                    <Select
+                      value={editingData.role}
+                      onValueChange={(value) => {
+                         setEditingData(prev => ({ ...prev, role: value }));
+                         if(value !== 'none') {
+                           const defaultPerms = getPermissionsForRoleName(value);
+                           setSelectedPermissions(prev => ({ ...prev, [user.id]: defaultPerms }));
+                         }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Cargo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem Cargo (Personalizado)</SelectItem>
+                        {roles.map(role => (
+                          <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Editar Permissões (Personalizado):</Label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {permissionsList.map((permission) => (
+                        <div key={permission.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`${user.id}-${permission.id}`}
+                            checked={selectedPermissions[user.id]?.includes(permission.id)}
+                            onCheckedChange={() => togglePermission(user.id, permission.id)}
+                          />
+                          <label
+                            htmlFor={`${user.id}-${permission.id}`}
+                            className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {permission.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

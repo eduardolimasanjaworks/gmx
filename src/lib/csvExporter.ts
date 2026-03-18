@@ -15,7 +15,7 @@ export const exportToCSV = (
     headers.push("Metadata (JSON)");
   }
 
-  const csvRows = [headers.join(",")];
+  const csvRows = [headers.join(";")];
 
   data.forEach((row) => {
     const values = columns.map((col) => {
@@ -28,7 +28,7 @@ export const exportToCSV = (
       values.push(`"${JSON.stringify(row.metadata).replace(/"/g, '""')}"`);
     }
 
-    csvRows.push(values.join(","));
+    csvRows.push(values.join(";"));
   });
 
   const csvContent = csvRows.join("\n");

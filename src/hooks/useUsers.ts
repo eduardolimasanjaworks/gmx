@@ -79,10 +79,11 @@ export const useUsers = () => {
     fetchUsers();
   }, []);
 
-  const updateUser = async (userId: string, displayName?: string, roleName?: string, permissions?: Permission[]) => {
+  const updateUser = async (userId: string, displayName?: string, roleName?: string, permissions?: Permission[], email?: string) => {
     try {
       const updateData: any = {};
       if (displayName) updateData.display_name = displayName;
+      if (email) updateData.email = email;
 
       if (roleName) {
         if (roleName !== 'personalizado') {
@@ -104,6 +105,19 @@ export const useUsers = () => {
         // If only updating permissions (without changing role mode explicitly, or if already personalized)
         if (permissions) {
           updateData.permissions = permissions;
+        }
+      }
+
+      // Check if email changed to update the System User as well
+      const targetUser = users.find(u => u.id === userId);
+      if (email && targetUser && targetUser.email !== email) {
+        const systemUsers = await directus.request(readUsers({
+          filter: { email: { _eq: targetUser.email } },
+          fields: ['id']
+        }));
+        
+        if (systemUsers && systemUsers.length > 0) {
+           await directus.request(updateSystemUser(systemUsers[0].id, { email }));
         }
       }
 

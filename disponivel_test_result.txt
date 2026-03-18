@@ -1,10 +1,10 @@
 === TESTE DE CRIAÇÃO EM DISPONIVEL ===
 
-Motorista ID: 281
+Motorista ID: 488
 
 TESTE 1: Payload básico
 {
-  "motorista_id": 281,
+  "motorista_id": 488,
   "status": "disponivel",
   "localizacao_atual": "São Paulo",
   "local_disponibilidade": "São Paulo"
@@ -30,11 +30,11 @@ Response:
 === TESTE 2: Com data_liberacao ===
 
 {
-  "motorista_id": 281,
+  "motorista_id": 488,
   "status": "disponivel",
   "localizacao_atual": "São Paulo",
   "local_disponibilidade": "São Paulo",
-  "data_liberacao": "2026-02-13"
+  "data_liberacao": "2026-03-17"
 }
 
 Status: 400

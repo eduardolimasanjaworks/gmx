@@ -132,13 +132,12 @@ const Dashboard = () => {
         <div className="container mx-auto px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-4">
 
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-lg text-primary-foreground">
-              <Package className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight leading-none">GMX</h1>
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Gestão Inteligente</p>
-            </div>
+            <img 
+              src="/f8ebbb4b794848718e5e8aa28d91553a.jpg" 
+              alt="GMX Soluções em Transportes" 
+              className="h-10 sm:h-12 w-auto object-contain"
+              style={{ clipPath: 'inset(0 3% 0 0)' }}
+            />
           </div>
 
           <div className="flex items-center gap-4">

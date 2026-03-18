@@ -7,7 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Settings, Save } from "lucide-react";
 import { useDriverFields } from "@/hooks/useDriverFields";
 
-export const FieldConfigManager = () => {
+interface FieldConfigManagerProps {
+  onSaved?: () => void;
+}
+
+export const FieldConfigManager = ({ onSaved }: FieldConfigManagerProps = {}) => {
   const { toast } = useToast();
   const { allFields, isLoading, refetch, saveConfig } = useDriverFields();
   const [localConfig, setLocalConfig] = useState(allFields);
@@ -42,6 +46,9 @@ export const FieldConfigManager = () => {
       });
 
       refetch();
+      if (onSaved) {
+        onSaved();
+      }
     } catch (error) {
       console.error("Error saving config:", error);
       toast({

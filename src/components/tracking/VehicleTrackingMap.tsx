@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Truck, MapPin, Clock, CalendarIcon, Crosshair, Map as MapIcon, RotateCcw, XCircle } from "lucide-react";
+import { Truck, MapPin, Clock, CalendarIcon, Crosshair, Map as MapIcon, RotateCcw, XCircle, Factory, Search, MoreVertical, Edit2, Trash2, Check, X } from "lucide-react";
 import { AdvancedMap } from "@/components/ui/interactive-map";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { directus } from "@/lib/directus";
-import { readItems } from "@directus/sdk";
+import { readItems, createItem, updateItem, deleteItem } from "@directus/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useAuth } from "@/context/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -25,8 +27,15 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { createItem } from "@directus/sdk";
 import { useToast } from "@/components/ui/use-toast";
 
 // Haversine formula
@@ -64,10 +73,25 @@ export const VehicleTrackingMap = () => {
   );
   const [isSelectingOrigin, setIsSelectingOrigin] = useState(false);
 
-  // Saving locations
-  const [isSavingLoc, setIsSavingLoc] = useState(false);
-  const [savedLocName, setSavedLocName] = useState("");
+  // Busca de Fábrica/Empresa
+  const [isSearchingFactory, setIsSearchingFactory] = useState(false);
+  const [factorySearchTerm, setFactorySearchTerm] = useState("");
+  const [factoryName, setFactoryName] = useState(""); // Nome personalizado da empresa
+  const [savedFactoryName, setSavedFactoryName] = useState("Sua Fábrica/Empresa"); // Nome aplicado ao mapa
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Dropdown Custom e Salvar Rapido
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [tempFactory, setTempFactory] = useState<any>(null);
+  const [showAllLocations, setShowAllLocations] = useState(false);
+  
+  // Edit Location
+  const [isEditingLoc, setIsEditingLoc] = useState(false);
+  const [editingLocId, setEditingLocId] = useState<string | number | null>(null);
+  const [editingLocName, setEditingLocName] = useState("");
+
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { refreshToken, user } = useAuth();
 
@@ -172,6 +196,39 @@ export const VehicleTrackingMap = () => {
     popup: `Raio de busca: ${radiusKm[0]}km`
   }] : [];
 
+  // Fábrica Custom Marker (DivIcon com Lucide/SVG) e animação de Pulse
+  const factoryIconSvg = `
+    <div class="relative flex items-center justify-center">
+      <div class="absolute w-20 h-20 bg-orange-500 rounded-full animate-ping opacity-60"></div>
+      <div style="background-color: #ea580c; border-radius: 50%; padding: 10px; border: 3px solid white; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.6); display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; position: relative; z-index: 10;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M13 18h1"/><path d="M9 18h1"/></svg>
+      </div>
+    </div>
+  `;
+  const factoryDivIcon = L.divIcon({
+    html: factoryIconSvg,
+    className: 'custom-factory-marker bg-transparent border-0',
+    iconSize: [56, 56],
+    iconAnchor: [28, 28],
+    popupAnchor: [0, -28]
+  });
+
+  // Ícone normal para as fábricas secundárias (não-ativas)
+  const normalFactoryIconSvg = `
+    <div class="relative flex items-center justify-center">
+      <div style="background-color: #f97316; border-radius: 50%; padding: 6px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; position: relative; z-index: 5;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M13 18h1"/><path d="M9 18h1"/></svg>
+      </div>
+    </div>
+  `;
+  const normalFactoryDivIcon = L.divIcon({
+    html: normalFactoryIconSvg,
+    className: 'custom-factory-marker bg-transparent border-0',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  });
+
   const { data: driverHistory = [] } = useQuery({
     queryKey: ['driver-history', selectedDriver?.motorista_id?.id || selectedDriver?.motorista_id],
     enabled: !!selectedDriver,
@@ -186,6 +243,23 @@ export const VehicleTrackingMap = () => {
         }));
         return history;
       } catch (err) {
+        return [];
+      }
+    }
+  });
+
+  const { data: savedLocations = [], isLoading: isLoadingLocs } = useQuery({
+    queryKey: ['saved-locations', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      try {
+        const results = await directus.request(readItems('locais_salvos', {
+          filter: { user_created: { _eq: user.id } },
+          sort: ['-date_created']
+        }));
+        return results;
+      } catch (err: any) {
+        console.error("Directus Erro Locais (read):", err, err.errors);
         return [];
       }
     }
@@ -238,7 +312,7 @@ export const VehicleTrackingMap = () => {
 
   // Merge Custom markers for Future and History destinations of the Selected Driver
   const mapMarkers = useMemo(() => {
-    const defaultMarkers = [...markers];
+    const defaultMarkers: any[] = [...markers];
 
     if (selectedDriver) {
       const currentLat = Number(selectedDriver.latitude);
@@ -253,7 +327,8 @@ export const VehicleTrackingMap = () => {
           size: 'medium',
           popup: {
             title: 'Destino Final do Motorista',
-            content: selectedDriver.destino_atual || 'Destino Relatado'
+            content: selectedDriver.destino_atual || 'Destino Relatado',
+            image: undefined
           }
         });
       }
@@ -269,15 +344,51 @@ export const VehicleTrackingMap = () => {
             size: 'small',
             popup: {
               title: 'Ponto de Partida Histórico',
-              content: new Date(firstP.date_created).toLocaleString()
+              content: new Date(firstP.date_created).toLocaleString(),
+              image: undefined
             }
           });
         }
       }
     }
 
+    if (originPoint) {
+      defaultMarkers.push({
+        id: 'factory-origin',
+        position: originPoint,
+        icon: factoryDivIcon,
+        popup: {
+          title: savedFactoryName,
+          content: 'Ponto fixo definido e salvo no mapa.',
+          image: undefined
+        }
+      });
+    }
+
+    if (showAllLocations && savedLocations && savedLocations.length > 0) {
+      savedLocations.forEach((loc: any) => {
+        const lat = Number(loc.latitude);
+        const lng = Number(loc.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          // Não renderizamos de novo a fábrica se ela já é a fábrica principal sendo focada (originPoint)
+          if (!originPoint || originPoint[0] !== lat || originPoint[1] !== lng) {
+            defaultMarkers.push({
+              id: `saved-loc-${loc.id}`,
+              position: [lat, lng],
+              icon: normalFactoryDivIcon,
+              popup: {
+                title: loc.nome,
+                content: 'Fábrica Cadastrada (Clique no Menu para focar)',
+                image: undefined
+              }
+            });
+          }
+        }
+      });
+    }
+
     return defaultMarkers;
-  }, [markers, selectedDriver, driverHistory]);
+  }, [markers, selectedDriver, driverHistory, originPoint, savedFactoryName, showAllLocations, savedLocations]);
 
   const handleMarkerClick = (marker: any) => {
     const driver = drivers.find((d: any) => d.id === marker.id);
@@ -295,10 +406,38 @@ export const VehicleTrackingMap = () => {
   };
 
   const handleMapClick = (latlng: any) => {
-    if (isSelectingOrigin) {
-      setOriginPoint([latlng.lat, latlng.lng]);
-      setIsSelectingOrigin(false);
-      setMapCenter([latlng.lat, latlng.lng]);
+    // If we want to support map clicking later
+  };
+
+  const handleSearchFactory = async () => {
+    if (!factorySearchTerm.trim()) return;
+    setIsSearching(true);
+    try {
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(factorySearchTerm)}`);
+      const results = await resp.json();
+      if (results && results.length > 0) {
+        const { lat, lon } = results[0];
+        const newPoint: [number, number] = [parseFloat(lat), parseFloat(lon)];
+        setOriginPoint(newPoint);
+        setMapCenter(newPoint);
+        setMapZoom(13);
+        setSavedFactoryName(factoryName.trim() || 'Sua Fábrica/Empresa');
+        setIsSearchingFactory(false);
+        setTempFactory({
+          nome: factoryName.trim() || 'Sua Fábrica/Empresa',
+          latitude: newPoint[0],
+          longitude: newPoint[1]
+        });
+        setIsDropdownOpen(true);
+        setFactorySearchTerm("");
+        setFactoryName("");
+      } else {
+        toast({ title: "Não Encontrado", description: "Não conseguimos achar este endereço. Tente ser mais específico.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Erro na Busca", description: "Ocorreu um erro ao buscar o endereço.", variant: "destructive" });
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -331,30 +470,82 @@ export const VehicleTrackingMap = () => {
     return { label: "Sinergia Baixa", bg: "bg-red-100", text: "text-red-800", border: "border-red-300", icon: "🔴" };
   };
 
-  const handleSaveLocation = async () => {
-    if (!originPoint || !savedLocName.trim() || !user) return;
-
-    try {
-      await directus.request(createItem('locais_salvos', {
-        nome: savedLocName,
-        latitude: originPoint[0],
-        longitude: originPoint[1],
-        icone: 'map-pin',
-        usuario_id: user.id
+  const createLocationMutation = useMutation({
+    mutationFn: async (factoryData: any) => {
+      if (!user) throw new Error("Sem usuário logado");
+      return await directus.request(createItem('locais_salvos', {
+        nome: factoryData.nome,
+        latitude: factoryData.latitude,
+        longitude: factoryData.longitude,
+        icone: 'map-pin'
       }));
-      toast({ title: "Local Salvo!", description: "O local foi salvo com sucesso em seu registro global." });
-      setIsSavingLoc(false);
-      setSavedLocName("");
-    } catch (e) {
-      toast({ title: "Erro", description: "Não foi possível salvar o local.", variant: "destructive" });
+    },
+    onSuccess: () => {
+      toast({ title: "Fábrica Salva!", description: "Fábrica confirmada e salva na conta." });
+      setTempFactory(null);
+      queryClient.invalidateQueries({ queryKey: ['saved-locations'] });
+    },
+    onError: (err: any) => {
+      console.error("Directus Erro Criar Fábrica:", err, err?.errors);
+      toast({ title: "Erro ao Salvar", description: err.message || "Tente novamente mais tarde.", variant: "destructive" });
+    },
+  });
+
+  const handleConfirmTempFactory = () => {
+    if (tempFactory) {
+      createLocationMutation.mutate(tempFactory);
+    }
+  };
+
+  const handleDeclineTempFactory = () => {
+    setTempFactory(null);
+    clearFilters();
+    setIsDropdownOpen(false);
+    toast({ title: "Cancelado", description: "Busca descartada sem salvar." });
+  };
+
+  const updateLocationMutation = useMutation({
+    mutationFn: async ({ id, nome }: { id: string | number; nome: string }) => {
+      return await directus.request(updateItem('locais_salvos', id, { nome }));
+    },
+    onSuccess: () => {
+      toast({ title: "Atualizado", description: "O nome da Fábrica foi atualizado." });
+      setIsEditingLoc(false);
+      queryClient.invalidateQueries({ queryKey: ['saved-locations'] });
+      // Se estamos focados nessa fábrica, re-escrevemos o título no pin
+      if (editingLocName.trim()) setSavedFactoryName(editingLocName.trim());
+    },
+    onError: () => toast({ title: "Erro", description: "Não foi possível atualizar o local.", variant: "destructive" }),
+  });
+
+  const deleteLocationMutation = useMutation({
+    mutationFn: async (id: string | number) => {
+      return await directus.request(deleteItem('locais_salvos', id));
+    },
+    onSuccess: (data, id) => {
+      toast({ title: "Removido", description: "Fábrica excluída da lista com sucesso." });
+      queryClient.invalidateQueries({ queryKey: ['saved-locations'] });
+      // Clear current focus if we deleted the highlighted origin point
+      // (This requires a deeper check, but for now we won't strictly auto-clear originPoint to not disrupt viewing)
+    },
+    onError: () => toast({ title: "Erro", description: "Não foi possível remover o local.", variant: "destructive" }),
+  });
+
+  const handleFocusSavedLocation = (loc: any) => {
+    const lat = Number(loc.latitude);
+    const lng = Number(loc.longitude);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      setOriginPoint([lat, lng]);
+      setMapCenter([lat, lng]);
+      setMapZoom(13);
+      setSavedFactoryName(loc.nome || "Fábrica Salva");
+      toast({ title: "Fábrica Selecionada", description: `Buscando motoristas perto de ${loc.nome}` });
     }
   };
 
   const clearFilters = () => {
-    setTimeTravelDate(undefined);
-    setOriginPoint(null);
-    setRadiusKm([50]);
-    setIsSelectingOrigin(false);
+    // setOriginPoint(null);
+    // setRadiusKm([50]);
   };
 
   if (isError) {
@@ -419,60 +610,63 @@ export const VehicleTrackingMap = () => {
 
             {/* 2. Ponto de Origem */}
             <div className="flex flex-col gap-2">
-              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ponto de Busca (Mapa)</Label>
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ponto de Busca (Fábrica)</Label>
               <div className="flex items-center gap-2">
-                <Button
-                  variant={isSelectingOrigin ? "default" : (originPoint ? "secondary" : "outline")}
-                  onClick={() => setIsSelectingOrigin(!isSelectingOrigin)}
-                  className="w-[200px]"
-                >
-                  {isSelectingOrigin ? (
-                    <>
-                      <Crosshair className="animate-pulse mr-2 h-4 w-4" />
-                      Clique no mapa...
-                    </>
-                  ) : originPoint ? (
-                    <>
-                      <MapPin className="mr-2 h-4 w-4 text-emerald-600" />
-                      Ponto Selecionado
-                    </>
-                  ) : (
-                    <>
-                      <MapIcon className="mr-2 h-4 w-4" />
-                      Selecionar Ponto
-                    </>
-                  )}
-                </Button>
-
-                {originPoint && (
-                  <Dialog open={isSavingLoc} onOpenChange={setIsSavingLoc}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="icon" title="Salvar Ponto">
-                        <MapPin className="h-4 w-4 text-emerald-600" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Salvar Localização</DialogTitle>
-                        <DialogDescription>Dê um nome a este ponto no mapa para utilizá-lo frequentemente (ex: Centro Logístico SP).</DialogDescription>
-                      </DialogHeader>
-                      <div className="py-4 space-y-4">
-                        <div className="space-y-2">
-                          <Label>Nome do Local</Label>
-                          <Input value={savedLocName} onChange={e => setSavedLocName(e.target.value)} placeholder="Ex: Armazém Sudeste" />
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center justify-between bg-muted/50 p-3 rounded border">
-                          <span>Coordenadas:</span>
-                          <span className="font-mono">{originPoint[0].toFixed(5)}, {originPoint[1].toFixed(5)}</span>
+                <Dialog open={isSearchingFactory} onOpenChange={setIsSearchingFactory}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant={originPoint ? "secondary" : "outline"}
+                      className="w-[200px]"
+                    >
+                      {originPoint ? (
+                        <>
+                          <Factory className="mr-2 h-4 w-4 text-orange-600" />
+                          Fábrica Definida
+                        </>
+                      ) : (
+                        <>
+                          <Factory className="mr-2 h-4 w-4" />
+                          Adicionar Fábrica
+                        </>
+                      )}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Adicionar Fábrica/Empresa</DialogTitle>
+                      <DialogDescription>
+                        Dê um nome e informe o endereço da empresa para fixar o ponto no mapa.
+                        Os motoristas no raio serão filtrados com base nesta localização.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Nome da Fábrica / Empresa</Label>
+                        <Input
+                          value={factoryName}
+                          onChange={(e) => setFactoryName(e.target.value)}
+                          placeholder="Ex: Armazém Central - GMX"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Endereço</Label>
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            value={factorySearchTerm}
+                            onChange={(e) => setFactorySearchTerm(e.target.value)}
+                            placeholder="Ex: Avenida Presidente Vargas, Rio de Janeiro"
+                            onKeyDown={(e) => e.key === 'Enter' && handleSearchFactory()}
+                          />
+                          <Button type="button" onClick={handleSearchFactory} disabled={isSearching || !factorySearchTerm.trim()}>
+                            {isSearching ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                          </Button>
                         </div>
                       </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsSavingLoc(false)}>Cancelar</Button>
-                        <Button onClick={handleSaveLocation} disabled={!savedLocName.trim()}>Salvar Ponto</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+
               </div>
             </div>
 
@@ -494,16 +688,139 @@ export const VehicleTrackingMap = () => {
 
           </div>
 
-          {/* Right Group: Clear Filters */}
-          {(timeTravelDate || originPoint) && (
-            <Button variant="ghost" className="text-muted-foreground hover:text-red-500 hover:bg-red-50" onClick={clearFilters}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Limpar Filtros
-            </Button>
-          )}
+          {/* Right Group: Clear Filters & Saved Locations */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto mt-4 md:mt-0">
+            {/* 4. Dropdown de Fábricas Salvas */}
+            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto bg-orange-50/50 hover:bg-orange-100/80 text-orange-700 border-orange-200">
+                  <Factory className="mr-2 h-4 w-4" />
+                  Fábricas Cadastradas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 max-h-[300px] overflow-y-auto" onInteractOutside={() => {
+                // Ao buscar nós mostramos o Dropdown forçado, mas o usuário pode clicar fora pra ignorar
+                if (isDropdownOpen && !tempFactory) setIsDropdownOpen(false);
+              }}>
+                <DropdownMenuLabel>
+                  <div className="flex items-center justify-between">
+                    <span>Locais Salvos na sua Conta</span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className={`h-7 px-2 text-xs transition-colors ${showAllLocations ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'text-slate-500 hover:text-orange-700'}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAllLocations(!showAllLocations);
+                      }}
+                    >
+                      <MapIcon className="h-3 w-3 mr-1" />
+                      {showAllLocations ? "Ocultar do Mapa" : "Mostrar Todas"}
+                    </Button>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                
+                {/* Temp Factory para confirmar Salvamento Rapido */}
+                {tempFactory && (
+                  <div className="flex flex-col p-2 mb-2 bg-amber-50 rounded-md border border-amber-200">
+                    <span className="text-xs font-bold text-amber-800 uppercase mb-1">Confirmar Cadastro?</span>
+                    <div className="flex items-center justify-between">
+                      <span className="flex-1 text-sm font-semibold truncate text-amber-900 pr-2">
+                        {tempFactory.nome}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 bg-emerald-100 text-emerald-700 hover:bg-emerald-200" onClick={handleConfirmTempFactory}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 bg-red-100 text-red-700 hover:bg-red-200" onClick={handleDeclineTempFactory}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isLoadingLocs && <div className="p-4 text-center text-sm text-slate-500">Carregando...</div>}
+                {!isLoadingLocs && savedLocations.length === 0 && !tempFactory && (
+                  <div className="p-4 text-center text-sm text-slate-500">Nenhuma fábrica cadastrada ainda.</div>
+                )}
+                {savedLocations.map((loc: any) => (
+                  <div key={loc.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-md group">
+                    <button 
+                      className="flex-1 text-left text-sm font-medium pr-2 truncate"
+                      onClick={() => handleFocusSavedLocation(loc)}
+                    >
+                      {loc.nome}
+                    </button>
+                    {/* Botões Secundários */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-60 group-hover:opacity-100">
+                          <MoreVertical className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingLocId(loc.id);
+                          setEditingLocName(loc.nome);
+                          setIsEditingLoc(true);
+                        }}>
+                          <Edit2 className="mr-2 h-4 w-4" /> Editar Nome
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-600 focus:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm("Certeza que deseja remover esta fábrica?")) {
+                              deleteLocationMutation.mutate(loc.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Excluir Fábrica
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
         </CardContent>
       </Card>
+
+      {/* Editor Modal para o Nome da Fábrica */}
+      <Dialog open={isEditingLoc} onOpenChange={setIsEditingLoc}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Nome da Fábrica</DialogTitle>
+            <DialogDescription>Alterar o nome atribuído a este local nas opções salvas.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="mb-2 block">Novo Nome</Label>
+            <Input 
+              value={editingLocName} 
+              onChange={e => setEditingLocName(e.target.value)}
+              onKeyDown={e => {
+                if(e.key === 'Enter' && editingLocName) {
+                  updateLocationMutation.mutate({ id: editingLocId as string, nome: editingLocName.trim() });
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditingLoc(false)}>Cancelar</Button>
+            <Button 
+              onClick={() => updateLocationMutation.mutate({ id: editingLocId as string, nome: editingLocName.trim() })}
+              disabled={!editingLocName.trim() || updateLocationMutation.isPending}
+            >
+              <Check className="w-4 h-4 mr-2" /> Salvar Modificações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Main Content Grid */}
       <div className="flex flex-col lg:flex-row gap-6">
@@ -515,7 +832,6 @@ export const VehicleTrackingMap = () => {
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <MapIcon className="h-5 w-5 text-primary" />
                   Rastreamento
-                  {isSelectingOrigin && <span className="text-xs font-normal text-emerald-600 animate-pulse ml-2">Modo seleção de alvo ativado</span>}
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   {timeTravelDate && (
@@ -541,15 +857,10 @@ export const VehicleTrackingMap = () => {
                   onMarkerClick={handleMarkerClick}
                   onMapClick={handleMapClick}
                   enableClustering={true}
-                  enableSearch={true}
+                  enableSearch={false}
                   enableControls={true}
                   style={{ height: '600px', width: '100%' }}
                 />
-              )}
-              {isSelectingOrigin && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-zinc-900 text-white px-4 py-2 rounded-full font-medium shadow-lg animate-bounce text-sm">
-                  👇 Clique em qualquer lugar no mapa
-                </div>
               )}
             </CardContent>
           </Card>

@@ -21,7 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 export const DynamicDriverRegistry = () => {
   const { toast } = useToast();
   const { refreshToken, logout } = useAuth();
-  const { cardFields, tableFields, isLoading: fieldsLoading } = useDriverFields();
+  const { cardFields, tableFields, allFields, isLoading: fieldsLoading } = useDriverFields();
   const [drivers, setDrivers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
@@ -228,14 +228,14 @@ export const DynamicDriverRegistry = () => {
   const exportToCSV = () => {
     if (filteredDrivers.length === 0) return;
 
-    const headers = activeDisplayFields.map(f => f.display_name);
+    const headers = allFields.map(f => f.display_name);
     const rows = filteredDrivers.map(driver =>
-      activeDisplayFields.map(field => driver[field.field_name] || "")
+      allFields.map(field => driver[field.field_name] || "")
     );
 
     const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+      `\uFEFF${headers.join(";")}`,
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -384,14 +384,11 @@ export const DynamicDriverRegistry = () => {
                       <span className="text-muted-foreground">{field.display_name}:</span>
                       <span className="font-medium">
                         {(field.id === 'status' || field.field_name === 'status_logistica') ? (
-                          <Button
-                            variant={driver.status_logistica === 'Disponível' ? "default" : "destructive"}
-                            size="sm"
-                            className={`h-6 text-xs ${driver.status_logistica === 'Disponível' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-                            onClick={(e) => handleToggleStatus(driver, e)}
+                          <Badge
+                            className={`h-6 text-xs w-24 flex items-center justify-center ${driver.status_logistica === 'Disponível' ? 'bg-green-600 hover:bg-green-600' : 'bg-red-600 hover:bg-red-600'}`}
                           >
                             {driver.status_logistica}
-                          </Button>
+                          </Badge>
                         ) : (
                           driver[field.field_name]
                         )}
@@ -411,13 +408,12 @@ export const DynamicDriverRegistry = () => {
                 {activeDisplayFields.map((field) => (
                   <TableHead key={field.id}>{field.display_name}</TableHead>
                 ))}
-                <TableHead className="w-[80px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {currentDrivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeDisplayFields.length + 1} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={activeDisplayFields.length} className="text-center py-8 text-muted-foreground">
                     Nenhum motorista encontrado
                   </TableCell>
                 </TableRow>
@@ -435,28 +431,16 @@ export const DynamicDriverRegistry = () => {
                     {activeDisplayFields.map((field) => (
                       <TableCell key={field.id}>
                         {(field.id === 'status' || field.field_name === 'status_logistica') ? (
-                          <Button
-                            variant={driver.status_logistica === 'Disponível' ? "default" : "destructive"}
-                            size="sm"
-                            className={`h-6 text-xs w-24 ${driver.status_logistica === 'Disponível' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
-                            onClick={(e) => handleToggleStatus(driver, e)}
+                          <Badge
+                            className={`h-6 text-xs w-24 flex items-center justify-center ${driver.status_logistica === 'Disponível' ? 'bg-green-600 hover:bg-green-600' : 'bg-red-600 hover:bg-red-600'}`}
                           >
                             {driver.status_logistica}
-                          </Button>
+                          </Badge>
                         ) : (
                           driver[field.field_name]
                         )}
                       </TableCell>
                     ))}
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => handleEditDriver(driver, e)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -518,7 +502,7 @@ export const DynamicDriverRegistry = () => {
           <DialogHeader>
             <DialogTitle>Configuração de Campos</DialogTitle>
           </DialogHeader>
-          <FieldConfigManager />
+          <FieldConfigManager onSaved={() => setIsConfigOpen(false)} />
         </DialogContent>
       </Dialog>
 

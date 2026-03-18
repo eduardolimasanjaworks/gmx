@@ -600,7 +600,9 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                   <div className="pt-4 border-t">
                     <p className="text-sm text-muted-foreground mb-2">Motorista Responsável</p>
                     <div className="flex items-center justify-between">
-                      <p className="font-medium">{shipment.driver}</p>
+                      <p className="font-medium">
+                        {typeof shipment.driver === 'object' ? shipment.driver.name : shipment.driver}
+                      </p>
                       <Button variant="outline" size="sm">
                         Ver Perfil
                       </Button>

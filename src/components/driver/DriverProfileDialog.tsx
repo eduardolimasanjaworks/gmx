@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Pencil, User, FileText, Truck, ScrollText, X, AlertCircle, Save, Loader2, ScanText, ImageIcon, File as FileIcon, Plus } from "lucide-react";
+import { Pencil, User, FileText, Truck, ScrollText, X, AlertCircle, Save, Loader2, ScanText, ImageIcon, File as FileIcon, Plus, MapPin, Search } from "lucide-react";
 import { directus, directusUrl } from "@/lib/directus";
 import { readItems, updateItem, createItem } from "@directus/sdk";
 import { Input } from "@/components/ui/input";
@@ -182,6 +182,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
   const [loading, setLoading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [isEditingAvailability, setIsEditingAvailability] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editFormData, setEditFormData] = useState<any>({});
@@ -321,16 +322,45 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     if (open) {
       if (driverData?.id) {
         setLocalDriverData(driverData);
-        if (initialEditMode) handleEditInfo();
+        if (initialEditMode) handleEditInfo(driverData);
         fetchRelatedData();
       } else {
         setLocalDriverData(null);
         setEditFormData({});
         setData({ cnh: null, antt: null, crlv: null, comprovante_endereco: null, fotos: null, carretas: [], disponivel: null });
         setInfoFormData({});
-        setIsEditingInfo(true);
+        
+        // --- BUFFERS CLEANUP ---
+        // Reset all edit mode flags immediately when opening a new driver or closing the dialog
+        setIsEditingInfo(false);
+        setIsEditingAvailability(false);
+        setIsEditingCarreta(false);
+        setIsEditingCNH(false);
+        setIsEditingCRLV(false);
+        setIsEditingANTT(false);
+        setIsEditingAddress(false);
         setLoading(false);
+        
+        if (driverData === undefined) {
+          setIsEditingInfo(true);
+        }
       }
+    } else {
+      // Dialog specifically closing - Clean up memory to avoid leaking to next driver
+      setLocalDriverData(null);
+      setEditFormData({});
+      setData({ cnh: null, antt: null, crlv: null, comprovante_endereco: null, fotos: null, carretas: [], disponivel: null });
+      setInfoFormData({});
+      
+      setIsEditingInfo(false);
+      setIsEditingAvailability(false);
+      setIsEditingCarreta(false);
+      setIsEditingCNH(false);
+      setIsEditingCRLV(false);
+      setIsEditingANTT(false);
+      setIsEditingAddress(false);
+      setLoading(false);
+      setActiveTab("geral");
     }
   }, [open, driverData, initialEditMode]);
 
@@ -379,7 +409,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       localizacao_atual: src.localizacao_atual || src.local_disponibilidade || '',
       latitude: src.latitude ?? '',
       longitude: src.longitude ?? '',
-      data_liberacao: src.data_liberacao ? new Date(src.data_liberacao).toISOString().split('T')[0] : '',
+      data_previsao_disponibilidade: src.data_previsao_disponibilidade ? new Date(src.data_previsao_disponibilidade).toISOString().split('T')[0] : '',
       observacao: src.observacao || ''
     });
     setIsEditingAvailability(true);
@@ -410,7 +440,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         local_disponibilidade: editFormData.localizacao_atual,
         latitude: parseNumberOrUndefined(editFormData.latitude),
         longitude: parseNumberOrUndefined(editFormData.longitude),
-        data_liberacao: editFormData.data_liberacao,
+        data_previsao_disponibilidade: editFormData.data_previsao_disponibilidade || null,
         observacao: editFormData.observacao
       };
 
@@ -429,10 +459,55 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     } finally { setLoading(false); }
   };
 
+  const handleGeocodeLocation = async () => {
+    if (!editFormData.localizacao_atual) {
+      toast({ variant: "destructive", title: "Digite um local", description: "Escreva algo na caixa de Localização primeiro." });
+      return;
+    }
+    
+    setIsGeocoding(true);
+    try {
+      const query = encodeURIComponent(editFormData.localizacao_atual);
+      // Limitando as buscas para países da América do Sul (Brasil, Argentina, Uruguai, Paraguai, Chile, Bolívia, Peru, Equador, Venezuela, Colômbia, Guianas)
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br,ar,uy,py,cl,bo,pe,ec,ve,co,gy,sr&q=${query}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept-Language': 'pt-BR,pt;q=0.9',
+          // Nominatim requires an identifiable user agent
+          'User-Agent': 'GMX Logistica/1.0' 
+        }
+      });
+
+      if (!response.ok) throw new Error('Falha na conexão com servidor de mapas.');
+      
+      const results = await response.json();
+      
+      if (results && results.length > 0) {
+        const { lat, lon, display_name } = results[0];
+        setEditFormData((prev: any) => ({
+          ...prev,
+          latitude: Number(lat).toFixed(6),
+          longitude: Number(lon).toFixed(6),
+           // Optional: you can update the location string to the canonical name by doing:
+           // localizacao_atual: display_name 
+        }));
+        toast({ title: "Local Econtrado!", description: `Coordenadas capturadas para: ${display_name.split(',')[0]}...` });
+      } else {
+        toast({ variant: "destructive", title: "Local não encontrado.", description: "Tente escrever de forma mais completa (ex: Cidade, Estado)." });
+      }
+
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro na geolocalização", description: e.message || "Erro desconhecido." });
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   const handleCancelEdit = () => { setIsEditingAvailability(false); setEditFormData({}); };
 
-  const handleEditInfo = () => {
-    const sourceData = localDriverData || {};
+  const handleEditInfo = (source = localDriverData) => {
+    const sourceData = source || {};
     setInfoFormData({
       nome: sourceData.nome || '', sobrenome: sourceData.sobrenome || '', telefone: sourceData.telefone || '',
       forma_pagamento: sourceData.forma_pagamento || '', cpf: sourceData.cpf || '', cidade: sourceData.cidade || '', estado: sourceData.estado || '',
@@ -735,9 +810,37 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             </SelectContent>
                           </Select>
                         </div>
-                        <InputField label="Localização (Extenso)" value={editFormData.localizacao_atual} onChange={(v: any) => setEditFormData({ ...editFormData, localizacao_atual: v })} />
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground flex justify-between items-center">
+                            Localização (Extenso)
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-6 text-[10px] px-2 py-0" 
+                              onClick={handleGeocodeLocation}
+                              disabled={isGeocoding}
+                              type="button"
+                            >
+                              {isGeocoding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Search className="h-3 w-3 mr-1 text-blue-500" />}
+                              GPS Auto
+                            </Button>
+                          </span>
+                          <Input 
+                            value={editFormData.localizacao_atual || ''} 
+                            placeholder="Ex: São Paulo, SP"
+                            onChange={(e) => setEditFormData({ ...editFormData, localizacao_atual: e.target.value })} 
+                          />
+                        </div>
                         <InputField label="Latitude" value={editFormData.latitude} onChange={(v: any) => setEditFormData({ ...editFormData, latitude: v })} />
                         <InputField label="Longitude" value={editFormData.longitude} onChange={(v: any) => setEditFormData({ ...editFormData, longitude: v })} />
+                        <div className="flex flex-col space-y-1.5 pt-1">
+                          <span className="text-sm text-muted-foreground">Data Prevista de Liberação</span>
+                          <Input 
+                            type="date" 
+                            value={editFormData.data_previsao_disponibilidade || ''} 
+                            onChange={(e) => setEditFormData({ ...editFormData, data_previsao_disponibilidade: e.target.value })} 
+                          />
+                        </div>
                         <div className="col-span-2"><InputField label="Observação" value={editFormData.observacao} onChange={(v: any) => setEditFormData({ ...editFormData, observacao: v })} /></div>
                       </>
                     ) : (
@@ -745,6 +848,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <FieldRow label="Status" value={data.disponivel?.status?.toUpperCase()} />
                         <FieldRow label="Localização" value={data.disponivel?.localizacao_atual || data.disponivel?.local_disponibilidade} />
                         <FieldRow label="Lat/Long" value={`${data.disponivel?.latitude || ''}, ${data.disponivel?.longitude || ''}`} />
+                        <FieldRow label="Previsão Liberação" value={data.disponivel?.data_previsao_disponibilidade ? new Date(data.disponivel.data_previsao_disponibilidade).toLocaleDateString('pt-BR') : ''} />
                         <div className="col-span-2"><FieldRow label="Obs" value={data.disponivel?.observacao} /></div>
                         <div className="col-span-2 text-xs text-muted-foreground mt-2">Atualizado em: {formatDate(data.disponivel?.date_created)}</div>
                       </>

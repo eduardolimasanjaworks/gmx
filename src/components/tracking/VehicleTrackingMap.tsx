@@ -65,7 +65,7 @@ export const VehicleTrackingMap = () => {
 
   // Filters State
   const [timeTravelDate, setTimeTravelDate] = useState<Date | undefined>(
-    urlDate ? new Date(urlDate) : undefined
+    urlDate ? new Date(urlDate) : new Date()
   );
   const [radiusKm, setRadiusKm] = useState<number[]>([150]); // Default slightly larger for loads
   const [originPoint, setOriginPoint] = useState<[number, number] | null>(
@@ -131,7 +131,28 @@ export const VehicleTrackingMap = () => {
     }
 
     return Array.from(latestStatusMap.values())
-      .filter((item: any) => item.disponivel === true);
+      .filter((item: any) => {
+        // Só exibe motoristas marcados como disponíveis
+        if (item.disponivel !== true) return false;
+
+        // Quando "Viagem no Tempo" está ativa, aplicar regra temporal:
+        if (timeTravelDate) {
+          const endOfSelectedDay = new Date(timeTravelDate);
+          endOfSelectedDay.setHours(23, 59, 59, 999);
+
+          if (item.data_previsao_disponibilidade) {
+            // Motorista com data futura: só aparece a partir da data prevista
+            const previsao = new Date(item.data_previsao_disponibilidade);
+            return previsao <= endOfSelectedDay;
+          } else {
+            // Motorista sem data futura: aparece se o registro foi criado até o dia selecionado
+            const criado = new Date(item.date_created);
+            return criado <= endOfSelectedDay;
+          }
+        }
+
+        return true;
+      });
   };
 
   const { data: fetchedDrivers = [], isLoading, isError } = useQuery({

@@ -110,11 +110,6 @@ const CpfInputField = ({ label, value, onChange, referenceCpf }: any) => {
       return;
     }
 
-    if (!/^\d+$/.test(newVal)) {
-      setError("Apenas números são permitidos");
-      return;
-    }
-
     setError("");
     onChange(newVal);
 
@@ -506,11 +501,14 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
   const handleCancelEdit = () => { setIsEditingAvailability(false); setEditFormData({}); };
 
-  const handleEditInfo = (source = localDriverData) => {
-    const sourceData = source || {};
+  const handleEditInfo = (source?: any) => {
+    // Prioridade: parâmetro passado > estado interno localDriverData > prop driverData
+    // Isso garante que, mesmo que o useEffect ainda não tenha sincronizado o estado,
+    // os campos do formulário sejam preenchidos com os dados existentes do motorista.
+    const sourceData = source ?? localDriverData ?? driverData ?? {};
     setInfoFormData({
-      nome: sourceData.nome || '', sobrenome: sourceData.sobrenome || '', telefone: sourceData.telefone || '',
-      forma_pagamento: sourceData.forma_pagamento || '', cpf: sourceData.cpf || '', cidade: sourceData.cidade || '', estado: sourceData.estado || '',
+      nome: sourceData.nome || '', telefone: sourceData.telefone || '',
+      forma_pagamento: sourceData.forma_pagamento || '', cpf: sourceData.cpf || ''
     });
     setIsEditingInfo(true);
   };
@@ -519,14 +517,14 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       let resultDriver: any = null;
       if (localDriverData?.id) {
         const updated = await directus.request(updateItem('cadastro_motorista', localDriverData.id, {
-          nome: infoFormData.nome, sobrenome: infoFormData.sobrenome, telefone: infoFormData.telefone,
-          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, cidade: infoFormData.cidade, estado: infoFormData.estado,
+          nome: infoFormData.nome, telefone: infoFormData.telefone,
+          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf,
         }));
         setLocalDriverData(updated); toast({ title: "Atualizado com sucesso" }); resultDriver = updated;
       } else {
         const newDriver = await directus.request(createItem('cadastro_motorista', {
-          nome: infoFormData.nome, sobrenome: infoFormData.sobrenome, telefone: infoFormData.telefone,
-          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, cidade: infoFormData.cidade, estado: infoFormData.estado, status: 'draft'
+          nome: infoFormData.nome, telefone: infoFormData.telefone,
+          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, status: 'draft'
         }));
         setLocalDriverData(newDriver); resultDriver = newDriver; toast({ title: "Motorista criado!" });
       }
@@ -719,12 +717,11 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
             )}
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="geral">Geral</TabsTrigger>
-                <TabsTrigger value="disponibilidade" disabled={!localDriverData?.id}>Disponibilidade</TabsTrigger>
                 <TabsTrigger value="docs" disabled={!localDriverData?.id}>Documentos</TabsTrigger>
-                <TabsTrigger value="veiculos" disabled={!localDriverData?.id}>Veículos</TabsTrigger>
                 <TabsTrigger value="fotos" disabled={!localDriverData?.id}>Fotos</TabsTrigger>
+                <TabsTrigger value="disponibilidade" disabled={!localDriverData?.id}>Disponibilidade</TabsTrigger>
               </TabsList>
 
               {!localDriverData?.id && (
@@ -740,7 +737,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     <CardTitle className="text-lg flex items-center gap-2 justify-between">
                       Informações Básicas
                       {!isEditingInfo ? (
-                        <Button variant="ghost" size="sm" onClick={handleEditInfo}>
+                        <Button variant="ghost" size="sm" onClick={() => handleEditInfo()}>
                           <Pencil className="h-4 w-4 mr-2" /> Editar
                         </Button>
                       ) : (
@@ -754,103 +751,19 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                   <CardContent className="grid gap-4 md:grid-cols-2">
                     {isEditingInfo ? (
                       <>
-                        <InputField label="Nome" value={infoFormData.nome} onChange={(v: any) => setInfoFormData({ ...infoFormData, nome: v })} />
-                        <InputField label="Sobrenome" value={infoFormData.sobrenome} onChange={(v: any) => setInfoFormData({ ...infoFormData, sobrenome: v })} />
+                        <InputField label="Nome Completo" value={infoFormData.nome} onChange={(v: any) => setInfoFormData({ ...infoFormData, nome: v })} />
                         <InputField label="Telefone" value={infoFormData.telefone} onChange={(v: any) => setInfoFormData({ ...infoFormData, telefone: v })} />
-                        <InputField label="Forma Pagamento" value={infoFormData.forma_pagamento} onChange={(v: any) => setInfoFormData({ ...infoFormData, forma_pagamento: v })} />
-                        <InputField label="CPF" numeric value={infoFormData.cpf} onChange={(v: any) => setInfoFormData({ ...infoFormData, cpf: v })} />
-                        <InputField label="Cidade" value={infoFormData.cidade} onChange={(v: any) => setInfoFormData({ ...infoFormData, cidade: v })} />
-                        <InputField label="Estado" value={infoFormData.estado} onChange={(v: any) => setInfoFormData({ ...infoFormData, estado: v })} />
+                        <InputField label="Forma Pagamento (ex: Pix)" value={infoFormData.forma_pagamento} onChange={(v: any) => setInfoFormData({ ...infoFormData, forma_pagamento: v })} />
+                        <InputField label="CPF" value={infoFormData.cpf} onChange={(v: any) => setInfoFormData({ ...infoFormData, cpf: v })} />
                       </>
                     ) : (
                       <>
-                        <FieldRow label="Nome Completo" value={localDriverData ? `${localDriverData.nome || ''} ${localDriverData.sobrenome || ''}` : ''} />
+                        <FieldRow label="Nome Completo" value={localDriverData?.nome || ''} />
                         <FieldRow label="CPF" value={localDriverData?.cpf} />
                         <FieldRow label="Telefone" value={localDriverData?.telefone} />
                         <FieldRow label="Forma Pgto" value={localDriverData?.forma_pagamento} />
-                        <FieldRow label="Cidade" value={localDriverData?.cidade} />
-                        <FieldRow label="Estado" value={localDriverData?.estado} />
                         <FieldRow label="Status" value={localDriverData?.status} />
                         <FieldRow label="Cadastrado" value={formatDate(localDriverData?.date_created)} />
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* DISPONIBILIDADE TAB */}
-              <TabsContent value="disponibilidade" className="space-y-4 mt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2 justify-between">
-                      <div className="flex items-center gap-2"><Truck className="h-5 w-5 text-blue-600" /> Disponibilidade (Logística)</div>
-                      {!isEditingAvailability ? (
-                        <Button variant="ghost" size="sm" onClick={handleEditAvailability}>
-                          <Pencil className="h-4 w-4 mr-2" /> {data.disponivel ? 'Atualizar' : 'Adicionar'}
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={handleCancelEdit}><X className="h-4 w-4 mr-2" /> Cancelar</Button>
-                          <Button size="sm" onClick={handleSaveAvailability}><Save className="h-4 w-4 mr-2" /> Salvar</Button>
-                        </div>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-2">
-                    {isEditingAvailability ? (
-                      <>
-                        <div className="flex flex-col space-y-1.5">
-                          <span className="text-sm text-muted-foreground">Status</span>
-                          <Select value={editFormData.status} onValueChange={(val) => setEditFormData({ ...editFormData, status: val })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="disponivel">Disponível</SelectItem>
-                              <SelectItem value="indisponivel">Indisponível</SelectItem>
-                              <SelectItem value="em_viagem">Em Viagem</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex flex-col space-y-1.5">
-                          <span className="text-sm text-muted-foreground flex justify-between items-center">
-                            Localização (Extenso)
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="h-6 text-[10px] px-2 py-0" 
-                              onClick={handleGeocodeLocation}
-                              disabled={isGeocoding}
-                              type="button"
-                            >
-                              {isGeocoding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Search className="h-3 w-3 mr-1 text-blue-500" />}
-                              GPS Auto
-                            </Button>
-                          </span>
-                          <Input 
-                            value={editFormData.localizacao_atual || ''} 
-                            placeholder="Ex: São Paulo, SP"
-                            onChange={(e) => setEditFormData({ ...editFormData, localizacao_atual: e.target.value })} 
-                          />
-                        </div>
-                        <InputField label="Latitude" value={editFormData.latitude} onChange={(v: any) => setEditFormData({ ...editFormData, latitude: v })} />
-                        <InputField label="Longitude" value={editFormData.longitude} onChange={(v: any) => setEditFormData({ ...editFormData, longitude: v })} />
-                        <div className="flex flex-col space-y-1.5 pt-1">
-                          <span className="text-sm text-muted-foreground">Data Prevista de Liberação</span>
-                          <Input 
-                            type="date" 
-                            value={editFormData.data_previsao_disponibilidade || ''} 
-                            onChange={(e) => setEditFormData({ ...editFormData, data_previsao_disponibilidade: e.target.value })} 
-                          />
-                        </div>
-                        <div className="col-span-2"><InputField label="Observação" value={editFormData.observacao} onChange={(v: any) => setEditFormData({ ...editFormData, observacao: v })} /></div>
-                      </>
-                    ) : (
-                      <>
-                        <FieldRow label="Status" value={data.disponivel?.status?.toUpperCase()} />
-                        <FieldRow label="Localização" value={data.disponivel?.localizacao_atual || data.disponivel?.local_disponibilidade} />
-                        <FieldRow label="Lat/Long" value={`${data.disponivel?.latitude || ''}, ${data.disponivel?.longitude || ''}`} />
-                        <FieldRow label="Previsão Liberação" value={data.disponivel?.data_previsao_disponibilidade ? new Date(data.disponivel.data_previsao_disponibilidade).toLocaleDateString('pt-BR') : ''} />
-                        <div className="col-span-2"><FieldRow label="Obs" value={data.disponivel?.observacao} /></div>
-                        <div className="col-span-2 text-xs text-muted-foreground mt-2">Atualizado em: {formatDate(data.disponivel?.date_created)}</div>
                       </>
                     )}
                   </CardContent>
@@ -880,15 +793,15 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     {isEditingCNH ? (
                       <>
                         <CpfInputField label="CPF" value={cnhForm.cpf} onChange={(v: any) => setCnhForm({ ...cnhForm, cpf: v })} referenceCpf={localDriverData?.cpf} />
-                        <InputField label="Data Nasc" type="date" value={cnhForm.data_nasc} onChange={(v: any) => setCnhForm({ ...cnhForm, data_nasc: v })} />
+                        <InputField label="Data Nasc (DD/MM/AAAA)" value={cnhForm.data_nasc} onChange={(v: any) => setCnhForm({ ...cnhForm, data_nasc: v })} />
                         <InputField label="Nome Mãe" value={cnhForm.nome_mae} onChange={(v: any) => setCnhForm({ ...cnhForm, nome_mae: v })} />
                         <InputField label="Registro CNH" value={cnhForm.n_registro_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_registro_cnh: v })} />
                         <InputField label="Nº Formulário Espelho" value={cnhForm.n_formulario_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_formulario_cnh: v })} />
-                        <InputField label="Validade" type="date" value={cnhForm.validade} onChange={(v: any) => setCnhForm({ ...cnhForm, validade: v })} />
-                        <InputField label="Emissão CNH" type="date" value={cnhForm.emissao_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, emissao_cnh: v })} />
+                        <InputField label="Validade (DD/MM/AAAA)" value={cnhForm.validade} onChange={(v: any) => setCnhForm({ ...cnhForm, validade: v })} />
+                        <InputField label="Emissão CNH (DD/MM/AAAA)" value={cnhForm.emissao_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, emissao_cnh: v })} />
                         <InputField label="Nº CNH Segurança" value={cnhForm.n_cnh_seguranca} onChange={(v: any) => setCnhForm({ ...cnhForm, n_cnh_seguranca: v })} />
                         <InputField label="Nº CNH Renach" value={cnhForm.n_cnh_renach} onChange={(v: any) => setCnhForm({ ...cnhForm, n_cnh_renach: v })} />
-                        <InputField label="1ª Habilitacao" type="date" value={cnhForm.primeira_habilitacao} onChange={(v: any) => setCnhForm({ ...cnhForm, primeira_habilitacao: v })} />
+                        <InputField label="1ª Habilitacao (DD/MM/AAAA)" value={cnhForm.primeira_habilitacao} onChange={(v: any) => setCnhForm({ ...cnhForm, primeira_habilitacao: v })} />
                         <InputField label="Categoria" value={cnhForm.categoria} onChange={(v: any) => setCnhForm({ ...cnhForm, categoria: v })} />
                         <InputField label="Cidade Emissão" value={cnhForm.cidade_emissao} onChange={(v: any) => setCnhForm({ ...cnhForm, cidade_emissao: v })} />
 
@@ -955,7 +868,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <InputField label="Placa" value={crlvForm.placa_cavalo} onChange={(v: any) => setCrlvForm({ ...crlvForm, placa_cavalo: v })} />
                         <InputField label="Proprietário" value={crlvForm.nome_proprietario} onChange={(v: any) => setCrlvForm({ ...crlvForm, nome_proprietario: v })} />
                         <CpfInputField label="CPF/CNPJ Prop." value={crlvForm.cnpj_cpf} onChange={(v: any) => setCrlvForm({ ...crlvForm, cnpj_cpf: v })} referenceCpf={localDriverData?.cpf} />
-                        <InputField label="Renavam" numeric value={crlvForm.renavam} onChange={(v: any) => setCrlvForm({ ...crlvForm, renavam: v })} />
+                        <InputField label="Renavam" value={crlvForm.renavam} onChange={(v: any) => setCrlvForm({ ...crlvForm, renavam: v })} />
                         <InputField label="Modelo" value={crlvForm.modelo} onChange={(v: any) => setCrlvForm({ ...crlvForm, modelo: v })} />
                         <InputField label="Ano Fab" value={crlvForm.ano_fabricacao} onChange={(v: any) => setCrlvForm({ ...crlvForm, ano_fabricacao: v })} />
                         <InputField label="Ano Mod" value={crlvForm.ano_modelo} onChange={(v: any) => setCrlvForm({ ...crlvForm, ano_modelo: v })} />
@@ -1025,7 +938,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                   <CardContent className="p-4 grid gap-1 md:grid-cols-2">
                     {isEditingAddress ? (
                       <>
-                        <div className="col-span-2"><InputField label="CEP" numeric value={addressForm.cep} onChange={(v: any) => setAddressForm({ ...addressForm, cep: v })} /></div>
+                        <div className="col-span-2"><InputField label="CEP" value={addressForm.cep} onChange={(v: any) => setAddressForm({ ...addressForm, cep: v })} /></div>
                         <InputField label="Endereço" value={addressForm.endereco} onChange={(v: any) => setAddressForm({ ...addressForm, endereco: v })} />
                         <InputField label="Número" value={addressForm.numero} onChange={(v: any) => setAddressForm({ ...addressForm, numero: v })} />
                         <InputField label="Bairro" value={addressForm.bairro} onChange={(v: any) => setAddressForm({ ...addressForm, bairro: v })} />
@@ -1116,51 +1029,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     )}
                   </CardContent>
                 </Card>
-              </TabsContent>
-
-              {/* VEICULOS TAB */}
-              <TabsContent value="veiculos" className="space-y-4 mt-4">
-
-                {/* CAVALO (PRINCIPAL) */}
-                <Card>
-                  <CardHeader className="py-3 px-4 bg-muted/20 border-b">
-                    <CardTitle className="text-base flex justify-between items-center">
-                      <div className="flex items-center gap-2"><Truck className="h-4 w-4" /> Dados do Cavalo (Principal)</div>
-                      {!isEditingCRLV ? (
-                        <Button variant="ghost" size="sm" onClick={() => handleEditDoc('crlv', data.crlv)}>
-                          <Pencil className="h-3 w-3 mr-1" /> Editar
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleCancelDoc('crlv')}><X className="h-3 w-3" /></Button>
-                          <Button size="sm" onClick={() => handleSaveDoc('crlv', crlvForm, data.crlv)}><Save className="h-3 w-3" /></Button>
-                        </div>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 grid gap-1 md:grid-cols-2">
-                    {isEditingCRLV ? (
-                      <>
-                        <InputField label="Placa" value={crlvForm.placa_cavalo} onChange={(v: any) => setCrlvForm({ ...crlvForm, placa_cavalo: v })} />
-                        <InputField label="Modelo" value={crlvForm.modelo} onChange={(v: any) => setCrlvForm({ ...crlvForm, modelo: v })} />
-                        <InputField label="Cor" value={crlvForm.cor} onChange={(v: any) => setCrlvForm({ ...crlvForm, cor: v })} />
-                        <InputField label="Ano Fab" value={crlvForm.ano_fabricacao} onChange={(v: any) => setCrlvForm({ ...crlvForm, ano_fabricacao: v })} />
-                        <InputField label="Renavam" numeric value={crlvForm.renavam} onChange={(v: any) => setCrlvForm({ ...crlvForm, renavam: v })} />
-                        <InputField label="Chassi" value={crlvForm.chassi} onChange={(v: any) => setCrlvForm({ ...crlvForm, chassi: v })} />
-                      </>
-                    ) : (
-                      <>
-                        <FieldRow label="Placa" value={data.crlv?.placa_cavalo} />
-                        <FieldRow label="Modelo" value={data.crlv?.modelo} />
-                        <FieldRow label="Cor" value={data.crlv?.cor} />
-                        <FieldRow label="Ano" value={data.crlv?.ano_fabricacao} />
-                        <FieldRow label="Renavam" value={data.crlv?.renavam} />
-                        <FieldRow label="Chassi" value={data.crlv?.chassi} />
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
+                {/* CARRETAS (Agora dentro de docs) */}
                 {data.carretas.map((carreta: any, index: number) => {
                   const isEditingThis = isEditingCarreta && currentCarretaIndex === index;
                   return (
@@ -1395,6 +1264,86 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         )}
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* DISPONIBILIDADE TAB */}
+              <TabsContent value="disponibilidade" className="space-y-4 mt-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2 justify-between">
+                      <div className="flex items-center gap-2"><Truck className="h-5 w-5 text-blue-600" /> Disponibilidade (Logística)</div>
+                      {!isEditingAvailability ? (
+                        <Button variant="ghost" size="sm" onClick={handleEditAvailability}>
+                          <Pencil className="h-4 w-4 mr-2" /> {data.disponivel ? 'Atualizar' : 'Adicionar'}
+                        </Button>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={handleCancelEdit}><X className="h-4 w-4 mr-2" /> Cancelar</Button>
+                          <Button size="sm" onClick={handleSaveAvailability}><Save className="h-4 w-4 mr-2" /> Salvar</Button>
+                        </div>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 md:grid-cols-2">
+                    {isEditingAvailability ? (
+                      <>
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Status</span>
+                          <Select value={editFormData.status} onValueChange={(val) => setEditFormData({ ...editFormData, status: val })}>
+                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent position="popper" className="z-[9999]">
+                              <SelectItem value="disponivel">Disponível</SelectItem>
+                              <SelectItem value="indisponivel">Indisponível</SelectItem>
+                              <SelectItem value="em_viagem">Em Viagem</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground flex justify-between items-center">
+                            Localização (Extenso)
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-6 text-[10px] px-2 py-0" 
+                              onClick={handleGeocodeLocation}
+                              disabled={isGeocoding}
+                              type="button"
+                            >
+                              {isGeocoding ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Search className="h-3 w-3 mr-1 text-blue-500" />}
+                              GPS Auto
+                            </Button>
+                          </span>
+                          <Input 
+                            value={editFormData.localizacao_atual || ''} 
+                            placeholder="Ex: São Paulo, SP"
+                            onChange={(e) => setEditFormData({ ...editFormData, localizacao_atual: e.target.value })} 
+                          />
+                        </div>
+                        <InputField label="Latitude" value={editFormData.latitude} onChange={(v: any) => setEditFormData({ ...editFormData, latitude: v })} />
+                        <InputField label="Longitude" value={editFormData.longitude} onChange={(v: any) => setEditFormData({ ...editFormData, longitude: v })} />
+                        <div className="flex flex-col space-y-1.5 pt-1">
+                          <span className="text-sm text-muted-foreground">Data Prevista de Liberação</span>
+                          <Input 
+                            type="text" 
+                            placeholder="DD/MM/AAAA"
+                            value={editFormData.data_previsao_disponibilidade || ''} 
+                            onChange={(e) => setEditFormData({ ...editFormData, data_previsao_disponibilidade: e.target.value })} 
+                          />
+                        </div>
+                        <div className="col-span-2"><InputField label="Observação" value={editFormData.observacao} onChange={(v: any) => setEditFormData({ ...editFormData, observacao: v })} /></div>
+                      </>
+                    ) : (
+                      <>
+                        <FieldRow label="Status" value={data.disponivel?.status?.toUpperCase()} />
+                        <FieldRow label="Localização" value={data.disponivel?.localizacao_atual || data.disponivel?.local_disponibilidade} />
+                        <FieldRow label="Lat/Long" value={`${data.disponivel?.latitude || ''}, ${data.disponivel?.longitude || ''}`} />
+                        <FieldRow label="Previsão Liberação" value={data.disponivel?.data_previsao_disponibilidade ? new Date(data.disponivel.data_previsao_disponibilidade).toLocaleDateString('pt-BR') : ''} />
+                        <div className="col-span-2"><FieldRow label="Obs" value={data.disponivel?.observacao} /></div>
+                        <div className="col-span-2 text-xs text-muted-foreground mt-2">Atualizado em: {formatDate(data.disponivel?.date_created)}</div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

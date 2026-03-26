@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    image: victorhfr99/gmx-web:latest
     ports:
       - "8080:80"
     environment:

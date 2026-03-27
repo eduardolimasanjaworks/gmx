@@ -11,7 +11,7 @@ import { readItems, updateItem, createItem } from "@directus/sdk";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { format } from "date-fns";
+import { format, parse, isAfter, isBefore, startOfDay, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { createWorker } from 'tesseract.js';
@@ -20,6 +20,47 @@ import { useAuth } from "@/context/AuthContext";
 
 // Token de Admin para operações privilegiadas (bypass de permissões)
 const ADMIN_TOKEN = 'WcIgx0hfDqdtusOP6KOrhkP9eVPlbsOq';
+
+const STATUS_OPTIONS = [
+  { value: 'BLOQUEADO', label: 'BLOQUEADO', color: 'bg-red-600 hover:bg-red-600' },
+  { value: 'CADASTRADO', label: 'CADASTRADO', color: 'bg-green-600 hover:bg-green-600' },
+  { value: 'FALTA DOCS', label: 'FALTA DOCS', color: 'bg-yellow-500 hover:bg-yellow-500 text-black' },
+  { value: 'NECESSARIO ATUALIZAR', label: 'NECESSARIO ATUALIZAR', color: 'bg-orange-500 hover:bg-orange-500 text-black' },
+  { value: 'REPROVADO', label: 'REPROVADO', color: 'bg-red-700 hover:bg-red-700' },
+  { value: 'INATIVO', label: 'INATIVO', color: 'bg-gray-500 hover:bg-gray-500' },
+  { value: '_empty_', label: '(vazio)', color: 'bg-gray-300 text-black hover:bg-gray-300' }
+];
+
+const getStatusBadgeColor = (status: string) => {
+  if (!status || status === '_empty_') return STATUS_OPTIONS.find(x => x.value === '_empty_')?.color;
+  const s = STATUS_OPTIONS.find(x => x.value === status.toUpperCase() || x.label === status.toUpperCase());
+  return s ? s.color : 'bg-secondary text-secondary-foreground';
+};
+
+const parseDateBR = (dateStr: string) => {
+  if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') return null;
+  const str = dateStr.trim();
+  
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const [y, m, d] = str.split('T')[0].split('-');
+    return new Date(Number(y), Number(m) - 1, Number(d));
+  }
+  
+  try {
+     const parsed = parse(str, 'dd/MM/yyyy', new Date());
+     return isNaN(parsed.getTime()) ? null : parsed;
+  } catch (e) {
+     return null;
+  }
+};
+
+const getCnhStatus = (dateStr: string) => {
+  const d = parseDateBR(dateStr);
+  if (!d) return null;
+  const today = startOfDay(new Date());
+  if (isBefore(d, today)) return 'Expirado';
+  return 'No Prazo';
+};
 
 const getAuthenticatedUrl = (url?: string) => {
   if (!url) return undefined;
@@ -43,9 +84,11 @@ interface DriverProfileDialogProps {
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "-";
   try {
-    return format(new Date(dateStr), "dd/MM/yyyy", { locale: ptBR });
+    const d = parseDateBR(dateStr);
+    if (d) return format(d, "dd/MM/yyyy", { locale: ptBR });
+    return String(dateStr);
   } catch (e) {
-    return dateStr;
+    return String(dateStr);
   }
 };
 
@@ -506,9 +549,18 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     // Isso garante que, mesmo que o useEffect ainda não tenha sincronizado o estado,
     // os campos do formulário sejam preenchidos com os dados existentes do motorista.
     const sourceData = source ?? localDriverData ?? driverData ?? {};
+    const defaultVencimentoCx = format(addMonths(new Date(), 5), 'yyyy-MM-dd');
+    let derivedStatus = sourceData.status_cadastro || '';
+    const cnhStatus = getCnhStatus(data.cnh?.validade);
+    if (cnhStatus === 'Expirado' && derivedStatus !== 'BLOQUEADO' && derivedStatus !== 'REPROVADO') {
+       derivedStatus = 'NECESSARIO ATUALIZAR';
+    }
+
     setInfoFormData({
       nome: sourceData.nome || '', telefone: sourceData.telefone || '',
-      forma_pagamento: sourceData.forma_pagamento || '', cpf: sourceData.cpf || ''
+      forma_pagamento: sourceData.forma_pagamento || '', cpf: sourceData.cpf || '',
+      status_cadastro: derivedStatus,
+      vencimento_cx: sourceData.vencimento_cx || defaultVencimentoCx
     });
     setIsEditingInfo(true);
   };
@@ -519,12 +571,16 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         const updated = await directus.request(updateItem('cadastro_motorista', localDriverData.id, {
           nome: infoFormData.nome, telefone: infoFormData.telefone,
           forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf,
+          status_cadastro: infoFormData.status_cadastro || null,
+          vencimento_cx: infoFormData.vencimento_cx || null
         }));
         setLocalDriverData(updated); toast({ title: "Atualizado com sucesso" }); resultDriver = updated;
       } else {
         const newDriver = await directus.request(createItem('cadastro_motorista', {
           nome: infoFormData.nome, telefone: infoFormData.telefone,
-          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, status: 'draft'
+          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, 
+          status_cadastro: infoFormData.status_cadastro || 'draft',
+          vencimento_cx: infoFormData.vencimento_cx || null
         }));
         setLocalDriverData(newDriver); resultDriver = newDriver; toast({ title: "Motorista criado!" });
       }
@@ -562,6 +618,17 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     }
   };
   const handleCancelEditInfo = () => { setIsEditingInfo(false); setInfoFormData({}); };
+
+  const handleStatusChange = (v: string) => {
+    const newStatus = v === '_empty_' ? '' : v;
+    const cnhStatus = getCnhStatus(data.cnh?.validade);
+    if (cnhStatus === 'Expirado' && newStatus !== 'NECESSARIO ATUALIZAR' && newStatus !== 'BLOQUEADO' && newStatus !== 'REPROVADO' && newStatus !== '') {
+      if (!window.confirm(`Atenção: A CNH deste motorista está EXPIRADA!\n\nTem certeza que deseja forçar o farol para ${newStatus} mesmo com a validade vencida?`)) {
+        return;
+      }
+    }
+    setInfoFormData({ ...infoFormData, status_cadastro: newStatus });
+  };
 
   const handleEditDoc = (type: 'cnh' | 'crlv' | 'antt' | 'comprovante_endereco', currentData: any) => {
     const formMap = { cnh: setCnhForm, crlv: setCrlvForm, antt: setAnttForm, comprovante_endereco: setAddressForm };
@@ -755,6 +822,26 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <InputField label="Telefone" value={infoFormData.telefone} onChange={(v: any) => setInfoFormData({ ...infoFormData, telefone: v })} />
                         <InputField label="Forma Pagamento (ex: Pix)" value={infoFormData.forma_pagamento} onChange={(v: any) => setInfoFormData({ ...infoFormData, forma_pagamento: v })} />
                         <InputField label="CPF" value={infoFormData.cpf} onChange={(v: any) => setInfoFormData({ ...infoFormData, cpf: v })} />
+                        
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Faróis</span>
+                          <Select value={infoFormData.status_cadastro || '_empty_'} onValueChange={handleStatusChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o farol" />
+                            </SelectTrigger>
+                            <SelectContent className="z-[9999]">
+                              {STATUS_OPTIONS.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${opt.color.replace('hover:', '').split(' ')[0]}`} />
+                                    {opt.label}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <InputField label="Vencimento CX" type="date" value={infoFormData.vencimento_cx} onChange={(v: any) => setInfoFormData({ ...infoFormData, vencimento_cx: v })} />
                       </>
                     ) : (
                       <>
@@ -762,7 +849,26 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <FieldRow label="CPF" value={localDriverData?.cpf} />
                         <FieldRow label="Telefone" value={localDriverData?.telefone} />
                         <FieldRow label="Forma Pgto" value={localDriverData?.forma_pagamento} />
-                        <FieldRow label="Status" value={localDriverData?.status} />
+                        <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
+                          <span className="text-sm text-muted-foreground">Faróis:</span>
+                          <Badge className={`${getStatusBadgeColor(localDriverData?.status_cadastro)} text-xs border-transparent shadow-sm`} variant="outline">
+                            {localDriverData?.status_cadastro || '(vazio)'}
+                          </Badge>
+                        </div>
+                        <FieldRow label="Vencimento CX" value={formatDate(localDriverData?.vencimento_cx)} />
+                        
+                        <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
+                          <span className="text-sm text-muted-foreground">Validade CNH:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-right truncate max-w-[200px]">{formatDate(data.cnh?.validade)}</span>
+                            {data.cnh?.validade && (
+                              <Badge className={`text-[10px] px-1.5 h-5 ${getCnhStatus(data.cnh?.validade) === 'No Prazo' ? 'bg-green-600 hover:bg-green-600 text-white' : 'bg-red-600 hover:bg-red-600 text-white'}`}>
+                                {getCnhStatus(data.cnh?.validade)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
                         <FieldRow label="Cadastrado" value={formatDate(localDriverData?.date_created)} />
                       </>
                     )}
@@ -826,7 +932,17 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <FieldRow label="Nome Mãe" value={data.cnh?.nome_mae} />
                         <FieldRow label="Registro CNH" value={data.cnh?.n_registro_cnh} />
                         <FieldRow label="Formulário CNH" value={data.cnh?.n_formulario_cnh} />
-                        <FieldRow label="Validade" value={formatDate(data.cnh?.validade)} />
+                        <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
+                          <span className="text-sm text-muted-foreground">Validade:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-right truncate max-w-[200px]">{formatDate(data.cnh?.validade)}</span>
+                            {data.cnh?.validade && (
+                              <Badge className={`text-[10px] px-1.5 h-5 ${getCnhStatus(data.cnh?.validade) === 'No Prazo' ? 'bg-green-600 hover:bg-green-600 text-white' : 'bg-red-600 hover:bg-red-600 text-white'}`}>
+                                {getCnhStatus(data.cnh?.validade)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                         <FieldRow label="Emissão CNH" value={formatDate(data.cnh?.emissao_cnh)} />
                         <FieldRow label="CNH Segurança" value={data.cnh?.n_cnh_seguranca} />
                         <FieldRow label="CNH Renach" value={data.cnh?.n_cnh_renach} />

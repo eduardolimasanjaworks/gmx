@@ -278,6 +278,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   const [filesServiceAvailable, setFilesServiceAvailable] = useState(true);
   const [isDrivePopupOpen, setIsDrivePopupOpen] = useState(false);
   const [driveFolderName, setDriveFolderName] = useState('');
+  const [driveRootFolderId, setDriveRootFolderId] = useState('1WSKCajrztXNyQ1Yy8dJkeN8-LeDzE_vk');
 
   const handleUploadToDrive = async () => {
     setIsUploadingToDrive(true);
@@ -301,7 +302,10 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       const createFolderRes = await fetch('http://localhost:8099/create-drive-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderName: driveFolderName || driverName })
+        body: JSON.stringify({ 
+          folderName: driveFolderName || driverName,
+          parentFolderId: driveRootFolderId 
+        })
       });
       if (!createFolderRes.ok) {
         const errJson = await createFolderRes.json();
@@ -1768,6 +1772,15 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                       >
                         <CloudUpload className="h-4 w-4" /> Enviar Fotos para o Google Drive
                       </Button>
+                      <div className="mt-2 flex flex-col items-end gap-1">
+                        <label className="text-[10px] text-muted-foreground uppercase font-bold px-1">ID da Pasta Raiz (Drive)</label>
+                        <Input 
+                          value={driveRootFolderId}
+                          onChange={(e) => setDriveRootFolderId(e.target.value)}
+                          className="h-7 text-[11px] w-64 text-right bg-muted/30 border-none focus-visible:ring-1"
+                          placeholder="ID da pasta no Google Drive"
+                        />
+                      </div>
                     </div>
 
                     {/* Popup do Drive */}

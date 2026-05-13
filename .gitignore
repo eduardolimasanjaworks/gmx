@@ -24,3 +24,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Credenciais e Segredos
+.env
+.google-token.json
+google-oauth-client.json
+google-credentials.json
+

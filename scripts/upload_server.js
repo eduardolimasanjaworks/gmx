@@ -13,8 +13,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 import express from 'express';
 import multer from 'multer';
+import { uploadFileToDrive, createFolderToDrive } from './google_drive_service.js';
 
 const PORT = Number(process.env.UPLOAD_PORT || 8099);
 const ROOT_DIR = process.cwd();
@@ -48,6 +50,15 @@ const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const app = express();
+
+// Habilita CORS para o frontend local
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 const uploadDisk = multer({
   storage: multer.diskStorage({
@@ -154,6 +165,40 @@ app.post('/upload', (req, res, next) => {
 
   const url = `/uploads/${finalRel}`;
   return res.json({ url, path: finalRel, originalName: file.originalname });
+});
+
+app.post('/upload-to-drive', uploadMemory.single('file'), async (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+
+  try {
+    const stream = Readable.from(file.buffer);
+    const folderId = req.body.folderId || '1WSKCajrztXNyQ1Yy8dJkeN8-LeDzE_vk';
+    
+    // Nome customizado pode ser passado via form data
+    const fileName = req.body.fileName || file.originalname;
+    
+    const result = await uploadFileToDrive(fileName, file.mimetype, stream, folderId);
+    return res.json({ success: true, url: result.webViewLink, id: result.id });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/create-drive-folder', express.json(), async (req, res) => {
+  const folderName = req.body.folderName;
+  const parentFolderId = req.body.parentFolderId || '1WSKCajrztXNyQ1Yy8dJkeN8-LeDzE_vk'; // Pasta raiz do GMX
+
+  if (!folderName) return res.status(400).json({ error: 'Nome da pasta (folderName) é obrigatório' });
+
+  try {
+    const result = await createFolderToDrive(folderName, parentFolderId);
+    return res.json({ success: true, folderId: result.id, name: result.name, url: result.webViewLink });
+  } catch (err) {
+    console.error('Erro no /create-drive-folder:', err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 app.delete('/upload', express.json(), (req, res) => {

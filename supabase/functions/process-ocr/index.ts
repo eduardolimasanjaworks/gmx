@@ -37,15 +37,26 @@ serve(async (req) => {
       - receiver_signature: Description of signature if present
       - observations: Any additional notes or observations
       
-      Return ONLY a valid JSON object with these fields.`;
-    } else if (documentType === "driver_document") {
-      systemPrompt = `Extract the following information from this Brazilian identification document image:
-      - document_number: The document number
-      - issue_date: Date of issue (YYYY-MM-DD format)
-      - expiry_date: Expiration date if applicable (YYYY-MM-DD format)
-      - issuing_agency: Issuing agency or organization
+      Return ONLY a valid JSON object. Do not include markdown code blocks (\`\`\`json).`;
+    } else if (documentType === "driver_document" || documentType === "CNH" || documentType === "RG" || documentType === "CPF") {
+      systemPrompt = `Extract information from this Brazilian identification document image (e.g. CNH, RG).
       
-      Return ONLY a valid JSON object with these fields.`;
+      CRITICAL: For dates, use a chronological sorting strategy. Find all visible dates and map them logically:
+      - The earliest date is usually the Birth Date (birth_date).
+      - The intermediate date is the First License Date or Issue Date (issue_date).
+      - The future date is the Expiration Date (expiry_date).
+      DO NOT rely solely on labels next to the dates, as OCR layout might be messy.
+
+      Extract the following fields:
+      - name: The person's full name
+      - cpf: The 11-digit CPF number (digits only, no punctuation)
+      - document_number: The registration number (Número de Registro or RG)
+      - birth_date: Date of birth (YYYY-MM-DD format)
+      - issue_date: Date of issue or first license (YYYY-MM-DD format)
+      - expiry_date: Expiration date if applicable (YYYY-MM-DD format)
+      - issuing_agency: Issuing agency or organization (e.g. DETRAN-SP, SSP)
+      
+      Return ONLY a valid JSON object. Do not include markdown code blocks (\`\`\`json).`;
     } else {
       throw new Error("Invalid document type");
     }

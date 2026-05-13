@@ -1,11 +1,11 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Pencil, User, FileText, Truck, ScrollText, X, AlertCircle, Save, Loader2, ScanText, ImageIcon, File as FileIcon, Plus, MapPin, Search } from "lucide-react";
+import { Pencil, User, FileText, Truck, ScrollText, X, AlertCircle, Save, Loader2, ScanText, ImageIcon, File as FileIcon, Plus, MapPin, Search, CloudUpload, RefreshCw } from "lucide-react";
 import { directus, directusUrl } from "@/lib/directus";
 import { readItems, updateItem, createItem } from "@directus/sdk";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,10 @@ import { useToast } from "@/hooks/use-toast";
 import { createWorker } from 'tesseract.js';
 import { uploadToDirectus } from "@/lib/directusUpload";
 import { useAuth } from "@/context/AuthContext";
+
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // Token de Admin para operações privilegiadas (bypass de permissões)
 const ADMIN_TOKEN = 'WcIgx0hfDqdtusOP6KOrhkP9eVPlbsOq';
@@ -52,6 +56,18 @@ const parseDateBR = (dateStr: string) => {
   } catch (e) {
      return null;
   }
+};
+
+const formatDateForAPI = (dateStr: any) => {
+  if (!dateStr || typeof dateStr !== 'string') return dateStr;
+  const d = parseDateBR(dateStr);
+  if (d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  return dateStr;
 };
 
 const getCnhStatus = (dateStr: string) => {
@@ -101,11 +117,28 @@ const FieldRow = ({ label, value }: { label: string; value: any }) => (
   </div>
 );
 
-const InputField = ({ label, value, onChange, type = "text", numeric = false }: any) => {
+const InputField = ({ label, value, onChange, type = "text", numeric = false, isDate = false }: any) => {
   const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVal = e.target.value;
+    let newVal = e.target.value;
+    
+    if (isDate) {
+      // Remove all non-digits
+      let v = newVal.replace(/\D/g, '');
+      if (v.length > 8) v = v.substring(0, 8);
+      
+      // Apply DD/MM/YYYY mask
+      if (v.length > 4) {
+        v = v.replace(/^(\d{2})(\d{2})(\d+)/, '$1/$2/$3');
+      } else if (v.length > 2) {
+        v = v.replace(/^(\d{2})(\d+)/, '$1/$2');
+      }
+      
+      onChange(v);
+      return;
+    }
+
     if (numeric) {
       if (newVal === "") {
         onChange("");
@@ -221,6 +254,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   const [loading, setLoading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
   const [isEditingAvailability, setIsEditingAvailability] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editFormData, setEditFormData] = useState<any>({});
@@ -242,6 +276,77 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [filesServiceAvailable, setFilesServiceAvailable] = useState(true);
+  const [isDrivePopupOpen, setIsDrivePopupOpen] = useState(false);
+  const [driveFolderName, setDriveFolderName] = useState('');
+
+  const handleUploadToDrive = async () => {
+    setIsUploadingToDrive(true);
+    try {
+      const photos = [
+        { key: 'foto_cavalo', label: 'Cavalo', url: getAuthenticatedUrl(data.fotos?.foto_cavalo) },
+        { key: 'foto_lateral', label: 'Lateral', url: getAuthenticatedUrl(data.fotos?.foto_lateral) },
+        { key: 'foto_traseira', label: 'Traseira', url: getAuthenticatedUrl(data.fotos?.foto_traseira) }
+      ];
+
+      const validPhotos = photos.filter(p => p.url);
+      if (validPhotos.length === 0) {
+        toast({ variant: 'destructive', title: 'Nenhuma foto anexada', description: 'Não há fotos para enviar ao Drive.' });
+        return;
+      }
+
+      const driverName = localDriverData?.nome || driverData?.nome || 'Desconhecido';
+      const placa = data.crlv?.placa_cavalo || 'SemPlaca';
+
+      toast({ title: 'Criando pasta...', description: 'Aguarde enquanto a pasta é criada no Drive.' });
+      const createFolderRes = await fetch('http://localhost:8099/create-drive-folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderName: driveFolderName || driverName })
+      });
+      if (!createFolderRes.ok) {
+        const errJson = await createFolderRes.json();
+        throw new Error(errJson.error || 'Falha ao criar pasta no Drive');
+      }
+      const createFolderData = await createFolderRes.json();
+      const newFolderId = createFolderData.folderId;
+
+      toast({ title: 'Pasta criada', description: `Enviando ${validPhotos.length} fotos...` });
+
+      for (const photo of validPhotos) {
+        if (!photo.url) continue;
+        // Traz o Blob localmente
+        const res = await fetch(photo.url);
+        if (!res.ok) throw new Error(`Falha ao baixar a imagem: ${photo.label}`);
+        const blob = await res.blob();
+
+        const formData = new FormData();
+        const cleanName = driverName.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
+        const fileName = `${placa}_${cleanName}_${photo.label}.jpg`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        
+        formData.append('file', blob, fileName);
+        formData.append('fileName', fileName);
+        formData.append('folderId', newFolderId);
+
+        const uploadRes = await fetch('http://localhost:8099/upload-to-drive', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json();
+          throw new Error(errData.error || `Falha no upload de ${photo.label}`);
+        }
+      }
+      toast({ title: 'Sucesso', description: 'Fotos enviadas para a pasta no Google Drive com sucesso!' });
+      setIsDrivePopupOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: 'destructive', title: 'Erro ao Enviar ao Drive', description: err.message || 'Erro desconhecido' });
+    } finally {
+      setIsUploadingToDrive(false);
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<string>("geral");
   const { toast } = useToast();
 
@@ -258,16 +363,285 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   const performOCR = async (file: File) => {
     setOcrLoading(true);
     try {
-      const worker = await createWorker('eng');
-      const ret = await worker.recognize(file);
+      let objectUrl: string;
+      let img = new Image();
+      let scale = 3;
+
+      if (file.type === 'application/pdf') {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          
+          let fullNativeText = "";
+          const pages = [];
+          let totalHeight = 0;
+          let maxWidth = 0;
+          const viewports = [];
+
+          // 1. Coleta todas as páginas e extrai o texto nativo
+          for (let i = 1; i <= pdf.numPages; i++) {
+             const page = await pdf.getPage(i);
+             pages.push(page);
+             
+             const textContent = await page.getTextContent();
+             let pageText = "";
+             let lastY = -1;
+             for (const item of textContent.items as any[]) {
+               if (lastY !== -1 && Math.abs(lastY - item.transform[5]) > 4) {
+                 pageText += "\n";
+               } else if (lastY !== -1 && item.str.trim() !== "") {
+                 pageText += " ";
+               }
+               pageText += item.str;
+               lastY = item.transform[5];
+             }
+             fullNativeText += pageText + "\n";
+             
+             const vp = page.getViewport({ scale: 4.0 });
+             viewports.push(vp);
+             totalHeight += vp.height;
+             if (vp.width > maxWidth) maxWidth = vp.width;
+          }
+
+          // Verifica se o texto nativo realmente parece uma CNH (tem CPF e Datas) ou se é só lixo de QR Code
+          const hasCPF = fullNativeText.replace(/[^\d]/g, '').match(/\d{11}/);
+          const hasDate = fullNativeText.match(/\b\d{1,2}\s*[\/.-]\s*\d{1,2}\s*[\/.-]\s*\d{4}\b/);
+          
+          const isValidNativeCNH = fullNativeText.trim().length > 100 && hasCPF && hasDate;
+
+          // 2. Costuramos todas as páginas verticalmente
+          const pdfCanvas = document.createElement("canvas");
+          const pdfCtx = pdfCanvas.getContext("2d");
+          if (!pdfCtx) throw new Error("Canvas 2D context not available");
+
+          pdfCanvas.width = maxWidth;
+          pdfCanvas.height = totalHeight;
+          pdfCtx.fillStyle = "white";
+          pdfCtx.fillRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+
+          let currentY = 0;
+          for (let i = 0; i < pages.length; i++) {
+             const vp = viewports[i];
+             const pageCanvas = document.createElement("canvas");
+             pageCanvas.width = vp.width;
+             pageCanvas.height = vp.height;
+             const pageCtx = pageCanvas.getContext("2d");
+             if (pageCtx) {
+               pageCtx.fillStyle = "white";
+               pageCtx.fillRect(0, 0, vp.width, vp.height);
+               await pages[i].render({ canvasContext: pageCtx, viewport: vp }).promise;
+               pdfCtx.drawImage(pageCanvas, 0, currentY);
+             }
+             currentY += vp.height;
+          }
+
+          // Processamento visual concluído
+          // Removido o atalho que deduzia que o arquivo estava bom apenas por ter algum texto nativo.
+          // Agora vamos sempre gerar a imagem e rodar o Tesseract em todo o PDF para garantir que nada passe despercebido.
+          
+          // Então enviaremos a imagem completa (frente e verso) para o Tesseract ler as imagens
+          objectUrl = pdfCanvas.toDataURL("image/png");
+          scale = 1; // Já foi escalado no viewport do PDF
+          
+          // E salvaremos o native text para concatenar caso tenha algo útil
+          (file as any)._extractedNativeText = fullNativeText;
+        } catch (pdfErr: any) {
+          console.error("Erro ao processar PDF:", pdfErr);
+          throw new Error("Erro no PDF: " + (pdfErr.message || String(pdfErr)));
+        }
+      } else {
+        objectUrl = URL.createObjectURL(file);
+      }
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = objectUrl;
+      });
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 2D context not available");
+
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      
+      // Filtros básicos: Escala de cinza e um leve aumento de contraste
+      // Deixamos a binarização pesada para o próprio Tesseract (que usa Otsu e lida melhor com bordas suaves)
+      ctx.filter = 'grayscale(1) contrast(1.2)';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      if (file.type !== 'application/pdf') {
+        URL.revokeObjectURL(objectUrl);
+      }
+
+      // Usar a imagem processada
+      const processedImageUrl = canvas.toDataURL("image/png");
+
+      const worker = await createWorker('por');
+      const ret = await worker.recognize(processedImageUrl);
       await worker.terminate();
-      return ret.data.text;
-    } catch (error) {
-      console.error("OCR Error:", error);
-      throw new Error("Falha ao processar OCR (tesseract)");
+      let retText = ret.data.text;
+      if ((file as any)._extractedNativeText) {
+         retText += "\n\n" + (file as any)._extractedNativeText;
+      }
+      return retText;
+    } catch (error: any) {
+      console.error("OCR/PDF Error:", error);
+      throw new Error(error.message || "Falha ao processar arquivo");
     } finally {
       setOcrLoading(false);
     }
+  };
+
+  const parseCnhOcrData = (text: string, currentForm: any) => {
+    const updates: any = {};
+    
+    // Corrige erros bizarros de OCR em números (ex: o723180194o -> 07231801940)
+    // Cuidado para não destruir palavras reais, fazemos isso numa cópia focada em extrair dígitos
+    const textNumerico = text.replace(/[oO](?=\d)|(?<=\d)[oO]/g, '0');
+    const norm = textNumerico.replace(/\s+/g, ' ').toUpperCase();
+    const cleanNumbers = text.replace(/[^\d]/g, ''); // Apenas números para buscas exatas de CPF e Renach
+    const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
+
+    // ── DATAS: Estratégia Cronológica Universal para CNH ───────────
+    // Aceita datas com ou sem espaços entre as barras
+    const dateRegex = /\b(\d{1,2})\s*[\/.-]\s*(\d{1,2})\s*[\/.-]\s*(\d{4})\b/g;
+    const allDates: Array<{str: string, ts: number}> = [];
+    let match;
+    
+    // Buscar no texto original e no texto sem espaços extras nas datas
+    const textForDates = textNumerico.replace(/(\d)\s+([\/.])\s+(\d)/g, '$1$2$3');
+    while ((match = dateRegex.exec(textForDates)) !== null) {
+      const d = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10);
+      const y = parseInt(match[3], 10);
+      const ts = new Date(y, m - 1, d).getTime();
+      if (ts > new Date(1940, 0, 1).getTime() && ts < new Date(2100, 0, 1).getTime()) {
+        const formatted = `${match[1].padStart(2, '0')}/${match[2].padStart(2, '0')}/${match[3]}`;
+        allDates.push({ str: formatted, ts });
+      }
+    }
+
+    const uniqueDates = Array.from(new Map(allDates.map(item => [item.ts, item])).values());
+    uniqueDates.sort((a, b) => a.ts - b.ts);
+
+    const now = Date.now();
+    const past = uniqueDates.filter(d => d.ts <= now);
+    const future = uniqueDates.filter(d => d.ts > now);
+
+    if (!currentForm.validade && future.length > 0) updates.validade = future[future.length - 1].str;
+
+    if (past.length >= 3) {
+      if (!currentForm.data_nasc) updates.data_nasc = past[0].str;
+      if (!currentForm.primeira_habilitacao) updates.primeira_habilitacao = past[1].str;
+      if (!currentForm.emissao_cnh) updates.emissao_cnh = past[past.length - 1].str;
+    } else if (past.length === 2) {
+      if (!currentForm.data_nasc) updates.data_nasc = past[0].str;
+      if (!currentForm.emissao_cnh) updates.emissao_cnh = past[1].str;
+    } else if (past.length === 1) {
+      if (!currentForm.emissao_cnh) updates.emissao_cnh = past[0].str;
+    }
+
+    // ── CPF ────────────────────────────────────────────────────────
+    if (!currentForm.cpf) {
+      // Procura primeiro com formatação, senão busca qualquer sequência de 11 dígitos que comece no documento
+      const cpfMatch = norm.match(/\d{3}\s*[\.\s]?\s*\d{3}\s*[\.\s]?\s*\d{3}\s*[-\s]?\s*\d{2}/);
+      if (cpfMatch) {
+        updates.cpf = cpfMatch[0].replace(/[^\d]/g, '');
+      } else {
+         const possibleCpfs = cleanNumbers.match(/\d{11}/g) || [];
+         // Muitas vezes o CPF é o primeiro ou segundo número de 11 dígitos da CNH
+         if (possibleCpfs.length > 0) updates.cpf = possibleCpfs[0];
+      }
+    }
+
+    // ── CATEGORIA ──────────────────────────────────────────────────
+    if (!currentForm.categoria) {
+      // Prioriza categorias de 2 letras
+      const CAT_REGEX_2 = /\b(AB|AC|AD|AE)\b/g;
+      const CAT_REGEX_1 = /\b(A|B|C|D|E)\b/g;
+      
+      // Estratégia 1: busca próximo ao rótulo
+      const catContextMatch = norm.match(/(?:CAT\.?\s*HAB|HABILITA[CÇ][AÃ]O|CATEGORIA|CAT)[^\n]{0,40}?\b(AB|AC|AD|AE|A|B|C|D|E)\b/);
+      if (catContextMatch) {
+        updates.categoria = catContextMatch[1];
+      } else {
+        // Estratégia 2: Se não achou com rótulo, procura qualquer categoria dupla válida
+        const match2 = norm.match(CAT_REGEX_2);
+        if (match2) {
+          updates.categoria = match2[0];
+        } else {
+          // Estratégia 3: Fallback para categoria simples, filtrando preposições e lixo do cabeçalho
+          const IGNORE_WORDS = new Set(['DE', 'DA', 'DO', 'AS', 'OS', 'SE', 'EM', 'AO', 'A', 'E', 'O']);
+          const headerCleaned = norm.replace(/DRIVER LICENSE|PERMISO DE CONDUCCION|CARTEIRA NACIONAL|REPUBLICA|FEDERATIVA|MINISTERIO|TRANSITO/g, '');
+          const match1 = headerCleaned.match(CAT_REGEX_1);
+          if (match1) {
+            // Pega a primeira letra solta que não seja uma palavra comum ignorada
+            const cat = match1.find(c => !IGNORE_WORDS.has(c) || c === 'A' || c === 'B' || c === 'C' || c === 'D' || c === 'E');
+            if (cat) updates.categoria = cat;
+          }
+        }
+      }
+    }
+
+    // ── Nº REGISTRO CNH (11 dígitos) ───────────────────────────────
+    if (!currentForm.n_registro_cnh) {
+      const cpfDigits = updates.cpf || currentForm.cpf || '';
+      const regMatches = cleanNumbers.match(/\d{11}/g) || [];
+      const registro = regMatches.find(n => n !== cpfDigits);
+      if (registro) updates.n_registro_cnh = registro;
+    }
+
+    // ── Nº FORMULÁRIO / ESPELHO (9 a 12 dígitos) ───────────────────
+    if (!currentForm.n_formulario_cnh) {
+      const formMatches = cleanNumbers.match(/\d{9,12}/g) || [];
+      const cpfDigits = updates.cpf || currentForm.cpf || '';
+      const regDigits = updates.n_registro_cnh || currentForm.n_registro_cnh || '';
+      // Encontra um número que não seja nem CPF nem Registro
+      const formulario = formMatches.find(n => n !== cpfDigits && n !== regDigits && !n.startsWith('0000'));
+      if (formulario) updates.n_formulario_cnh = formulario;
+    }
+
+    // ── RENACH (UF + 9 dígitos) ────────────────────────────────────
+    if (!currentForm.n_cnh_renach) {
+      const renachRaw = norm.replace(/\s+/g, ''); // Remove espaços para grudar o UF no número
+      const renachMatch = renachRaw.match(/([A-Z]{2})([0-9OISBZ]{9})/);
+      if (renachMatch) {
+        const uf = renachMatch[1];
+        // Corrige confusões comuns do Tesseract em números do RENACH
+        const num = renachMatch[2].replace(/[O]/g, '0').replace(/[I]/g, '1').replace(/[S]/g, '5').replace(/[B]/g, '8').replace(/[Z]/g, '2');
+        updates.n_cnh_renach = uf + num;
+      }
+    }
+
+    // ── NOME DA MÃE (Busca por Filiação) ───────────────────────────
+    if (!currentForm.nome_mae) {
+      // Procura a linha que contem filiação (mesmo mal escrita pelo OCR como "FIAÇÃO")
+      const filiacaoIdx = lines.findIndex((l: string) => /FILIA[CÇ][AÃ]O|FIA[CÇ][AÃ]O|M[AÃ]E/i.test(l));
+      if (filiacaoIdx !== -1) {
+        // As próximas 2 linhas válidas sem números provavelmente são os pais
+        const parentLines = lines.slice(filiacaoIdx + 1, filiacaoIdx + 5)
+          .map(l => l.replace(/[^a-zA-ZÀ-ú\s]/g, '').trim())
+          .filter(l => l.length > 5)
+          .map(l => l.replace(/^(?:[a-zA-Z]{1,2}\s+)+/, '').trim()); // Remove sujeiras como "E o ", "A "
+        
+        // Em CNH, o primeiro nome é o pai, o segundo é a mãe. Se só tiver 1, é a mãe.
+        if (parentLines.length >= 2) {
+          updates.nome_mae = parentLines[1];
+        } else if (parentLines.length === 1) {
+          updates.nome_mae = parentLines[0];
+        }
+      }
+    }
+
+    return {
+      ...currentForm,
+      ...Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== null && v !== '')),
+      observacao: currentForm.observacao
+        ? currentForm.observacao + '\n\n[OCR]: ' + text
+        : '[OCR]: ' + text,
+    };
   };
 
   const uploadPublicAndGetUrl = async (file: File, key: string) => {
@@ -318,11 +692,11 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                 toast({ title: "Upload concluído" });
 
                 // OCR Logic
-                if (file.type.startsWith('image/') && onOcrResult) {
-                  toast({ title: "Processando OCR..." });
+                if ((file.type.startsWith('image/') || file.type === 'application/pdf') && onOcrResult) {
+                  toast({ title: "Processando Leitura..." });
                   const text = await performOCR(file);
                   onOcrResult(text);
-                  toast({ title: "OCR Concluído", description: "Texto extraído para observação." });
+                  toast({ title: "Leitura Concluída", description: "Texto extraído para observação." });
                 }
 
               } catch (err) {
@@ -560,7 +934,10 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       nome: sourceData.nome || '', telefone: sourceData.telefone || '',
       forma_pagamento: sourceData.forma_pagamento || '', cpf: sourceData.cpf || '',
       status_cadastro: derivedStatus,
-      vencimento_cx: sourceData.vencimento_cx || defaultVencimentoCx
+      vencimento_cx: sourceData.vencimento_cx || defaultVencimentoCx,
+      validade_cnh: data.cnh?.validade || '',
+      numero_antt: data.antt?.numero_antt || '',
+      cep: data.comprovante_endereco?.cep || ''
     });
     setIsEditingInfo(true);
   };
@@ -572,17 +949,46 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
           nome: infoFormData.nome, telefone: infoFormData.telefone,
           forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf,
           status_cadastro: infoFormData.status_cadastro || null,
-          vencimento_cx: infoFormData.vencimento_cx || null
+          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null
         }));
         setLocalDriverData(updated); toast({ title: "Atualizado com sucesso" }); resultDriver = updated;
+
+        let relatedChanged = false;
+        const telPayload = infoFormData.telefone ? { telefone: infoFormData.telefone } : {};
+
+        if (infoFormData.validade_cnh !== (data.cnh?.validade || '')) {
+          const apiValidade = formatDateForAPI(infoFormData.validade_cnh);
+          if (data.cnh?.id) { await directus.request(updateItem('cnh', data.cnh.id, { validade: apiValidade, ...telPayload })); }
+          else { await directus.request(createItem('cnh', { motorista_id: localDriverData.id, validade: apiValidade, ...telPayload })); }
+          relatedChanged = true;
+        }
+        if (infoFormData.numero_antt !== (data.antt?.numero_antt || '')) {
+          if (data.antt?.id) { await directus.request(updateItem('antt', data.antt.id, { numero_antt: infoFormData.numero_antt, ...telPayload })); }
+          else { await directus.request(createItem('antt', { motorista_id: localDriverData.id, numero_antt: infoFormData.numero_antt, ...telPayload })); }
+          relatedChanged = true;
+        }
+        if (infoFormData.cep !== (data.comprovante_endereco?.cep || '')) {
+          if (data.comprovante_endereco?.id) { await directus.request(updateItem('comprovante_endereco', data.comprovante_endereco.id, { cep: infoFormData.cep, ...telPayload })); }
+          else { await directus.request(createItem('comprovante_endereco', { motorista_id: localDriverData.id, cep: infoFormData.cep, ...telPayload })); }
+          relatedChanged = true;
+        }
+        if (relatedChanged) { await fetchRelatedData(); }
       } else {
         const newDriver = await directus.request(createItem('cadastro_motorista', {
           nome: infoFormData.nome, telefone: infoFormData.telefone,
           forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, 
           status_cadastro: infoFormData.status_cadastro || 'draft',
-          vencimento_cx: infoFormData.vencimento_cx || null
+          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null
         }));
         setLocalDriverData(newDriver); resultDriver = newDriver; toast({ title: "Motorista criado!" });
+
+        let relatedCreated = false;
+        const telPayloadNew = infoFormData.telefone ? { telefone: infoFormData.telefone } : {};
+
+        if (infoFormData.validade_cnh) { await directus.request(createItem('cnh', { motorista_id: newDriver.id, validade: formatDateForAPI(infoFormData.validade_cnh), ...telPayloadNew })); relatedCreated = true; }
+        if (infoFormData.numero_antt) { await directus.request(createItem('antt', { motorista_id: newDriver.id, numero_antt: infoFormData.numero_antt, ...telPayloadNew })); relatedCreated = true; }
+        if (infoFormData.cep) { await directus.request(createItem('comprovante_endereco', { motorista_id: newDriver.id, cep: infoFormData.cep, ...telPayloadNew })); relatedCreated = true; }
+        if (relatedCreated) { await fetchRelatedData(); }
       }
       return resultDriver;
     };
@@ -644,12 +1050,26 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       setLoading(true);
       const stateMap = { cnh: setIsEditingCNH, crlv: setIsEditingCRLV, antt: setIsEditingANTT, comprovante_endereco: setIsEditingAddress };
 
+      const payload = { ...formData };
+      
+      // Alguns schemas no Directus exigem o telefone como campo obrigatório
+      if (localDriverData?.telefone) {
+        payload.telefone = localDriverData.telefone;
+      }
+      
+      const dateFields = ['data_nasc', 'validade', 'emissao_cnh', 'primeira_habilitacao'];
+      for (const field of dateFields) {
+        if (payload[field]) {
+          payload[field] = formatDateForAPI(payload[field]);
+        }
+      }
+
       try {
         if (currentData?.id) {
-          await directus.request(updateItem(type, currentData.id, formData));
+          await directus.request(updateItem(type, currentData.id, payload));
           toast({ title: `${type.toUpperCase()} atualizado` });
         } else {
-          await directus.request(createItem(type, { ...formData, motorista_id: driverData.id }));
+          await directus.request(createItem(type, { ...payload, motorista_id: driverData.id }));
           toast({ title: `${type.toUpperCase()} criado` });
         }
       } catch (error: any) {
@@ -663,10 +1083,10 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
             // Retry a operação após refresh
             if (currentData?.id) {
-              await directus.request(updateItem(type, currentData.id, formData));
+              await directus.request(updateItem(type, currentData.id, payload));
               toast({ title: `${type.toUpperCase()} atualizado` });
             } else {
-              await directus.request(createItem(type, { ...formData, motorista_id: driverData.id }));
+              await directus.request(createItem(type, { ...payload, motorista_id: driverData.id }));
               toast({ title: `${type.toUpperCase()} criado` });
             }
           } catch (refreshError) {
@@ -712,11 +1132,16 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     if (!currentCarreta) return;
 
     const performSave = async () => {
+      const carretaPayload = { ...carretaForm };
+      if (localDriverData?.telefone) {
+        carretaPayload.telefone = localDriverData.telefone;
+      }
+
       if (currentCarreta.data?.id) {
-        await directus.request(updateItem(currentCarreta.collection, currentCarreta.data.id, carretaForm));
+        await directus.request(updateItem(currentCarreta.collection, currentCarreta.data.id, carretaPayload));
         toast({ title: `${currentCarreta.type} atualizada` });
       } else {
-        await directus.request(createItem(currentCarreta.collection, { ...carretaForm, motorista_id: driverData.id }));
+        await directus.request(createItem(currentCarreta.collection, { ...carretaPayload, motorista_id: driverData.id }));
         toast({ title: `${currentCarreta.type} criada` });
       }
     };
@@ -841,7 +1266,14 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             </SelectContent>
                           </Select>
                         </div>
-                        <InputField label="Vencimento CX" type="date" value={infoFormData.vencimento_cx} onChange={(v: any) => setInfoFormData({ ...infoFormData, vencimento_cx: v })} />
+                        <InputField label="Vencimento CX" isDate={true} value={infoFormData.vencimento_cx} onChange={(v: any) => setInfoFormData({ ...infoFormData, vencimento_cx: v })} />
+                        <InputField label="Validade CNH" isDate={true} value={infoFormData.validade_cnh} onChange={(v: any) => setInfoFormData({ ...infoFormData, validade_cnh: v })} />
+                        <InputField label="Número ANTT" value={infoFormData.numero_antt} onChange={(v: any) => setInfoFormData({ ...infoFormData, numero_antt: v })} />
+                        <InputField label="CEP do Comprovante" value={infoFormData.cep} onChange={(v: any) => setInfoFormData({ ...infoFormData, cep: v })} />
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Cadastrado</span>
+                          <Input disabled value={formatDate(localDriverData?.date_created)} className="bg-muted text-muted-foreground cursor-not-allowed" />
+                        </div>
                       </>
                     ) : (
                       <>
@@ -849,6 +1281,8 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <FieldRow label="CPF" value={localDriverData?.cpf} />
                         <FieldRow label="Telefone" value={localDriverData?.telefone} />
                         <FieldRow label="Forma Pgto" value={localDriverData?.forma_pagamento} />
+                        <FieldRow label="Número ANTT" value={data.antt?.numero_antt} />
+                        <FieldRow label="CEP (Comprovante)" value={data.comprovante_endereco?.cep} />
                         <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
                           <span className="text-sm text-muted-foreground">Faróis:</span>
                           <Badge className={`${getStatusBadgeColor(localDriverData?.status_cadastro)} text-xs border-transparent shadow-sm`} variant="outline">
@@ -899,15 +1333,15 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     {isEditingCNH ? (
                       <>
                         <CpfInputField label="CPF" value={cnhForm.cpf} onChange={(v: any) => setCnhForm({ ...cnhForm, cpf: v })} referenceCpf={localDriverData?.cpf} />
-                        <InputField label="Data Nasc (DD/MM/AAAA)" value={cnhForm.data_nasc} onChange={(v: any) => setCnhForm({ ...cnhForm, data_nasc: v })} />
+                        <InputField label="Data Nasc" isDate={true} value={cnhForm.data_nasc} onChange={(v: any) => setCnhForm({ ...cnhForm, data_nasc: v })} />
                         <InputField label="Nome Mãe" value={cnhForm.nome_mae} onChange={(v: any) => setCnhForm({ ...cnhForm, nome_mae: v })} />
                         <InputField label="Registro CNH" value={cnhForm.n_registro_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_registro_cnh: v })} />
                         <InputField label="Nº Formulário Espelho" value={cnhForm.n_formulario_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_formulario_cnh: v })} />
-                        <InputField label="Validade (DD/MM/AAAA)" value={cnhForm.validade} onChange={(v: any) => setCnhForm({ ...cnhForm, validade: v })} />
-                        <InputField label="Emissão CNH (DD/MM/AAAA)" value={cnhForm.emissao_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, emissao_cnh: v })} />
+                        <InputField label="Validade CNH" isDate={true} value={cnhForm.validade} onChange={(v: any) => setCnhForm({ ...cnhForm, validade: v })} />
+                        <InputField label="Emissão CNH" isDate={true} value={cnhForm.emissao_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, emissao_cnh: v })} />
                         <InputField label="Nº CNH Segurança" value={cnhForm.n_cnh_seguranca} onChange={(v: any) => setCnhForm({ ...cnhForm, n_cnh_seguranca: v })} />
                         <InputField label="Nº CNH Renach" value={cnhForm.n_cnh_renach} onChange={(v: any) => setCnhForm({ ...cnhForm, n_cnh_renach: v })} />
-                        <InputField label="1ª Habilitacao (DD/MM/AAAA)" value={cnhForm.primeira_habilitacao} onChange={(v: any) => setCnhForm({ ...cnhForm, primeira_habilitacao: v })} />
+                        <InputField label="1ª Habilitacao" isDate={true} value={cnhForm.primeira_habilitacao} onChange={(v: any) => setCnhForm({ ...cnhForm, primeira_habilitacao: v })} />
                         <InputField label="Categoria" value={cnhForm.categoria} onChange={(v: any) => setCnhForm({ ...cnhForm, categoria: v })} />
                         <InputField label="Cidade Emissão" value={cnhForm.cidade_emissao} onChange={(v: any) => setCnhForm({ ...cnhForm, cidade_emissao: v })} />
 
@@ -921,7 +1355,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             value={cnhForm.link}
                             onChange={(v: any) => setCnhForm({ ...cnhForm, link: v })}
                             uploadingId="cnh_upload"
-                            onOcrResult={(text: string) => setCnhForm((prev: any) => ({ ...prev, observacao: prev.observacao ? prev.observacao + '\n\n[OCR]: ' + text : '[OCR]: ' + text }))}
+                            onOcrResult={(text: string) => setCnhForm((prev: any) => parseCnhOcrData(text, prev))}
                           />
                         </div>
                       </>
@@ -1325,6 +1759,55 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         </div>
                       ))}
                     </div>
+
+                    <div className="mt-6 flex justify-end border-t pt-4">
+                      <Button 
+                        onClick={() => { setDriveFolderName(localDriverData?.nome || driverData?.nome || ''); setIsDrivePopupOpen(true); }} 
+                        disabled={isUploadingToDrive}
+                        className="bg-green-600 hover:bg-green-700 text-white flex gap-2 items-center"
+                      >
+                        <CloudUpload className="h-4 w-4" /> Enviar Fotos para o Google Drive
+                      </Button>
+                    </div>
+
+                    {/* Popup do Drive */}
+                    <Dialog open={isDrivePopupOpen} onOpenChange={setIsDrivePopupOpen}>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Enviar para o Google Drive</DialogTitle>
+                          <DialogDescription className="sr-only">Confirme o nome da pasta a ser criada</DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Confirme ou edite o nome da pasta que será criada no Google Drive para armazenar as fotos deste veículo.
+                          </p>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Nome da Pasta</label>
+                            <Input
+                              value={driveFolderName}
+                              onChange={(e) => setDriveFolderName(e.target.value)}
+                              placeholder="Nome do Cliente/Motorista"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setIsDrivePopupOpen(false)} disabled={isUploadingToDrive}>
+                            Cancelar
+                          </Button>
+                          <Button 
+                            className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                            onClick={handleUploadToDrive}
+                            disabled={!driveFolderName || isUploadingToDrive}
+                          >
+                            {isUploadingToDrive ? (
+                              <><RefreshCw className="h-4 w-4 animate-spin" /> Processando...</>
+                            ) : (
+                              <><CloudUpload className="h-4 w-4" /> Criar Pasta e Enviar</>
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                     <div className="mt-6 pt-4 border-t">
                       <h4 className="font-semibold mb-3 flex items-center gap-2">
                         <Plus className="h-4 w-4" /> Adicionar Fotos Extras

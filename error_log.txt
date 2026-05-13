@@ -1,3 +1,0 @@
-Error: Cannot use createItem for core collections
-{}
-{}

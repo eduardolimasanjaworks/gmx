@@ -1772,15 +1772,6 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                       >
                         <CloudUpload className="h-4 w-4" /> Enviar Fotos para o Google Drive
                       </Button>
-                      <div className="mt-2 flex flex-col items-end gap-1">
-                        <label className="text-[10px] text-muted-foreground uppercase font-bold px-1">ID da Pasta Raiz (Drive)</label>
-                        <Input 
-                          value={driveRootFolderId}
-                          onChange={(e) => setDriveRootFolderId(e.target.value)}
-                          className="h-7 text-[11px] w-64 text-right bg-muted/30 border-none focus-visible:ring-1"
-                          placeholder="ID da pasta no Google Drive"
-                        />
-                      </div>
                     </div>
 
                     {/* Popup do Drive */}
@@ -1801,6 +1792,23 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                               onChange={(e) => setDriveFolderName(e.target.value)}
                               placeholder="Nome do Cliente/Motorista"
                             />
+                          </div>
+                          
+                          <div className="mt-4 pt-4 border-t border-dashed">
+                            <details className="cursor-pointer group">
+                              <summary className="text-[10px] text-muted-foreground uppercase font-bold hover:text-foreground transition-colors list-none flex items-center gap-1">
+                                <Plus className="h-3 w-3 group-open:rotate-45 transition-transform" /> Configurações Avançadas
+                              </summary>
+                              <div className="mt-2 space-y-2 animate-in fade-in slide-in-from-top-1">
+                                <label className="text-[10px] text-muted-foreground uppercase font-bold">ID da Pasta Raiz do Drive</label>
+                                <Input
+                                  value={driveRootFolderId}
+                                  onChange={(e) => setDriveRootFolderId(e.target.value)}
+                                  className="h-8 text-xs bg-muted/50 font-mono"
+                                  placeholder="ID da pasta no Google Drive"
+                                />
+                              </div>
+                            </details>
                           </div>
                         </div>
                         <DialogFooter className="flex justify-end gap-2">

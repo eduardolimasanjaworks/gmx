@@ -87,7 +87,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 body: JSON.stringify({ refresh_token: refreshTokenValue, mode: 'json' })
             });
 
-            const data = await response.json();
+            const raw = await response.text();
+            let data: { data?: { access_token?: string; refresh_token?: string }; errors?: { message?: string }[] };
+            try {
+                data = JSON.parse(raw);
+            } catch {
+                throw new Error(
+                    'A API retornou uma resposta inválida (não JSON). Verifique se o Directus está no ar e se o proxy /api está configurado.'
+                );
+            }
 
             if (!response.ok) {
                 throw new Error(data.errors?.[0]?.message || 'Token refresh failed');
@@ -195,7 +203,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 body: JSON.stringify({ email, password, mode: 'json' })
             });
 
-            const data = await response.json();
+            const raw = await response.text();
+            let data: { data?: { access_token?: string; refresh_token?: string }; errors?: { message?: string }[] };
+            try {
+                data = JSON.parse(raw);
+            } catch {
+                Logger.error("Login resposta não-JSON", raw.slice(0, 200));
+                throw new Error(
+                    'Servidor retornou HTML ou página de erro em vez de JSON. O Directus pode estar indisponível ou o disco do servidor cheio (PostgreSQL em recovery).'
+                );
+            }
 
             if (!response.ok) {
                 Logger.error("Login Fetch Error", data);

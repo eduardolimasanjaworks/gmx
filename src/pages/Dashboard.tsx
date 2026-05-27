@@ -14,6 +14,7 @@ import { DailyVehicleProposals } from "@/components/dashboard/DailyVehiclePropos
 import { CriticalPendencies } from "@/components/dashboard/CriticalPendencies";
 import { GlobalMatchingPanel } from "@/components/dashboard/GlobalMatchingPanel";
 import { VehicleTrackingMap } from "@/components/tracking/VehicleTrackingMap";
+import { ConversasPanel } from "@/components/dashboard/ConversasPanel";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -30,7 +31,8 @@ import {
   Book,
   LogOut,
   User as UserIcon,
-  Map as MapIcon
+  Map as MapIcon,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +80,7 @@ const Dashboard = () => {
     { id: 'available', label: 'Disponíveis', icon: UserCheck, perm: 'disponiveis' },
     { id: 'tracking', label: 'Rastreamento', icon: MapIcon, perm: 'disponiveis' },
     { id: 'shipments', label: 'Embarques', icon: Package, perm: 'embarques' },
+    { id: 'conversas', label: 'Conversas', icon: MessageCircle, perm: null },
     { id: 'history', label: 'Histórico', icon: History, perm: 'historico' },
     { id: 'operators', label: 'Operadores', icon: Activity, perm: 'usuarios' },
     { id: 'users', label: 'Usuários', icon: Settings, perm: 'usuarios' },
@@ -85,7 +88,7 @@ const Dashboard = () => {
     { id: 'follow', label: 'Follow', icon: ClipboardList, perm: 'embarques' },
   ];
 
-  const availableTabs = allTabs.filter(tab => hasPermission(tab.perm));
+  const availableTabs = allTabs.filter(tab => tab.perm === null || hasPermission(tab.perm));
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -180,7 +183,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <main className={`container mx-auto px-4 ${activeTab === 'conversas' ? 'py-3' : 'py-6'}`}>
         {availableTabs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center animate-in zoom-in-95 duration-500">
             <div className="h-24 w-24 bg-muted/30 rounded-full flex items-center justify-center mb-6">
@@ -195,7 +198,7 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className={activeTab === 'conversas' ? 'space-y-3' : 'space-y-6'}>
             <div className="bg-muted/30 border rounded-xl p-1 shadow-inner overflow-x-auto">
               <TabsList className="flex w-full justify-start lg:justify-between gap-1 bg-transparent h-auto p-0">
                 <div className="flex gap-1">
@@ -282,6 +285,12 @@ const Dashboard = () => {
               {activeTab === 'users' && hasPermission('usuarios') && (
                 <TabsContent value="users" className="space-y-6 mt-0">
                   <UserManagement />
+                </TabsContent>
+              )}
+
+              {activeTab === 'conversas' && (
+                <TabsContent value="conversas" className="mt-0">
+                  <ConversasPanel />
                 </TabsContent>
               )}
             </div>

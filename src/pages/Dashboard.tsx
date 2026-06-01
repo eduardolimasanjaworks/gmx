@@ -4,15 +4,10 @@ import { DynamicDriverRegistry } from "@/components/dashboard/DynamicDriverRegis
 import { AvailableDrivers } from "@/components/dashboard/AvailableDrivers";
 import { ShipmentBoard } from "@/components/dashboard/ShipmentBoard";
 import { ShipmentHistory } from "@/components/dashboard/ShipmentHistory";
-import { StatsDashboard } from "@/components/dashboard/StatsDashboard";
+import { OperationalDashboard } from "@/features/operational-dashboard/OperationalDashboard";
 import { UserManagement } from "@/components/dashboard/UserManagement";
 import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
 import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
-import { EnhancedVehicleTimeline } from "@/components/dashboard/EnhancedVehicleTimeline";
-import { LogisticsSaturationMap } from "@/components/dashboard/LogisticsSaturationMap";
-import { DailyVehicleProposals } from "@/components/dashboard/DailyVehicleProposals";
-import { CriticalPendencies } from "@/components/dashboard/CriticalPendencies";
-import { GlobalMatchingPanel } from "@/components/dashboard/GlobalMatchingPanel";
 import { VehicleTrackingMap } from "@/components/tracking/VehicleTrackingMap";
 import { ConversasPanel } from "@/components/dashboard/ConversasPanel";
 import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
@@ -218,7 +213,7 @@ const Dashboard = () => {
                     <TabsTrigger
                       key={tab.id}
                       value={tab.id}
-                      className="flex-1 min-w-[90px] flex-col sm:flex-row gap-1 sm:gap-2 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200 opacity-50"
+                      className={`flex-1 min-w-[90px] flex-col sm:flex-row gap-1 sm:gap-2 py-2.5 rounded-lg data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all duration-200${tab.id === 'stats' ? '' : ' opacity-50'}`}
                     >
                       <tab.icon className="h-4 w-4 sm:h-4 sm:w-4" />
                       <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide">{tab.label}</span>
@@ -231,12 +226,7 @@ const Dashboard = () => {
             <div className="animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
               {activeTab === 'stats' && hasPermission('dashboard') && (
                 <TabsContent value="stats" className="space-y-6 mt-0">
-                  <CriticalPendencies />
-                  <GlobalMatchingPanel />
-                  <StatsDashboard />
-                  <EnhancedVehicleTimeline />
-                  <LogisticsSaturationMap />
-                  <DailyVehicleProposals />
+                  <OperationalDashboard />
                 </TabsContent>
               )}
 

@@ -23,7 +23,7 @@ import type { DateRange } from '../utils/date-ranges';
 const initialState: DashboardFilterState = {
   global: {
     operations: [...OPERATION_IDS],
-    datePreset: 'hoje',
+    datePreset: 'mes',
   },
   pieStatuses: [...PIE_STATUS_KEYS],
   dateHierarchy: { years: [], quarters: [], months: [], days: [] },

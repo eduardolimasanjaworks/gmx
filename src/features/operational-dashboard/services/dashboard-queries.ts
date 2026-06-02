@@ -74,7 +74,7 @@ export async function fetchOperationalKpis(
   const [disponiveis, embarques, followRows] = await Promise.all([
     publicDirectus.request(
       readItems('disponivel', {
-        fields: ['id', 'status', 'motorista_id', 'date_created', 'produto'],
+        fields: ['id', 'status', 'disponivel', 'motorista_id', 'date_created', 'produto'],
         filter: dateFilter,
         sort: ['-date_created'],
         limit: 2000,
@@ -108,7 +108,7 @@ export async function fetchOperationalKpis(
   }
   const availableVehicles = [...latestByDriver.values()].filter(
     (r) =>
-      r.status === 'disponivel' &&
+      (r.disponivel === true || r.status === 'disponivel') &&
       productMatchesOperations(produtoField(r as { produto?: string }), operations),
   ).length;
 
@@ -172,6 +172,7 @@ export async function fetchDailyAvailability(
       fields: [
         'id',
         'status',
+        'disponivel',
         'date_created',
         'local_disponibilidade',
         'motorista_id.id',
@@ -182,7 +183,10 @@ export async function fetchDailyAvailability(
       ],
       filter: {
         date_created: toIsoRangeFilter(range),
-        status: { _eq: 'disponivel' },
+        _or: [
+          { disponivel: { _eq: true } },
+          { status: { _eq: 'disponivel' } },
+        ],
       },
       sort: ['-date_created'],
       limit: 3000,

@@ -941,7 +941,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       vencimento_cx: sourceData.vencimento_cx || defaultVencimentoCx,
       validade_cnh: data.cnh?.validade || '',
       numero_antt: data.antt?.numero_antt || '',
-      cep: data.comprovante_endereco?.cep || ''
+      cep: data.comprovante_endereco?.cep || '',
+      tipo_veiculo: sourceData.tipo_veiculo || '',
+      quantidade_eixo: sourceData.quantidade_eixo || '',
     });
     setIsEditingInfo(true);
   };
@@ -953,7 +955,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
           nome: infoFormData.nome, telefone: infoFormData.telefone,
           forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf,
           status_cadastro: infoFormData.status_cadastro || null,
-          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null
+          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null,
+          tipo_veiculo: infoFormData.tipo_veiculo || null,
+          quantidade_eixo: infoFormData.quantidade_eixo || null,
         }));
         setLocalDriverData(updated); toast({ title: "Atualizado com sucesso" }); resultDriver = updated;
 
@@ -964,11 +968,6 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
           const apiValidade = formatDateForAPI(infoFormData.validade_cnh);
           if (data.cnh?.id) { await directus.request(updateItem('cnh', data.cnh.id, { validade: apiValidade, ...telPayload })); }
           else { await directus.request(createItem('cnh', { motorista_id: localDriverData.id, validade: apiValidade, ...telPayload })); }
-          relatedChanged = true;
-        }
-        if (infoFormData.numero_antt !== (data.antt?.numero_antt || '')) {
-          if (data.antt?.id) { await directus.request(updateItem('antt', data.antt.id, { numero_antt: infoFormData.numero_antt, ...telPayload })); }
-          else { await directus.request(createItem('antt', { motorista_id: localDriverData.id, numero_antt: infoFormData.numero_antt, ...telPayload })); }
           relatedChanged = true;
         }
         if (infoFormData.cep !== (data.comprovante_endereco?.cep || '')) {
@@ -982,7 +981,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
           nome: infoFormData.nome, telefone: infoFormData.telefone,
           forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, 
           status_cadastro: infoFormData.status_cadastro || 'draft',
-          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null
+          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null,
+          tipo_veiculo: infoFormData.tipo_veiculo || null,
+          quantidade_eixo: infoFormData.quantidade_eixo || null,
         }));
         setLocalDriverData(newDriver); resultDriver = newDriver; toast({ title: "Motorista criado!" });
 
@@ -990,7 +991,6 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         const telPayloadNew = infoFormData.telefone ? { telefone: infoFormData.telefone } : {};
 
         if (infoFormData.validade_cnh) { await directus.request(createItem('cnh', { motorista_id: newDriver.id, validade: formatDateForAPI(infoFormData.validade_cnh), ...telPayloadNew })); relatedCreated = true; }
-        if (infoFormData.numero_antt) { await directus.request(createItem('antt', { motorista_id: newDriver.id, numero_antt: infoFormData.numero_antt, ...telPayloadNew })); relatedCreated = true; }
         if (infoFormData.cep) { await directus.request(createItem('comprovante_endereco', { motorista_id: newDriver.id, cep: infoFormData.cep, ...telPayloadNew })); relatedCreated = true; }
         if (relatedCreated) { await fetchRelatedData(); }
       }
@@ -1272,8 +1272,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         </div>
                         <InputField label="Vencimento CX" isDate={true} value={infoFormData.vencimento_cx} onChange={(v: any) => setInfoFormData({ ...infoFormData, vencimento_cx: v })} />
                         <InputField label="Validade CNH" isDate={true} value={infoFormData.validade_cnh} onChange={(v: any) => setInfoFormData({ ...infoFormData, validade_cnh: v })} />
-                        <InputField label="Número ANTT" value={infoFormData.numero_antt} onChange={(v: any) => setInfoFormData({ ...infoFormData, numero_antt: v })} />
                         <InputField label="CEP do Comprovante" value={infoFormData.cep} onChange={(v: any) => setInfoFormData({ ...infoFormData, cep: v })} />
+                        <InputField label="Tipo de Veículo" value={infoFormData.tipo_veiculo} onChange={(v: any) => setInfoFormData({ ...infoFormData, tipo_veiculo: v })} />
+                        <InputField label="Quantidade de Eixo" value={infoFormData.quantidade_eixo} onChange={(v: any) => setInfoFormData({ ...infoFormData, quantidade_eixo: v })} />
                         <div className="flex flex-col space-y-1.5">
                           <span className="text-sm text-muted-foreground">Cadastrado</span>
                           <Input disabled value={formatDate(localDriverData?.date_created)} className="bg-muted text-muted-foreground cursor-not-allowed" />
@@ -1285,8 +1286,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <FieldRow label="CPF" value={localDriverData?.cpf} />
                         <FieldRow label="Telefone" value={localDriverData?.telefone} />
                         <FieldRow label="Forma Pgto" value={localDriverData?.forma_pagamento} />
-                        <FieldRow label="Número ANTT" value={data.antt?.numero_antt} />
                         <FieldRow label="CEP (Comprovante)" value={data.comprovante_endereco?.cep} />
+                        <FieldRow label="Tipo de Veículo" value={localDriverData?.tipo_veiculo} />
+                        <FieldRow label="Quantidade de Eixo" value={localDriverData?.quantidade_eixo} />
                         <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
                           <span className="text-sm text-muted-foreground">Faróis:</span>
                           <Badge className={`${getStatusBadgeColor(localDriverData?.status_cadastro)} text-xs border-transparent shadow-sm`} variant="outline">
@@ -1340,7 +1342,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <InputField label="Data Nasc" isDate={true} value={cnhForm.data_nasc} onChange={(v: any) => setCnhForm({ ...cnhForm, data_nasc: v })} />
                         <InputField label="Nome Mãe" value={cnhForm.nome_mae} onChange={(v: any) => setCnhForm({ ...cnhForm, nome_mae: v })} />
                         <InputField label="Registro CNH" value={cnhForm.n_registro_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_registro_cnh: v })} />
-                        <InputField label="Nº Formulário Espelho" value={cnhForm.n_formulario_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_formulario_cnh: v })} />
+                        <InputField label="Nº CNH Documento / Formulário" value={cnhForm.n_formulario_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, n_formulario_cnh: v })} />
                         <InputField label="Validade CNH" isDate={true} value={cnhForm.validade} onChange={(v: any) => setCnhForm({ ...cnhForm, validade: v })} />
                         <InputField label="Emissão CNH" isDate={true} value={cnhForm.emissao_cnh} onChange={(v: any) => setCnhForm({ ...cnhForm, emissao_cnh: v })} />
                         <InputField label="Nº CNH Segurança" value={cnhForm.n_cnh_seguranca} onChange={(v: any) => setCnhForm({ ...cnhForm, n_cnh_seguranca: v })} />
@@ -1369,7 +1371,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         <FieldRow label="Data Nasc" value={formatDate(data.cnh?.data_nasc)} />
                         <FieldRow label="Nome Mãe" value={data.cnh?.nome_mae} />
                         <FieldRow label="Registro CNH" value={data.cnh?.n_registro_cnh} />
-                        <FieldRow label="Formulário CNH" value={data.cnh?.n_formulario_cnh} />
+                        <FieldRow label="Nº CNH Documento / Formulário" value={data.cnh?.n_formulario_cnh} />
                         <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
                           <span className="text-sm text-muted-foreground">Validade:</span>
                           <div className="flex items-center gap-2">

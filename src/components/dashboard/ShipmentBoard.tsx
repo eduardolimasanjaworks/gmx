@@ -133,6 +133,8 @@ export const ShipmentBoard = () => {
   const [shipmentToStart, setShipmentToStart] = useState<any>(null);
   const [periodFilter, setPeriodFilter] = useState<"today" | "month" | "all">("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [grOkByShipment, setGrOkByShipment] = useState<Record<string, boolean>>({});
+  const [placasOkByShipment, setPlacasOkByShipment] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -283,6 +285,14 @@ export const ShipmentBoard = () => {
   };
 
   const handleConfirmGMX = async (shipment: any) => {
+    if (!grOkByShipment[String(shipment.id)] || !placasOkByShipment[String(shipment.id)]) {
+      toast({
+        variant: "destructive",
+        title: "Validação pendente",
+        description: "Marque os flags GR e PLACAS como OK antes de avançar o card.",
+      });
+      return;
+    }
     try {
       await updateStatus(shipment.id, 'confirmed');
       toast({
@@ -299,6 +309,23 @@ export const ShipmentBoard = () => {
   };
 
   const handleStartRide = async (shipment: any) => {
+    if (!grOkByShipment[String(shipment.id)] || !placasOkByShipment[String(shipment.id)]) {
+      toast({
+        variant: "destructive",
+        title: "Validação pendente",
+        description: "Marque os flags GR e PLACAS como OK antes de iniciar a corrida.",
+      });
+      return;
+    }
+    const emailContent = String(shipment.email_content || "").toLowerCase();
+    if (emailContent.includes("não foi aceita") || emailContent.includes("nao foi aceita")) {
+      toast({
+        variant: "destructive",
+        title: "Carga não aceita no SMART",
+        description: "Esta carga não foi aceita no SMART, verificar a programação.",
+      });
+      return;
+    }
     // Mock check: always assume receipt exists or allow override
     const mockReceiptExists = true;
 
@@ -595,17 +622,63 @@ export const ShipmentBoard = () => {
 
                                 {/* Info Rows */}
                                 <div className="space-y-1.5 pt-1">
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Truck className="w-3 h-3" />
+                                    Placas: {shipment.placa_cavalo || shipment.truck_plate || "-"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Package className="w-3 h-3" />
+                                    Quantidade: {shipment.quantidade_kg || shipment.palets || shipment.quantidade || "-"}
+                                  </p>
                                   {shipment.delivery_window && (
                                     <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                                       <Clock className="w-3 h-3" />
                                       Janela: {shipment.delivery_window}
                                     </p>
                                   )}
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={grOkByShipment[String(shipment.id)] ? "default" : "outline"}
+                                      className="h-6 px-2 text-[10px]"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setGrOkByShipment((prev) => ({
+                                          ...prev,
+                                          [String(shipment.id)]: !prev[String(shipment.id)],
+                                        }));
+                                      }}
+                                    >
+                                      GR {grOkByShipment[String(shipment.id)] ? "OK" : "Pendente"}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={placasOkByShipment[String(shipment.id)] ? "default" : "outline"}
+                                      className="h-6 px-2 text-[10px]"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPlacasOkByShipment((prev) => ({
+                                          ...prev,
+                                          [String(shipment.id)]: !prev[String(shipment.id)],
+                                        }));
+                                      }}
+                                    >
+                                      PLACAS {placasOkByShipment[String(shipment.id)] ? "OK" : "Pendente"}
+                                    </Button>
+                                  </div>
 
                                   {shipment.rejected_drivers_count > 0 && (column.status === "new" || column.status === "sent") && (
                                     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] border border-red-100">
                                       <X className="w-3 h-3" />
                                       {shipment.rejected_drivers_count} recusaram
+                                    </div>
+                                  )}
+                                  {String(shipment.email_content || "").toLowerCase().includes("não foi aceita") && (
+                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] border border-amber-200">
+                                      <AlertTriangle className="w-3 h-3" />
+                                      Não aceita no SMART
                                     </div>
                                   )}
                                 </div>

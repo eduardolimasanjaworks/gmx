@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DynamicDriverRegistry } from "@/components/dashboard/DynamicDriverRegistry";
-import { AvailableDrivers } from "@/components/dashboard/AvailableDrivers";
 import { ShipmentBoard } from "@/components/dashboard/ShipmentBoard";
 import { ShipmentHistory } from "@/components/dashboard/ShipmentHistory";
 import { OperationalDashboard } from "@/features/operational-dashboard/OperationalDashboard";
@@ -16,7 +15,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   Users,
-  UserCheck,
   Package,
   History,
   BarChart3,
@@ -55,7 +53,7 @@ const Dashboard = () => {
     if (!user) return false;
 
     // 1. Check specific admin email
-    if (user.email === 'admin@gmx.com') return true;
+    if (user.email === 'admin@gmx.com' || user.email === 'gmx@gmx.com') return true;
 
     // 2. Check App Role Name
     const appRoleName = user.app_role?.name?.toLowerCase() || '';
@@ -72,7 +70,6 @@ const Dashboard = () => {
 
   const allTabs = [
     { id: 'registry', label: 'Cadastros', icon: Users, perm: 'cadastros' },
-    { id: 'available', label: 'Disponíveis', icon: UserCheck, perm: 'disponiveis' },
     { id: 'tracking', label: 'Rastreamento', icon: MapIcon, perm: 'disponiveis' },
     { id: 'shipments', label: 'Embarques', icon: Package, perm: 'embarques' },
     { id: 'conversas', label: 'Conversas', icon: MessageCircle, perm: null },
@@ -233,12 +230,6 @@ const Dashboard = () => {
               {activeTab === 'registry' && hasPermission('cadastros') && (
                 <TabsContent value="registry" className="space-y-6 mt-0">
                   <DynamicDriverRegistry />
-                </TabsContent>
-              )}
-
-              {activeTab === 'available' && hasPermission('disponiveis') && (
-                <TabsContent value="available" className="space-y-6 mt-0">
-                  <AvailableDrivers />
                 </TabsContent>
               )}
 

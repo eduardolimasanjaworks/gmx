@@ -14,6 +14,7 @@ import { DynamicFieldRenderer } from "@/components/driver/DynamicFieldRenderer";
 import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
 import { FieldConfigManager } from "./FieldConfigManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { directus } from "@/lib/directus";
 import { readItems, createItem, updateItem } from "@directus/sdk";
 import { useAuth } from "@/context/AuthContext";
@@ -27,6 +28,7 @@ export const DynamicDriverRegistry = () => {
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [availabilityFilter, setAvailabilityFilter] = useState<"todos" | "disponiveis">("todos");
   const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -214,6 +216,9 @@ export const DynamicDriverRegistry = () => {
   };
 
   const filteredDrivers = drivers.filter((driver) => {
+    if (availabilityFilter === "disponiveis" && driver.status_logistica !== "Disponível") {
+      return false;
+    }
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return Object.values(driver).some(value =>
@@ -257,8 +262,10 @@ export const DynamicDriverRegistry = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Cadastro de Motoristas</h2>
-          <p className="text-muted-foreground">{filteredDrivers.length} motoristas</p>
+          <h2 className="text-3xl font-bold tracking-tight">Cadastros</h2>
+          <p className="text-muted-foreground">
+            {filteredDrivers.length} motoristas {availabilityFilter === "disponiveis" ? "disponíveis" : "cadastrados"}
+          </p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex gap-2">
@@ -329,6 +336,19 @@ export const DynamicDriverRegistry = () => {
                 Busque por: Nome, CPF, Placas (Caminhão/Carretas), Telefone, Cidade, Estado
               </p>
             </div>
+            <ToggleGroup
+              type="single"
+              value={availabilityFilter}
+              onValueChange={(value) => {
+                if (!value) return;
+                setAvailabilityFilter(value as "todos" | "disponiveis");
+                setCurrentPage(1);
+              }}
+              className="gap-2"
+            >
+              <ToggleGroupItem value="todos">Todos</ToggleGroupItem>
+              <ToggleGroupItem value="disponiveis">Disponíveis</ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </CardHeader>
         <CardContent>

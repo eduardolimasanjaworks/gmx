@@ -30,6 +30,8 @@ export function useEmbarques() {
             id: item.driver_id.id,
             name: item.driver_id.name || item.driver_id.nome || 'Motorista'
           } : undefined,
+          // Regra operacional: cargas canceladas vão para coluna finalizadas
+          status: item.status === 'cancelled' ? 'delivered' : item.status,
           // Normaliza driver_id para string se for objeto
           driver_id: typeof item.driver_id === 'object' ? item.driver_id?.id : item.driver_id
         })) as any[];
@@ -53,6 +55,7 @@ export function useEmbarques() {
                 id: item.driver_id.id,
                 name: item.driver_id.name || item.driver_id.nome || 'Motorista'
               } : undefined,
+              status: item.status === 'cancelled' ? 'delivered' : item.status,
               driver_id: typeof item.driver_id === 'object' ? item.driver_id?.id : item.driver_id
             })) as any[];
             return items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

@@ -67,6 +67,9 @@ export const VehicleTrackingMap = () => {
   const [timeTravelDate, setTimeTravelDate] = useState<Date | undefined>(
     urlDate ? new Date(urlDate) : new Date()
   );
+  const [timeTravelEndDate, setTimeTravelEndDate] = useState<Date | undefined>(
+    urlDate ? new Date(urlDate) : new Date()
+  );
   const [radiusKm, setRadiusKm] = useState<number[]>([150]); // Default slightly larger for loads
   const [originPoint, setOriginPoint] = useState<[number, number] | null>(
     urlLat && urlLng ? [Number(urlLat), Number(urlLng)] : null
@@ -98,12 +101,15 @@ export const VehicleTrackingMap = () => {
   const fetchDrivers = async () => {
     let filterQuery: any = undefined;
 
-    if (timeTravelDate) {
-      const endOfDay = new Date(timeTravelDate);
+    if (timeTravelDate || timeTravelEndDate) {
+      const startOfDay = new Date(timeTravelDate || new Date());
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(timeTravelEndDate || timeTravelDate || new Date());
       endOfDay.setHours(23, 59, 59, 999);
 
       filterQuery = {
         date_created: {
+          _gte: startOfDay.toISOString(),
           _lte: endOfDay.toISOString()
         }
       };
@@ -156,7 +162,7 @@ export const VehicleTrackingMap = () => {
   };
 
   const { data: fetchedDrivers = [], isLoading, isError } = useQuery({
-    queryKey: ['tracking-map-drivers', timeTravelDate?.toISOString()],
+    queryKey: ['tracking-map-drivers', timeTravelDate?.toISOString(), timeTravelEndDate?.toISOString()],
     queryFn: async () => {
       try {
         return await fetchDrivers();
@@ -602,15 +608,16 @@ export const VehicleTrackingMap = () => {
 
             {/* 1. Viagem no Tempo (Data) */}
             <div className="flex flex-col gap-2">
-              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Viagem no Tempo</Label>
+                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filtro no Tempo</Label>
+              <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant={"outline"}
-                    className={`w-[240px] justify-start text-left font-normal ${!timeTravelDate && "text-muted-foreground"}`}
+                    className={`w-[180px] justify-start text-left font-normal ${!timeTravelDate && "text-muted-foreground"}`}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {timeTravelDate ? format(timeTravelDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                    {timeTravelDate ? format(timeTravelDate, "dd/MM/yyyy", { locale: ptBR }) : <span>Data inicial</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 z-[10000]" align="start">
@@ -624,6 +631,28 @@ export const VehicleTrackingMap = () => {
                   />
                 </PopoverContent>
               </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={`w-[180px] justify-start text-left font-normal ${!timeTravelEndDate && "text-muted-foreground"}`}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {timeTravelEndDate ? format(timeTravelEndDate, "dd/MM/yyyy", { locale: ptBR }) : <span>Data final</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[10000]" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={timeTravelEndDate}
+                    onSelect={setTimeTravelEndDate}
+                    initialFocus
+                    locale={ptBR}
+                    disabled={(date) => false}
+                  />
+                </PopoverContent>
+              </Popover>
+              </div>
             </div>
 
             {/* Divisor */}
@@ -697,6 +726,17 @@ export const VehicleTrackingMap = () => {
                 <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Max. Distância</Label>
                 <span className="text-xs font-bold text-emerald-600">{radiusKm[0]} km</span>
               </div>
+              <Input
+                type="number"
+                min={10}
+                max={2000}
+                value={radiusKm[0]}
+                onChange={(e) => {
+                  const val = Number(e.target.value || 0);
+                  if (!Number.isNaN(val) && val >= 10) setRadiusKm([Math.min(val, 2000)]);
+                }}
+                className="h-8"
+              />
               <Slider
                 value={radiusKm}
                 onValueChange={setRadiusKm}

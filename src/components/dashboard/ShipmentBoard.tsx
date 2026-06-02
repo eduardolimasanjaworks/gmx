@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, DollarSign, CheckCircle, X, Maximize2, Play, AlertTriangle, FileText, Loader2, Mail, Plus, Calendar, Package, Clock } from "lucide-react";
+import { MapPin, DollarSign, CheckCircle, X, Maximize2, Play, AlertTriangle, FileText, Loader2, Mail, Plus, Calendar, Package, Clock, Truck } from "lucide-react";
 import { ShipmentDetailsDialog } from "@/components/shipment/ShipmentDetailsDialog";
 import { ShipmentTimer } from "@/components/shipment/ShipmentTimer";
 import { ShipmentTableView } from "@/components/shipment/ShipmentTableView";

@@ -1,10 +1,20 @@
 /**
  * @module operational-dashboard/components/operational/OperationalTopFilters
- * @purpose Filtros globais empilhados (operações + data) no canto superior direito.
+ * @purpose Filtros globais compactos em dropdown (DATA e OPERAÇÕES).
  */
 
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 import type { OperationId } from '../../constants/operations';
 import { OPERATION_IDS } from '../../constants/operations';
 import type { GlobalDatePreset } from '../../types/filters';
@@ -21,78 +31,64 @@ interface OperationalTopFiltersProps {
 }
 
 export function OperationalTopFilters({ filters }: OperationalTopFiltersProps) {
-  const {
-    state,
-    setGlobalDatePreset,
-    toggleOperation,
-    selectAllOperations,
-  } = filters;
-
-  const allOpsSelected = state.global.operations.length === OPERATION_IDS.length;
+  const { state, setGlobalDatePreset, toggleOperation, selectAllOperations } = filters;
 
   return (
-    <div className="flex flex-col items-end gap-3 min-w-[200px]">
-      <div className="w-full rounded-lg border-2 border-slate-400 bg-slate-50 p-3 shadow-sm">
-        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-800">
-          Operação
-        </p>
-        <div className="flex flex-col gap-1.5">
-          {OPERATION_IDS.map((op) => {
-            const active = state.global.operations.includes(op);
-            return (
-              <Button
-                key={op}
-                type="button"
-                size="sm"
-                variant={active ? 'default' : 'outline'}
-                className={cn(
-                  'h-8 w-full justify-start font-semibold uppercase',
-                  active && 'bg-blue-700 hover:bg-blue-800',
-                )}
-                onClick={() => toggleOperation(op)}
-              >
-                {op}
-              </Button>
-            );
-          })}
+    <div className="flex items-center gap-2">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button className="h-9 rounded-full bg-emerald-600 px-4 text-xs font-bold uppercase hover:bg-emerald-700">
+            Data
+            <ChevronDown className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuLabel>Janela de data</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioGroup
+            value={state.global.datePreset}
+            onValueChange={(v) => setGlobalDatePreset(v as GlobalDatePreset)}
+          >
+            {DATE_PRESETS.map((p) => (
+              <DropdownMenuRadioItem key={p.id} value={p.id}>
+                {p.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button className="h-9 rounded-full bg-emerald-600 px-4 text-xs font-bold uppercase hover:bg-emerald-700">
+            Operações
+            <ChevronDown className="ml-1 h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Filtrar operações</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {OPERATION_IDS.map((op) => (
+            <DropdownMenuCheckboxItem
+              key={op}
+              checked={state.global.operations.includes(op)}
+              onCheckedChange={() => toggleOperation(op as OperationId)}
+            >
+              {op}
+            </DropdownMenuCheckboxItem>
+          ))}
+          <DropdownMenuSeparator />
           <Button
             type="button"
+            variant="ghost"
             size="sm"
-            variant={allOpsSelected ? 'default' : 'outline'}
-            className={cn(
-              'h-8 w-full justify-start font-semibold uppercase',
-              allOpsSelected && 'bg-emerald-600 hover:bg-emerald-700',
-            )}
+            className="w-full justify-start rounded-none px-2 text-xs font-semibold uppercase"
             onClick={selectAllOperations}
           >
             Todos
           </Button>
-        </div>
-      </div>
-
-      <div className="w-full rounded-lg border-2 border-slate-400 bg-slate-50 p-3 shadow-sm">
-        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-800">Data</p>
-        <div className="flex flex-col gap-1.5">
-          {DATE_PRESETS.map((p) => {
-            const active = state.global.datePreset === p.id;
-            return (
-              <Button
-                key={p.id}
-                type="button"
-                size="sm"
-                variant={active ? 'default' : 'outline'}
-                className={cn(
-                  'h-8 w-full justify-start font-semibold uppercase',
-                  active && 'bg-emerald-600 hover:bg-emerald-700',
-                )}
-                onClick={() => setGlobalDatePreset(p.id)}
-              >
-                {p.label}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

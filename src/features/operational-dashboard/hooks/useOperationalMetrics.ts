@@ -16,11 +16,17 @@ export function useOperationalMetrics(
   const kpis = useQuery({
     queryKey: ['op-dash-kpis', range.from.toISOString(), operations],
     queryFn: () => fetchOperationalKpis(range, operations),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const pie = useQuery({
     queryKey: ['op-dash-pie', range.from.toISOString(), operations, pieStatuses],
     queryFn: () => fetchFollowStatusPie(range, operations, pieStatuses),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   return { kpis, pie };

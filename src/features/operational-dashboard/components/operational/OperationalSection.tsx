@@ -33,12 +33,12 @@ export function OperationalSection({ filters }: OperationalSectionProps) {
         Dashboard operacional
       </h1>
 
-      {/* Filtros empilhados no canto superior direito, acima dos KPIs */}
+      {/* Filtros compactos no canto superior direito, acima dos KPIs */}
       <div className="flex justify-end">
         <OperationalTopFilters filters={filters} />
       </div>
 
-      <KpiCards data={kpis.data} isLoading={kpis.isLoading} />
+      <KpiCards data={kpis.data} isLoading={kpis.isLoading && !kpis.data} />
 
       <hr className="border-0 border-t-4 border-green-500" />
 

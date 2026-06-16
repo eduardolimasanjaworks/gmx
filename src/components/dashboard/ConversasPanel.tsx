@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const CHAT_URL = "https://chat.techfala.com.br";
+const CHAT_URL = "https://chat.sanjaworks.com";
 
 export function ConversasPanel() {
   const containerRef = useRef<HTMLDivElement>(null);

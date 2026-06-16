@@ -18,7 +18,8 @@ export function useOperationalMetrics(
     queryFn: () => fetchOperationalKpis(range, operations),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: false,
+    placeholderData: (prev) => prev,
   });
 
   const pie = useQuery({
@@ -26,7 +27,8 @@ export function useOperationalMetrics(
     queryFn: () => fetchFollowStatusPie(range, operations, pieStatuses),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: false,
+    placeholderData: (prev) => prev,
   });
 
   return { kpis, pie };

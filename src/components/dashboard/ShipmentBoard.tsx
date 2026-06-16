@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   DragOverlay,
@@ -23,7 +24,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, DollarSign, CheckCircle, X, Maximize2, Play, AlertTriangle, FileText, Loader2, Mail, Plus, Calendar, Package, Clock, Truck } from "lucide-react";
+import { MapPin, DollarSign, CheckCircle, X, Maximize2, Play, AlertTriangle, FileText, Loader2, Mail, Plus, Calendar, Package, Clock, Truck, Upload, Route, MessageCircle } from "lucide-react";
+import { OfertarMotoristaDialog } from "@/components/shipment/OfertarMotoristaDialog";
+import { EmbarqueGrCheckbox } from "@/components/shipment/EmbarqueGrCheckbox";
+import { CsvImportDialog } from "@/components/dashboard/CsvImportDialog";
+import { CorrelacionarRotaDialog } from "@/components/dashboard/CorrelacionarRotaDialog";
 import { ShipmentDetailsDialog } from "@/components/shipment/ShipmentDetailsDialog";
 import { ShipmentTimer } from "@/components/shipment/ShipmentTimer";
 import { ShipmentTableView } from "@/components/shipment/ShipmentTableView";
@@ -133,13 +138,22 @@ export const ShipmentBoard = () => {
   const [shipmentToStart, setShipmentToStart] = useState<any>(null);
   const [periodFilter, setPeriodFilter] = useState<"today" | "month" | "all">("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [grOkByShipment, setGrOkByShipment] = useState<Record<string, boolean>>({});
-  const [placasOkByShipment, setPlacasOkByShipment] = useState<Record<string, boolean>>({});
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [correlacionarOpen, setCorrelacionarOpen] = useState(false);
+  const [ofertarEmbarque, setOfertarEmbarque] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Fetch data from database
   const { embarques, embarquesByStatus, isLoading, error, updateStatus } = useEmbarques();
+  const queryClient = useQueryClient();
+  const embarquesRotaPendentes = useMemo(
+    () =>
+      embarques.filter(
+        (e: { rota_status?: string }) => e.rota_status === "pendente",
+      ),
+    [embarques],
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeShipment, setActiveShipment] = useState<any>(null);
 
@@ -285,11 +299,11 @@ export const ShipmentBoard = () => {
   };
 
   const handleConfirmGMX = async (shipment: any) => {
-    if (!grOkByShipment[String(shipment.id)] || !placasOkByShipment[String(shipment.id)]) {
+    if (!shipment.gr_feito) {
       toast({
         variant: "destructive",
         title: "Validação pendente",
-        description: "Marque os flags GR e PLACAS como OK antes de avançar o card.",
+        description: "Marque Feito GR antes de avançar o card.",
       });
       return;
     }
@@ -309,11 +323,11 @@ export const ShipmentBoard = () => {
   };
 
   const handleStartRide = async (shipment: any) => {
-    if (!grOkByShipment[String(shipment.id)] || !placasOkByShipment[String(shipment.id)]) {
+    if (!shipment.gr_feito) {
       toast({
         variant: "destructive",
         title: "Validação pendente",
-        description: "Marque os flags GR e PLACAS como OK antes de iniciar a corrida.",
+        description: "Marque Feito GR antes de iniciar a corrida.",
       });
       return;
     }
@@ -464,6 +478,25 @@ export const ShipmentBoard = () => {
           onOpenChange={setCreateDialogOpen}
         />
 
+        <CsvImportDialog
+          open={csvImportOpen}
+          onOpenChange={setCsvImportOpen}
+          mode="embarques"
+        />
+
+        <CorrelacionarRotaDialog
+          open={correlacionarOpen}
+          onOpenChange={setCorrelacionarOpen}
+          pendentes={embarquesRotaPendentes}
+        />
+
+        <OfertarMotoristaDialog
+          open={!!ofertarEmbarque}
+          onOpenChange={(open) => !open && setOfertarEmbarque(null)}
+          embarque={ofertarEmbarque}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['embarques'] })}
+        />
+
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">
@@ -475,6 +508,20 @@ export const ShipmentBoard = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {embarquesRotaPendentes.length > 0 && (
+              <Button
+                variant="outline"
+                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                onClick={() => setCorrelacionarOpen(true)}
+              >
+                <Route className="mr-2 h-4 w-4" />
+                Rotas pendentes ({embarquesRotaPendentes.length})
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setCsvImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Importar CSV
+            </Button>
             <Button
               className="bg-gradient-primary"
               onClick={() => setCreateDialogOpen(true)}
@@ -564,6 +611,11 @@ export const ShipmentBoard = () => {
                                 <div className="flex items-start justify-between">
                                   <div>
                                     <h4 className="font-bold text-sm text-foreground">{shipment.driver || "Aguardando Motorista"}</h4>
+                                    {shipment.rota_status === "pendente" && (
+                                      <span className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded-full block w-fit mt-1">
+                                        Rota pendente
+                                      </span>
+                                    )}
                                     {shipment.actual_arrival && (
                                       <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full block w-fit mt-1">
                                         Chegou {shipment.actual_arrival}
@@ -636,37 +688,14 @@ export const ShipmentBoard = () => {
                                       Janela: {shipment.delivery_window}
                                     </p>
                                   )}
-                                  <div className="flex flex-wrap gap-1.5">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant={grOkByShipment[String(shipment.id)] ? "default" : "outline"}
-                                      className="h-6 px-2 text-[10px]"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setGrOkByShipment((prev) => ({
-                                          ...prev,
-                                          [String(shipment.id)]: !prev[String(shipment.id)],
-                                        }));
-                                      }}
-                                    >
-                                      GR {grOkByShipment[String(shipment.id)] ? "OK" : "Pendente"}
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant={placasOkByShipment[String(shipment.id)] ? "default" : "outline"}
-                                      className="h-6 px-2 text-[10px]"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPlacasOkByShipment((prev) => ({
-                                          ...prev,
-                                          [String(shipment.id)]: !prev[String(shipment.id)],
-                                        }));
-                                      }}
-                                    >
-                                      PLACAS {placasOkByShipment[String(shipment.id)] ? "OK" : "Pendente"}
-                                    </Button>
+                                  <div className="flex flex-col gap-1.5">
+                                    <EmbarqueGrCheckbox
+                                      embarqueId={shipment.id}
+                                      grFeito={shipment.gr_feito}
+                                      grFeitoEm={shipment.gr_feito_em}
+                                      grFeitoPorNome={shipment.gr_feito_por_nome}
+                                      compact
+                                    />
                                   </div>
 
                                   {shipment.rejected_drivers_count > 0 && (column.status === "new" || column.status === "sent") && (
@@ -684,6 +713,19 @@ export const ShipmentBoard = () => {
                                 </div>
 
                                 {/* Actions */}
+                                {column.status === "new" && shipment.rota_status !== "pendente" && (
+                                  <Button
+                                    className="w-full h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground mb-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOfertarEmbarque(shipment);
+                                    }}
+                                  >
+                                    <MessageCircle className="h-3 w-3 mr-1.5" />
+                                    Ofertar frete
+                                  </Button>
+                                )}
+
                                 <Button
                                   variant="outline"
                                   size="sm"

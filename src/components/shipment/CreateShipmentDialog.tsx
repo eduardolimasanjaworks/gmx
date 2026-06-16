@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { createEmbarque } from "@/lib/embarques";
+import { correlacionarEAtualizarEmbarque } from "@/lib/embarque-rota-service";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,7 +50,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
     setIsSubmitting(true);
 
     try {
-      await createEmbarque({
+      const criado = await createEmbarque({
         origin: formData.origin,
         destination: formData.destination,
         cargo_type: formData.cargo_type || null,
@@ -60,12 +61,20 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
         delivery_window_end: formData.delivery_window_end || null,
         email_content: (formData as any).email_content || null,
         status: 'new',
-        // Directus fields that might not match exact Supabase types need care, but createEmbarque handles 'any' for now.
-      });
+      }) as { id: number };
+
+      const correlacao = await correlacionarEAtualizarEmbarque(
+        criado.id,
+        formData.origin,
+        formData.destination,
+        { usuario: "portal" },
+      );
 
       toast({
         title: "Embarque criado!",
-        description: "Nova oferta de frete criada com sucesso.",
+        description: correlacao.rota
+          ? `Rota correlacionada (${correlacao.rota.origem} → ${correlacao.rota.destino}).`
+          : "Sem rota configurada — associe em Rotas pendentes.",
       });
 
       // Refresh the board immediately

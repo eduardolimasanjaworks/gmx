@@ -10,7 +10,8 @@ export type Permission =
   | "historico"
   | "dashboard"
   | "faq"
-  | "usuarios";
+  | "usuarios"
+  | "gestao_equipe";
 
 export interface User {
   id: string;
@@ -212,6 +213,46 @@ export const useUsers = () => {
 
   // ... updateUser remains similar
 
+  const updateUserPassword = async (userId: string, newPassword: string) => {
+    try {
+      if (!newPassword || newPassword.length < 6) {
+        throw new Error('A senha deve ter no mínimo 6 caracteres.');
+      }
+
+      const targetUser = users.find((u) => u.id === userId);
+      if (!targetUser?.email) {
+        throw new Error('Usuário não encontrado.');
+      }
+
+      const systemUsers = await directus.request(
+        readUsers({
+          filter: { email: { _eq: targetUser.email } },
+          fields: ['id'],
+        }),
+      );
+
+      if (!systemUsers?.length) {
+        throw new Error('Usuário de autenticação (Directus) não encontrado para este e-mail.');
+      }
+
+      await directus.request(
+        updateSystemUser(systemUsers[0].id, { password: newPassword }),
+      );
+
+      toast({
+        title: 'Senha atualizada',
+        description: `Nova senha definida para ${targetUser.email}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao alterar senha',
+        description: error.message,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   const deleteUser = async (userId: string) => {
     try {
       // 1. Get the app user to find their email
@@ -264,6 +305,7 @@ export const useUsers = () => {
     isLoading,
     createUser,
     updateUser,
+    updateUserPassword,
     deleteUser,
     refetch: fetchUsers
   };

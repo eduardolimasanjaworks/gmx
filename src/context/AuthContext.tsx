@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { directus, directusUrl } from '@/lib/directus';
+import { directus, directusUrl, getDirectusUrl } from '@/lib/directus';
 import { readMe, readItems } from '@directus/sdk';
 import { useToast } from '@/hooks/use-toast';
 import { Logger } from '@/lib/logger';
@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 throw new Error('No refresh token available');
             }
 
-            const baseUrl = directusUrl.endsWith('/') ? directusUrl.slice(0, -1) : directusUrl;
+            const baseUrl = getDirectusUrl().replace(/\/$/, '');
             const refreshUrl = `${baseUrl}/auth/refresh`;
 
             const response = await fetch(refreshUrl, {
@@ -192,16 +192,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(true);
             Logger.info(`Starting login for: ${email}`);
 
-            const baseUrl = directusUrl.endsWith('/') ? directusUrl.slice(0, -1) : directusUrl;
+            const baseUrl = getDirectusUrl().replace(/\/$/, '');
             const loginUrl = `${baseUrl}/auth/login`;
 
-            // Logger.info("Login Endpoint:", loginUrl);
+            const doLoginFetch = async () => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30_000);
+                try {
+                    return await fetch(loginUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, mode: 'json' }),
+                        signal: controller.signal,
+                    });
+                } finally {
+                    clearTimeout(timeout);
+                }
+            };
 
-            const response = await fetch(loginUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, mode: 'json' })
-            });
+            let response: Response;
+            try {
+                response = await doLoginFetch();
+            } catch (networkError: any) {
+                if (networkError?.name === 'AbortError') {
+                    throw new Error('Tempo esgotado ao conectar na API. Tente novamente.');
+                }
+                Logger.warn('Login network error, retrying once...', networkError?.message);
+                await new Promise((r) => setTimeout(r, 800));
+                response = await doLoginFetch();
+            }
 
             const raw = await response.text();
             let data: { data?: { access_token?: string; refresh_token?: string }; errors?: { message?: string }[] };
@@ -249,9 +268,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         } catch (error: any) {
             Logger.error("Login Exception", error.message);
+            const isNetwork =
+                error?.message === 'Failed to fetch' ||
+                error?.name === 'TypeError' ||
+                error?.name === 'AbortError';
             toast({
                 title: "Erro de Autenticação",
-                description: error.message || "Não foi possível conectar ao servidor",
+                description: isNetwork
+                    ? 'Não foi possível contactar a API em /api. Verifique sua internet ou aguarde alguns segundos e tente de novo.'
+                    : (error.message || "Não foi possível conectar ao servidor"),
                 variant: "destructive",
             });
             // throw error; 

@@ -9,7 +9,8 @@ import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
 import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
 import { VehicleTrackingMap } from "@/components/tracking/VehicleTrackingMap";
 import { ConversasPanel } from "@/components/dashboard/ConversasPanel";
-import { useOperatorHeartbeat } from "@/hooks/useOperatorHeartbeat";
+import { ConfigIAPanel } from "@/features/config-ia/ConfigIAPanel";
+import { TelemetriaDutyControl } from "@/features/telemetria/components/TelemetriaDutyControl";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -25,7 +26,8 @@ import {
   LogOut,
   User as UserIcon,
   Map as MapIcon,
-  MessageCircle
+  MessageCircle,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,8 +40,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const Dashboard = () => {
-  useOperatorHeartbeat();
-
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -76,6 +76,7 @@ const Dashboard = () => {
     { id: 'history', label: 'Histórico', icon: History, perm: 'historico' },
     { id: 'operators', label: 'Operadores', icon: Activity, perm: 'usuarios' },
     { id: 'users', label: 'Usuários', icon: Settings, perm: 'usuarios' },
+    { id: 'config-ia', label: 'Config IA', icon: Bot, perm: 'usuarios' },
     { id: 'stats', label: 'Dashboard', icon: BarChart3, perm: 'dashboard' },
     { id: 'follow', label: 'Follow', icon: ClipboardList, perm: 'embarques' },
   ];
@@ -84,20 +85,33 @@ const Dashboard = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-
   const [activeTab, setActiveTab] = useState(tabParam || availableTabs[0]?.id || 'unauthorized');
 
   useEffect(() => {
+    if (tabParam === 'telemetria') {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', 'users');
+        if (!next.get('interval')) next.set('interval', '15m');
+        return next;
+      });
+      setActiveTab('users');
+      return;
+    }
     if (tabParam && availableTabs.find(t => t.id === tabParam)) {
       setActiveTab(tabParam);
     }
-  }, [tabParam, availableTabs]);
+  }, [tabParam, availableTabs, setSearchParams]);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    setSearchParams(prev => {
-      prev.set('tab', value);
-      return prev;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', value);
+      if (value === 'users' && !next.get('interval')) {
+        next.set('interval', '15m');
+      }
+      return next;
     });
   };
 
@@ -136,6 +150,8 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            <TelemetriaDutyControl />
+
             <a href="/swagger-ui.html" target="_blank" rel="noopener noreferrer" className="hidden sm:flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-primary transition-colors border px-3 py-1.5 rounded-md hover:bg-muted">
               <Book className="h-3.5 w-3.5" />
               Docs
@@ -269,11 +285,18 @@ const Dashboard = () => {
                 </TabsContent>
               )}
 
+              {activeTab === 'config-ia' && hasPermission('usuarios') && (
+                <TabsContent value="config-ia" className="space-y-6 mt-0">
+                  <ConfigIAPanel />
+                </TabsContent>
+              )}
+
               {activeTab === 'conversas' && (
                 <TabsContent value="conversas" className="mt-0">
                   <ConversasPanel />
                 </TabsContent>
               )}
+
             </div>
           </Tabs>
         )}

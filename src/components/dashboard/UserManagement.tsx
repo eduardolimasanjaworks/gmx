@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Edit, Trash2, User, Save, X, Settings } from "lucide-react";
+import { Plus, Edit, Trash2, User, Save, X, Settings, KeyRound } from "lucide-react";
 import { useUsers, type Permission } from "@/hooks/useUsers";
 import { useRoles, type AppRole } from "@/hooks/useRoles";
+import { useAuth } from "@/context/AuthContext";
+import { TelemetriaPanel } from "@/features/telemetria/components/TelemetriaPanel";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,11 +24,21 @@ const permissionsList: { id: Permission; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "faq", label: "FAQ IA" },
   { id: "usuarios", label: "Usuários" },
+  { id: "gestao_equipe", label: "Gestão de equipe" },
 ];
 
 export const UserManagement = () => {
-  const { users, isLoading, createUser, updateUser, deleteUser, refetch: refetchUsers } = useUsers();
+  const { user: authUser } = useAuth();
+  const { users, isLoading, createUser, updateUser, updateUserPassword, deleteUser, refetch: refetchUsers } = useUsers();
   const { roles, isLoading: rolesLoading, createRole, deleteRole, updateRole } = useRoles();
+
+  const canViewTelemetria = useMemo(() => {
+    if (!authUser) return false;
+    if (authUser.email === 'admin@gmx.com' || authUser.email === 'gmx@gmx.com') return true;
+    const roleName = authUser.app_role?.name?.toLowerCase() || '';
+    if (roleName.includes('admin') || roleName.includes('administrator')) return true;
+    return (authUser.app_role?.permissions || []).includes('gestao_equipe');
+  }, [authUser]);
 
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -40,6 +52,8 @@ export const UserManagement = () => {
 
   // New state to manage the inputs for the currently editing user
   const [editingData, setEditingData] = useState<{ email: string; role: string }>({ email: "", role: "" });
+  const [passwordData, setPasswordData] = useState<{ password: string; confirm: string }>({ password: "", confirm: "" });
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     displayName: "",
@@ -180,6 +194,27 @@ export const UserManagement = () => {
       email: email,
       role: roleName === 'personalizado' ? 'none' : roleName
     });
+    setPasswordData({ password: "", confirm: "" });
+  };
+
+  const handlePasswordUpdate = async (userId: string) => {
+    if (!passwordData.password) {
+      alert("Informe a nova senha.");
+      return;
+    }
+    if (passwordData.password !== passwordData.confirm) {
+      alert("As senhas não coincidem.");
+      return;
+    }
+    try {
+      setIsUpdatingPassword(true);
+      await updateUserPassword(userId, passwordData.password);
+      setPasswordData({ password: "", confirm: "" });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
   const handleCreateRole = async () => {
@@ -286,6 +321,11 @@ export const UserManagement = () => {
         </Dialog>
       </div>
 
+      {canViewTelemetria && (
+        <div className="border-t pt-6">
+          <TelemetriaPanel />
+        </div>
+      )}
 
       <Card className="shadow-card">
         <CardHeader>
@@ -499,6 +539,39 @@ export const UserManagement = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3">
+                    <Label className="text-xs font-semibold flex items-center gap-1">
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Alterar senha de acesso
+                    </Label>
+                    <div className="grid gap-2">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={passwordData.password}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, password: e.target.value }))}
+                        placeholder="Nova senha (mín. 6 caracteres)"
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        value={passwordData.confirm}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, confirm: e.target.value }))}
+                        placeholder="Confirmar nova senha"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={isUpdatingPassword}
+                      onClick={() => void handlePasswordUpdate(user.id)}
+                    >
+                      {isUpdatingPassword ? "Salvando senha..." : "Salvar nova senha"}
+                    </Button>
                   </div>
 
                   <div className="space-y-2">

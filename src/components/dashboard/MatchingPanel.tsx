@@ -6,6 +6,8 @@ import { useMatchingSuggestions, useEmbarquesNeedingMatch } from "@/hooks/useMat
 import { Truck, MapPin, Clock, TrendingUp, CheckCircle, AlertCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { dispararOfertaIagmx } from "@/services/dispararOfertaService";
+import { obterTelefoneMotorista } from "@/lib/rankMotoristas";
 
 export const MatchingPanel = () => {
     const { data: embarques, isLoading: loadingEmbarques } = useEmbarquesNeedingMatch();
@@ -13,12 +15,36 @@ export const MatchingPanel = () => {
     const { data: suggestions, isLoading: loadingSuggestions } = useMatchingSuggestions(selectedEmbarqueId);
     const { toast } = useToast();
 
-    const handleOfferToDriver = (motoristaId: string, motoristaNome: string) => {
-        toast({
-            title: "Oferta Enviada",
-            description: `Frete oferecido para ${motoristaNome}`,
-        });
-        // TODO: Implementar lógica de criação de oferta
+    const handleOfferToDriver = async (motoristaId: string, motoristaNome: string) => {
+        if (!selectedEmbarqueId) return;
+        const emb = embarques?.find((e: { id: string }) => e.id === selectedEmbarqueId);
+        if (!emb) return;
+        try {
+            const telefone = await obterTelefoneMotorista(motoristaId);
+            if (!telefone) {
+                toast({ variant: "destructive", title: "Sem telefone", description: "Motorista sem telefone cadastrado." });
+                return;
+            }
+            const resultado = await dispararOfertaIagmx({
+                embarqueId: selectedEmbarqueId,
+                motoristaId,
+                telefone,
+                origem: emb.origin || '',
+                destino: emb.destination || '',
+                valorOfertado: Number(emb.valor_ofertado ?? emb.valor_maximo ?? emb.total_value ?? 0),
+                valorMinimo: emb.valor_minimo,
+                valorMaximo: emb.valor_maximo,
+                operacao: emb.operacao,
+                produto: emb.produto_predominante,
+            });
+            if (resultado.ok && resultado.enviado) {
+                toast({ title: "Oferta enviada", description: `Frete oferecido para ${motoristaNome}` });
+            } else {
+                toast({ variant: "destructive", title: "Falha no envio", description: resultado.motivo });
+            }
+        } catch {
+            toast({ variant: "destructive", title: "Erro", description: "Não foi possível disparar a oferta." });
+        }
     };
 
     return (

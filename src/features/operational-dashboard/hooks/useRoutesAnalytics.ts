@@ -22,11 +22,17 @@ export function useRoutesAnalytics(
   const topRoutes = useQuery({
     queryKey: ['op-dash-routes', range.from.toISOString(), operations, origin, destination, mode],
     queryFn: () => fetchTopRoutes(range, operations, origin, destination, mode),
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 
   const matrix = useQuery({
     queryKey: ['op-dash-matrix', range.from.toISOString(), operations, origin, destination],
     queryFn: () => fetchDriverDestinationMatrix(range, operations, origin, destination),
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 
   return { topRoutes, matrix };

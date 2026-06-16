@@ -1,18 +1,43 @@
-// import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useMemo } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useTelemetriaDuty } from "@/features/telemetria/hooks/useTelemetriaDuty";
+import { useTelemetriaPresence } from "@/features/telemetria/hooks/useTelemetriaPresence";
+
+function ensureTabId(): string {
+  const key = 'gmx_telemetria_tab_id';
+  const existing = sessionStorage.getItem(key);
+  if (existing) return existing;
+  const generated = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  sessionStorage.setItem(key, generated);
+  return generated;
+}
 
 export function useOperatorHeartbeat() {
-  const { toast } = useToast();
+  const { user } = useAuth();
+  const tabId = useMemo(() => ensureTabId(), []);
 
-  useEffect(() => {
-    console.log("Operator tracking started (MOCK)");
-    const interval = setInterval(() => {
-      console.log("Heartbeat sent (MOCK)");
-    }, 60000);
+  const userPayload = user
+    ? {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+      }
+    : null;
 
-    return () => clearInterval(interval);
-  }, []);
+  const duty = useTelemetriaDuty({
+    user: userPayload,
+    tabId,
+  });
+
+  const { tabState, trackCustomActivity } = useTelemetriaPresence({
+    enabled: duty.isDutyActive,
+    isPaused: duty.isPaused,
+    pauseUntil: duty.pauseUntil,
+    user: userPayload,
+  });
 
   const trackActivity = async (
     activityType: string,
@@ -20,8 +45,16 @@ export function useOperatorHeartbeat() {
     entityType?: string,
     metadata?: Record<string, any>
   ) => {
-    console.log(`Activity tracked (MOCK): ${activityType}`, { entityId, entityType, metadata });
+    await trackCustomActivity(activityType, {
+      entity_id: entityId,
+      entity_type: entityType,
+      ...metadata,
+    });
   };
 
-  return { trackActivity };
+  return {
+    ...duty,
+    tabState,
+    trackActivity,
+  };
 }

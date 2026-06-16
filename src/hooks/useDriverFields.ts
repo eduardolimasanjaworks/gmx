@@ -27,11 +27,14 @@ const DEFAULT_ALL_FIELDS: FieldConfig[] = [
   { id: 'cep_residencia', field_name: 'cep_residencia', display_name: 'CEP', field_type: 'text', visible_in_card: false, visible_in_table: false, display_order: 13 },
   { id: 'proprietario_rastreador', field_name: 'proprietario_rastreador', display_name: 'Prop. Rastreador', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 14 },
   { id: 'quinta_roda', field_name: 'quinta_roda', display_name: '5ª Roda', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 15 },
-  { id: 'status_cadastro', field_name: 'status_cadastro', display_name: 'Status Cadastro', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 16 },
-  { id: 'date_created', field_name: 'date_created', display_name: 'Data de Cadastro', field_type: 'timestamp', visible_in_card: false, visible_in_table: false, display_order: 17 },
-  { id: 'current_location', field_name: 'current_location', display_name: 'Localização GPS', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 18 },
-  { id: 'truck_plate', field_name: 'truck_plate', display_name: 'Placa Principal', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 19 },
-  { id: 'vehicle_type', field_name: 'vehicle_type', display_name: 'Resumo Veículo', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 20 },
+  { id: 'status_cadastro', field_name: 'status_cadastro', display_name: 'Status', field_type: 'badge', visible_in_card: true, visible_in_table: true, display_order: 16 },
+  { id: 'status_validade_cnh', field_name: 'status_validade_cnh', display_name: 'Validade CNH', field_type: 'badge', visible_in_card: true, visible_in_table: true, display_order: 17 },
+  { id: 'vencimento_cx', field_name: 'vencimento_cx', display_name: 'Venc CX', field_type: 'date', visible_in_card: true, visible_in_table: true, display_order: 18 },
+  { id: 'observacao', field_name: 'observacao', display_name: 'Observação', field_type: 'text', visible_in_card: false, visible_in_table: true, display_order: 19 },
+  { id: 'date_created', field_name: 'date_created', display_name: 'Data de Cadastro', field_type: 'timestamp', visible_in_card: false, visible_in_table: false, display_order: 20 },
+  { id: 'current_location', field_name: 'current_location', display_name: 'Localização GPS', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 21 },
+  { id: 'truck_plate', field_name: 'truck_plate', display_name: 'Placa Principal', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 22 },
+  { id: 'vehicle_type', field_name: 'vehicle_type', display_name: 'Resumo Veículo', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 23 },
 ];
 
 export const useDriverFields = () => {

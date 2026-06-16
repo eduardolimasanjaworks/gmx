@@ -80,7 +80,20 @@ export function useEmbarques() {
     if (!acc[status]) {
       acc[status] = [];
     }
-    acc[status].push(transformEmbarqueToCard(embarque));
+    acc[status].push({
+      ...transformEmbarqueToCard(embarque),
+      rota_status: (embarque as { rota_status?: string }).rota_status,
+      config_rota_id: (embarque as { config_rota_id?: number }).config_rota_id,
+      valor_minimo: (embarque as { valor_minimo?: number }).valor_minimo,
+      valor_maximo: (embarque as { valor_maximo?: number }).valor_maximo,
+      valor_ofertado: (embarque as { valor_ofertado?: number }).valor_ofertado,
+      produto_predominante: (embarque as { produto_predominante?: string }).produto_predominante,
+      operacao: (embarque as { operacao?: string }).operacao,
+      gr_feito: (embarque as { gr_feito?: boolean }).gr_feito,
+      gr_feito_em: (embarque as { gr_feito_em?: string }).gr_feito_em,
+      gr_feito_por_nome: (embarque as { gr_feito_por_nome?: string }).gr_feito_por_nome,
+      gr_feito_por_id: (embarque as { gr_feito_por_id?: string }).gr_feito_por_id,
+    });
     return acc;
   }, {} as Record<EmbarqueStatus, ReturnType<typeof transformEmbarqueToCard>[]>);
 

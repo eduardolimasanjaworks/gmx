@@ -4,7 +4,7 @@
  */
 
 import { readItems } from '@directus/sdk';
-import { publicDirectus } from '@/lib/directus';
+import { directus } from '@/lib/directus';
 import type { OperationId } from '../constants/operations';
 import type { PieStatusKey } from '../constants/status-labels';
 import { PIE_STATUS_KEYS } from '../constants/status-labels';
@@ -65,6 +65,15 @@ function driverDisplayName(
   return n || 'Motorista';
 }
 
+function isForbidden(error: unknown): boolean {
+  const e = error as { status?: number; response?: { status?: number }; errors?: { extensions?: { code?: string } }[] };
+  return (
+    e?.status === 403 ||
+    e?.response?.status === 403 ||
+    e?.errors?.[0]?.extensions?.code === 'FORBIDDEN'
+  );
+}
+
 export async function fetchOperationalKpis(
   range: DateRange,
   operations: OperationId[],
@@ -72,7 +81,7 @@ export async function fetchOperationalKpis(
   const dateFilter = { date_created: toIsoRangeFilter(range) };
 
   const [disponiveis, embarques, followRows] = await Promise.all([
-    publicDirectus.request(
+    directus.request(
       readItems('disponivel', {
         fields: ['id', 'status', 'disponivel', 'motorista_id', 'date_created', 'produto'],
         filter: dateFilter,
@@ -80,7 +89,7 @@ export async function fetchOperationalKpis(
         limit: 2000,
       }),
     ),
-    publicDirectus.request(
+    directus.request(
       readItems('embarques', {
         fields: ['id', 'status', 'produto', 'produto_predominante', 'date_created'],
         filter: {
@@ -90,14 +99,20 @@ export async function fetchOperationalKpis(
         limit: 2000,
       }),
     ),
-    publicDirectus.request(
+    directus.request(
       readItems('follow', {
         fields: ['id', 'status', 'produto', 'date_created'],
         filter: dateFilter,
         limit: 5000,
       }),
     ),
-  ]);
+  ]).catch((error) => {
+    if (isForbidden(error)) {
+      // Evita quebrar a tela para perfis sem acesso completo em todas coleções.
+      return [[], [], []] as const;
+    }
+    throw error;
+  });
 
   const latestByDriver = new Map<number | string, (typeof disponiveis)[0]>();
   for (const row of disponiveis) {
@@ -134,13 +149,16 @@ export async function fetchFollowStatusPie(
   operations: OperationId[],
   statusFilter: string[],
 ): Promise<PieSlice[]> {
-  const rows = await publicDirectus.request(
+  const rows = await directus.request(
     readItems('follow', {
       fields: ['status', 'produto', 'date_created'],
       filter: { date_created: toIsoRangeFilter(range) },
       limit: 5000,
     }),
-  );
+  ).catch((error) => {
+    if (isForbidden(error)) return [];
+    throw error;
+  });
 
   const counts = new Map<PieStatusKey, number>();
   for (const key of PIE_STATUS_KEYS) counts.set(key, 0);
@@ -167,7 +185,7 @@ export async function fetchDailyAvailability(
   range: DateRange,
   search: string,
 ): Promise<{ bars: DailyAvailabilityBar[]; detailsByDay: Map<number, AvailabilityDetailRow[]> }> {
-  const rows = await publicDirectus.request(
+  const rows = await directus.request(
     readItems('disponivel', {
       fields: [
         'id',
@@ -191,7 +209,12 @@ export async function fetchDailyAvailability(
       sort: ['-date_created'],
       limit: 3000,
     }),
-  );
+  ).catch((error) => {
+    if (isForbidden(error)) {
+      return [];
+    }
+    throw error;
+  });
 
   const q = search.trim().toLowerCase();
   const barsMap = new Map<number, number>();
@@ -243,13 +266,16 @@ export async function fetchTopRoutes(
   mode: RoutesChartMode,
   limit = 12,
 ): Promise<RouteBarRow[]> {
-  const rows = await publicDirectus.request(
+  const rows = await directus.request(
     readItems('embarques', {
       fields: ['origin', 'destination', 'produto', 'produto_predominante', 'date_created'],
       filter: { date_created: toIsoRangeFilter(range) },
       limit: 3000,
     }),
-  );
+  ).catch((error) => {
+    if (isForbidden(error)) return [];
+    throw error;
+  });
 
   const counts = new Map<string, number>();
   for (const row of rows) {
@@ -271,7 +297,7 @@ export async function fetchDriverDestinationMatrix(
   originFilter: string,
   destFilter: string,
 ): Promise<DriverDestinationCell[]> {
-  const rows = await publicDirectus.request(
+  const rows = await directus.request(
     readItems('embarques', {
       fields: [
         'origin',
@@ -285,7 +311,10 @@ export async function fetchDriverDestinationMatrix(
       filter: { date_created: toIsoRangeFilter(range) },
       limit: 3000,
     }),
-  );
+  ).catch((error) => {
+    if (isForbidden(error)) return [];
+    throw error;
+  });
 
   const matrix = new Map<string, DriverDestinationCell>();
   for (const row of rows) {
@@ -309,7 +338,7 @@ export async function fetchDistinctLocations(
   field: 'origin' | 'destination',
   prefix: string,
 ): Promise<string[]> {
-  const rows = await publicDirectus.request(
+  const rows = await directus.request(
     readItems(collection, {
       fields: [field],
       filter: prefix
@@ -317,7 +346,10 @@ export async function fetchDistinctLocations(
         : undefined,
       limit: 200,
     }),
-  );
+  ).catch((error) => {
+    if (isForbidden(error)) return [];
+    throw error;
+  });
   const set = new Set<string>();
   for (const row of rows) {
     const v = row[field];

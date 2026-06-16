@@ -4,19 +4,29 @@ import { Button } from "@/components/ui/button";
 import { Upload, X, FileSpreadsheet, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFollow } from "@/hooks/useFollow";
+import { parseCsvRows, csvRowsToFollowPayload } from "@/lib/csvFollowParser";
+import { criarEmbarquesDoCsv } from "@/lib/embarque-rota-service";
+
+export type CsvImportMode = "follow" | "embarques";
 
 interface CsvImportDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** follow = aba Follow; embarques = kanban com correlacao de rota */
+    mode?: CsvImportMode;
 }
 
-export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
+export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImportDialogProps) {
     const [isDragActive, setIsDragActive] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { importFollow } = useFollow();
+    const queryClient = useQueryClient();
+
+    const isEmbarques = mode === "embarques";
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -60,11 +70,10 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
             header: true,
             skipEmptyLines: true,
             skipFirstNLines: 0,
-            // Excel CSV pode ter BOM (\uFEFF) no início - remover automaticamente
             transformHeader: (header) => header.replace(/^\uFEFF/, '').trim(),
             complete: async (results) => {
                 try {
-                    const rows = results.data as any[];
+                    const rows = results.data as Record<string, unknown>[];
 
                     if (rows.length === 0) {
                         toast.error("Arquivo vazio", {
@@ -74,64 +83,27 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
                         return;
                     }
 
-                    console.log("Parsed CSV rows:", rows);
-                    console.log("CSV Headers detected:", Object.keys(rows[0] || {}));
+                    const parsed = parseCsvRows(rows);
 
-                    // Normaliza chave: remove BOM + minúscula + remove acentos
-                    const norm = (s: string) => s
-                        .replace(/^\uFEFF/, '')  // remove BOM do Excel
-                        .toLowerCase()
-                        .normalize('NFD')
-                        .replace(/[\u0300-\u036f]/g, '')
-                        .trim();
-
-                    // Debug: mostra os headers normalizados
-                    const allKeys = Object.keys(rows[0] || {});
-                    console.log('Headers RAW:', allKeys);
-                    console.log('Headers normalizados:', allKeys.map(norm));
-
-                    // Busca valor da row pela chave normalizada
-                    const get = (row: any, ...keys: string[]) => {
-                        const normalized = Object.fromEntries(
-                            Object.entries(row).map(([k, v]) => [norm(k), v])
-                        );
-                        for (const key of keys) {
-                            const val = normalized[norm(key)];
-                            if (val !== undefined && val !== '') return String(val);
-                        }
-                        return '';
-                    };
-
-                    // Mapeamento: Coluna CSV -> Campo da collection 'follow'
-                    // Headers reais: "codigo de pedido", "nome original", "nome do destino",
-                    //                "razão social", "numero de paletes"
-                    const lotToInsert = rows.map((row) => {
-                        let ped = get(row, 'Código de pedido de insumos', 'código de pedido de insumos', 'codigo de pedido de insumos');
-                        return {
-                            status: 'novo',
-                            pedido: ped || '-',
-                            origem: get(row, 'nome original', 'Nome original', 'Origem', 'origem'),
-                            destino: get(row, 'nome do destino', 'Destino', 'destino'),
-                            uf: get(row, 'UF', 'uf'),
-                            cliente: get(row, 'Cliente', 'cliente', 'nome do cliente'),
-                            tp: get(row, 'razao social', 'razão social', 'TP', 'tp', 'Transportadora'),
-                            produto: get(row, 'tipo de material', 'Produto', 'produto'),
-                            paletes: get(row, 'numero de paletes', 'número de paletes', 'numero de palets', 'paletes', 'Paletes'),
-                        };
-                    });
-
-                    console.log("Payload to insert:", lotToInsert);
-
-                    await importFollow(lotToInsert);
-
-                    toast.success("Importação concluída!", {
-                        description: `${rows.length} registros importados com sucesso.`
-                    });
+                    if (isEmbarques) {
+                        const stats = await criarEmbarquesDoCsv(parsed, { usuario: "portal" });
+                        await queryClient.invalidateQueries({ queryKey: ["embarques"] });
+                        toast.success("Embarques importados!", {
+                            description: `${stats.total} linhas — ${stats.correlacionados} com rota, ${stats.pendentes} pendentes de correlação.`,
+                        });
+                    } else {
+                        const lotToInsert = csvRowsToFollowPayload(parsed);
+                        await importFollow(lotToInsert);
+                        toast.success("Importação concluída!", {
+                            description: `${rows.length} registros importados com sucesso.`
+                        });
+                    }
                     closeDialog();
-                } catch (error: any) {
+                } catch (error: unknown) {
                     console.error("Erro na importação:", error);
+                    const err = error as { errors?: { message?: string }[]; message?: string };
                     toast.error("Erro ao importar", {
-                        description: error?.errors?.[0]?.message || error?.message || "Não foi possível salvar. Veja o console."
+                        description: err?.errors?.[0]?.message || err?.message || "Não foi possível salvar. Veja o console."
                     });
                 } finally {
                     setIsProcessing(false);
@@ -155,9 +127,14 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
         <Dialog open={open} onOpenChange={closeDialog}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Importar Follow (CSV)</DialogTitle>
+                    <DialogTitle>
+                        {isEmbarques ? "Importar Embarques (CSV)" : "Importar Follow (CSV)"}
+                    </DialogTitle>
                     <DialogDescription>
                         Colunas esperadas: <strong>Pedido, Origem, Destino, UF, Cliente, TP, Produto</strong>
+                        {isEmbarques && (
+                            <> — cada linha vira um card no kanban com correlação automática de rota.</>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 

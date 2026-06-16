@@ -11,5 +11,8 @@ export function useAvailabilityDaily(range: DateRange, search: string) {
   return useQuery({
     queryKey: ['op-dash-availability', range.from.toISOString(), search],
     queryFn: () => fetchDailyAvailability(range, search),
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 }

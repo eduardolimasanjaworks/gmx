@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Package, DollarSign, Calendar, Mail, FileText, Upload, Eye, Download, Edit, Save, X, Trash2, FileSpreadsheet } from "lucide-react";
 import { OcrDocumentViewer } from "@/components/dashboard/OcrDocumentViewer";
 import { uploadPublicFile, deletePublicFileByUrl } from "@/lib/publicUpload";
+import { uploadToDirectus } from "@/lib/directusUpload";
 import { directus, publicDirectus } from "@/lib/directus";
 import { readItems, createItem, updateItem, deleteItem, uploadFiles, deleteFile } from "@directus/sdk";
 import { updateEmbarque } from "@/lib/embarques";
@@ -201,11 +202,8 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
 
     setUploading(true);
     try {
-      // Upload público local (sem Directus Files / sem Supabase)
-      const publicUrl = await uploadPublicFile({
-        file,
-        path: `shipments/${shipment.id}/${tableName}`,
-      });
+      // Directus Files via /api (funciona no nginx do portal); fallback local em directusUpload
+      const publicUrl = await uploadToDirectus(file, `shipments/${shipment.id}/${tableName}`);
 
       await publicDirectus.request(createItem(tableName, {
         shipment_id: shipment.id,

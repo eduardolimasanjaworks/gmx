@@ -5,18 +5,18 @@ import { createDirectus, rest, authentication } from '@directus/sdk';
 // que aponte para o nosso Proxy do Vite (evitando CORS).
 // O SDK do Directus exige uma URL válida no construtor.
 
-const getDirectusUrl = () => {
-    // Verifica se 'window' existe (pode não existir em SSR/Build time, mas aqui é SPA React)
+export const getDirectusUrl = () => {
     if (typeof window !== 'undefined') {
         return `${window.location.origin}/api`;
     }
-    return 'http://localhost:8080/api'; // Fallback seguro
+    return '/api';
 };
 
+/** URL resolvida no momento do uso (evita origin errado se o módulo carregar cedo). */
 export const directusUrl = getDirectusUrl();
 
 // Use authentication() to allow dynamic user login and auto-refresh
-export const directus = createDirectus(directusUrl)
+export const directus = createDirectus(getDirectusUrl())
     .with(authentication('json', { autoRefresh: true }))
     .with(rest());
 

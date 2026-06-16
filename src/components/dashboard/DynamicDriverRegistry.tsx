@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useDriverFields } from "@/hooks/useDriverFields";
 import { DynamicFieldRenderer } from "@/components/driver/DynamicFieldRenderer";
 import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
+import { enrichDriverRegistryRow, renderRegistryControlCell, REGISTRY_CONTROL_FIELDS } from "@/components/driver/driver-registry-utils";
 import { FieldConfigManager } from "./FieldConfigManager";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -62,48 +63,71 @@ export const DynamicDriverRegistry = () => {
   const activeDisplayFields = tableFields.length > 0 ? tableFields : fallbackDisplayFields;
   const activeCardFields = cardFields.length > 0 ? cardFields : fallbackDisplayFields;
 
+  const controlColumnDefs = [
+    { id: 'ia_atendimento', field_name: 'ia_atendimento', display_name: 'WhatsApp IA', field_type: 'badge' },
+    { id: 'status_validade_cnh', field_name: 'status_validade_cnh', display_name: 'Validade CNH', field_type: 'badge' },
+    { id: 'status_cadastro', field_name: 'status_cadastro', display_name: 'Status', field_type: 'badge' },
+    { id: 'vencimento_cx', field_name: 'vencimento_cx', display_name: 'Venc CX', field_type: 'date' },
+    { id: 'observacao', field_name: 'observacao', display_name: 'Observação', field_type: 'text' },
+  ];
+
+  const tableColumns = [
+    ...activeDisplayFields.filter((f) => !REGISTRY_CONTROL_FIELDS.includes(f.field_name as typeof REGISTRY_CONTROL_FIELDS[number])),
+    ...controlColumnDefs.filter(
+      (control) => !activeDisplayFields.some((f) => f.field_name === control.field_name),
+    ),
+    ...activeDisplayFields.filter((f) => REGISTRY_CONTROL_FIELDS.includes(f.field_name as typeof REGISTRY_CONTROL_FIELDS[number])),
+  ];
+
   /* Fetch Drivers from Directus manually joining Availability */
   const fetchDrivers = async () => {
     const performFetch = async () => {
-      // 1. Fetch Drivers
       const driversData = await directus.request(readItems('cadastro_motorista', {
-        fields: ['id', 'nome', 'sobrenome', 'telefone'],
+        fields: [
+          'id', 'nome', 'sobrenome', 'telefone', 'cpf', 'cidade', 'estado',
+          'status_cadastro', 'status_validade_cnh', 'vencimento_cx', 'observacao',
+          'ia_pausada', 'precisa_atendimento', 'precisa_atendimento_motivo', 'ultima_intencao_whatsapp',
+        ],
         sort: ['-date_created']
       }));
 
-      // 2. Fetch Latest Availability for these drivers
       const driverIds = driversData.map((d: any) => d.id);
       let availabilityMap: Record<number, any> = {};
+      let cnhMap: Record<number, any> = {};
 
       if (driverIds.length > 0) {
-        const availabilityData = await directus.request(readItems('disponivel', {
-          filter: {
-            motorista_id: { _in: driverIds }
-          },
-          sort: ['-date_created'],
-          limit: -1
-        }));
+        const [availabilityData, cnhData] = await Promise.all([
+          directus.request(readItems('disponivel', {
+            filter: { motorista_id: { _in: driverIds } },
+            sort: ['-date_created'],
+            limit: -1,
+          })),
+          directus.request(readItems('cnh', {
+            filter: { motorista_id: { _in: driverIds } },
+            fields: ['id', 'motorista_id', 'validade'],
+            limit: -1,
+          })),
+        ]);
 
-        // Populate map with the first (latest) record for each driver
         availabilityData.forEach((record: any) => {
           const mId = record.motorista_id?.id || record.motorista_id;
-          if (mId && !availabilityMap[mId]) {
-            availabilityMap[mId] = record;
-          }
+          if (mId && !availabilityMap[mId]) availabilityMap[mId] = record;
+        });
+
+        cnhData.forEach((record: any) => {
+          const mId = record.motorista_id?.id || record.motorista_id;
+          if (mId && !cnhMap[mId]) cnhMap[mId] = record;
         });
       }
 
-      // 3. Merge
       const formatted = driversData.map((item: any) => {
         const latestRecord = availabilityMap[item.id];
         const displayStatus = (latestRecord && latestRecord.disponivel === true) ? 'Disponível' : 'Indisponível';
-
-        return {
+        return enrichDriverRegistryRow({
           ...item,
-          nome_completo: `${item.nome || ''} ${item.sobrenome || ''}`.trim(),
           current_availability: latestRecord,
-          status_logistica: displayStatus
-        };
+          status_logistica: displayStatus,
+        }, cnhMap);
       });
 
       return formatted;
@@ -425,7 +449,7 @@ export const DynamicDriverRegistry = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                {activeDisplayFields.map((field) => (
+                {tableColumns.map((field) => (
                   <TableHead key={field.id}>{field.display_name}</TableHead>
                 ))}
               </TableRow>
@@ -433,7 +457,7 @@ export const DynamicDriverRegistry = () => {
             <TableBody>
               {currentDrivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeDisplayFields.length} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={tableColumns.length} className="text-center py-8 text-muted-foreground">
                     Nenhum motorista encontrado
                   </TableCell>
                 </TableRow>
@@ -448,9 +472,11 @@ export const DynamicDriverRegistry = () => {
                       setIsProfileOpen(true);
                     }}
                   >
-                    {activeDisplayFields.map((field) => (
+                    {tableColumns.map((field) => (
                       <TableCell key={field.id}>
-                        {(field.id === 'status' || field.field_name === 'status_logistica') ? (
+                        {REGISTRY_CONTROL_FIELDS.includes(field.field_name as typeof REGISTRY_CONTROL_FIELDS[number]) ? (
+                          renderRegistryControlCell(field.field_name, driver)
+                        ) : (field.id === 'status' || field.field_name === 'status_logistica') ? (
                           <Badge
                             className={`h-6 text-xs w-24 flex items-center justify-center ${driver.status_logistica === 'Disponível' ? 'bg-green-600 hover:bg-green-600' : 'bg-red-600 hover:bg-red-600'}`}
                           >

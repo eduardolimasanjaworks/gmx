@@ -17,6 +17,18 @@ import { useToast } from "@/hooks/use-toast";
 import { createWorker } from 'tesseract.js';
 import { uploadToDirectus } from "@/lib/directusUpload";
 import { useAuth } from "@/context/AuthContext";
+import { MarcacaoSection, MarcacaoRow } from "@/components/driver/MarcacaoLayout";
+import { TipoCarroceriaSelect } from "@/components/driver/TipoCarroceriaSelect";
+import { CnhValidadeStatusSelect } from "@/components/driver/CnhValidadeStatusSelect";
+import { StatusCadastroSelect, StatusCadastroBadge } from "@/components/driver/StatusCadastroSelect";
+import {
+  deriveCnhValidadeStatus,
+  getCnhValidadeStatusBadgeColor,
+  getStatusCadastroBadgeColor,
+  getVencimentoCxBadgeColor,
+} from "@/components/driver/driver-status-constants";
+import { fetchAddressByCep, formatCep, normalizeCep } from "@/lib/cepLookup";
+import { IaAtendimentoPanel } from "@/components/driver/IaAtendimentoPanel";
 
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -25,21 +37,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 // Token de Admin para operações privilegiadas (bypass de permissões)
 const ADMIN_TOKEN = 'WcIgx0hfDqdtusOP6KOrhkP9eVPlbsOq';
 
-const STATUS_OPTIONS = [
-  { value: 'BLOQUEADO', label: 'BLOQUEADO', color: 'bg-red-600 hover:bg-red-600' },
-  { value: 'CADASTRADO', label: 'CADASTRADO', color: 'bg-green-600 hover:bg-green-600' },
-  { value: 'FALTA DOCS', label: 'FALTA DOCS', color: 'bg-yellow-500 hover:bg-yellow-500 text-black' },
-  { value: 'NECESSARIO ATUALIZAR', label: 'NECESSARIO ATUALIZAR', color: 'bg-orange-500 hover:bg-orange-500 text-black' },
-  { value: 'REPROVADO', label: 'REPROVADO', color: 'bg-red-700 hover:bg-red-700' },
-  { value: 'INATIVO', label: 'INATIVO', color: 'bg-gray-500 hover:bg-gray-500' },
-  { value: '_empty_', label: '(vazio)', color: 'bg-gray-300 text-black hover:bg-gray-300' }
-];
-
-const getStatusBadgeColor = (status: string) => {
-  if (!status || status === '_empty_') return STATUS_OPTIONS.find(x => x.value === '_empty_')?.color;
-  const s = STATUS_OPTIONS.find(x => x.value === status.toUpperCase() || x.label === status.toUpperCase());
-  return s ? s.color : 'bg-secondary text-secondary-foreground';
-};
+const getStatusBadgeColor = getStatusCadastroBadgeColor;
 
 const parseDateBR = (dateStr: string) => {
   if (!dateStr || typeof dateStr !== 'string' || dateStr.trim() === '') return null;
@@ -272,6 +270,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
   const [isEditingANTT, setIsEditingANTT] = useState(false);
   const [anttForm, setAnttForm] = useState<any>({});
+  const [isCepLoading, setIsCepLoading] = useState(false);
 
   const [documentUrl, setDocumentUrl] = useState<string | null>(null);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
@@ -648,10 +647,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     };
   };
 
-  const uploadPublicAndGetUrl = async (file: File, key: string) => {
-    // Upload direto para o Directus Files com retry de auth e fallback para admin
-    if (!localDriverData?.id) throw new Error("Motorista não carregado");
-
+  const uploadPublicAndGetUrl = async (file: File, _key: string) => {
     try {
       return await uploadToDirectus(file, undefined, token || undefined);
     } catch (error: any) {
@@ -734,6 +730,12 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   );
 
   useEffect(() => { setLocalDriverData(driverData); }, [driverData]);
+
+  useEffect(() => {
+    if (!open || !data.cnh?.cpf || localDriverData?.cpf) return;
+    setLocalDriverData((prev: any) => (prev ? { ...prev, cpf: data.cnh.cpf } : prev));
+  }, [open, data.cnh?.cpf, localDriverData?.cpf]);
+
   useEffect(() => {
     if (open) {
       if (driverData?.id) {
@@ -922,6 +924,37 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
   const handleCancelEdit = () => { setIsEditingAvailability(false); setEditFormData({}); };
 
+  const resolvedCpf = localDriverData?.cpf || data.cnh?.cpf || '';
+  const resolvedNome = localDriverData?.nome || '';
+  const resolvedTransportadora = localDriverData?.cliente || localDriverData?.nome_transportadora || '';
+
+  const handleCepLookup = async (rawCep: string) => {
+    const digits = normalizeCep(rawCep);
+    if (digits.length !== 8) return;
+
+    setIsCepLoading(true);
+    try {
+      const address = await fetchAddressByCep(digits);
+      if (!address) {
+        toast({ variant: 'destructive', title: 'CEP não encontrado' });
+        return;
+      }
+      setInfoFormData((prev: any) => ({
+        ...prev,
+        cep: address.cep,
+        endereco: address.endereco,
+        bairro: address.bairro,
+        cidade: address.cidade,
+        estado: address.estado,
+      }));
+      toast({ title: 'Endereço preenchido automaticamente' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao buscar CEP', description: error.message });
+    } finally {
+      setIsCepLoading(false);
+    }
+  };
+
   const handleEditInfo = (source?: any) => {
     // Prioridade: parâmetro passado > estado interno localDriverData > prop driverData
     // Isso garante que, mesmo que o useEffect ainda não tenha sincronizado o estado,
@@ -935,30 +968,56 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     }
 
     setInfoFormData({
-      nome: sourceData.nome || '', telefone: sourceData.telefone || '',
-      forma_pagamento: sourceData.forma_pagamento || '', cpf: sourceData.cpf || '',
+      nome: sourceData.nome || data.cnh?.nome || '',
+      telefone: sourceData.telefone || '',
+      forma_pagamento: sourceData.forma_pagamento || '',
+      cpf: sourceData.cpf || data.cnh?.cpf || '',
       status_cadastro: derivedStatus,
+      status_validade_cnh: deriveCnhValidadeStatus(data.cnh?.validade, sourceData.status_validade_cnh),
       vencimento_cx: sourceData.vencimento_cx || defaultVencimentoCx,
+      observacao: sourceData.observacao || '',
       validade_cnh: data.cnh?.validade || '',
       numero_antt: data.antt?.numero_antt || '',
       cep: data.comprovante_endereco?.cep || '',
+      endereco: data.comprovante_endereco?.endereco || '',
+      bairro: data.comprovante_endereco?.bairro || '',
+      cidade: data.comprovante_endereco?.cidade || '',
+      estado: data.comprovante_endereco?.estado || '',
       tipo_veiculo: sourceData.tipo_veiculo || '',
+      tipo_carroceria: sourceData.tipo_carroceria || '',
       quantidade_eixo: sourceData.quantidade_eixo || '',
+      cliente: sourceData.cliente || sourceData.nome_transportadora || '',
     });
     setIsEditingInfo(true);
   };
   const handleSaveInfo = async () => {
     const performSave = async () => {
       let resultDriver: any = null;
+      const motoristaPayload = {
+        nome: infoFormData.nome,
+        telefone: infoFormData.telefone,
+        forma_pagamento: infoFormData.forma_pagamento,
+        cpf: infoFormData.cpf,
+        status_cadastro: infoFormData.status_cadastro || null,
+        status_validade_cnh: infoFormData.status_validade_cnh || deriveCnhValidadeStatus(infoFormData.validade_cnh) || null,
+        vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null,
+        observacao: infoFormData.observacao || null,
+        tipo_veiculo: infoFormData.tipo_veiculo || null,
+        tipo_carroceria: infoFormData.tipo_carroceria || null,
+        quantidade_eixo: infoFormData.quantidade_eixo || null,
+        cliente: infoFormData.cliente || null,
+      };
+
+      const addressPayload = {
+        cep: infoFormData.cep || null,
+        endereco: infoFormData.endereco || null,
+        bairro: infoFormData.bairro || null,
+        cidade: infoFormData.cidade || null,
+        estado: infoFormData.estado || null,
+      };
+
       if (localDriverData?.id) {
-        const updated = await directus.request(updateItem('cadastro_motorista', localDriverData.id, {
-          nome: infoFormData.nome, telefone: infoFormData.telefone,
-          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf,
-          status_cadastro: infoFormData.status_cadastro || null,
-          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null,
-          tipo_veiculo: infoFormData.tipo_veiculo || null,
-          quantidade_eixo: infoFormData.quantidade_eixo || null,
-        }));
+        const updated = await directus.request(updateItem('cadastro_motorista', localDriverData.id, motoristaPayload));
         setLocalDriverData(updated); toast({ title: "Atualizado com sucesso" }); resultDriver = updated;
 
         let relatedChanged = false;
@@ -970,28 +1029,52 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
           else { await directus.request(createItem('cnh', { motorista_id: localDriverData.id, validade: apiValidade, ...telPayload })); }
           relatedChanged = true;
         }
-        if (infoFormData.cep !== (data.comprovante_endereco?.cep || '')) {
-          if (data.comprovante_endereco?.id) { await directus.request(updateItem('comprovante_endereco', data.comprovante_endereco.id, { cep: infoFormData.cep, ...telPayload })); }
-          else { await directus.request(createItem('comprovante_endereco', { motorista_id: localDriverData.id, cep: infoFormData.cep, ...telPayload })); }
+
+        if (infoFormData.cpf && infoFormData.cpf !== (data.cnh?.cpf || '')) {
+          if (data.cnh?.id) {
+            await directus.request(updateItem('cnh', data.cnh.id, { cpf: infoFormData.cpf, ...telPayload }));
+          } else {
+            await directus.request(createItem('cnh', { motorista_id: localDriverData.id, cpf: infoFormData.cpf, ...telPayload }));
+          }
           relatedChanged = true;
         }
+
+        const addressChanged = Object.entries(addressPayload).some(
+          ([key, value]) => value !== (data.comprovante_endereco?.[key] || '')
+        );
+        if (addressChanged) {
+          if (data.comprovante_endereco?.id) {
+            await directus.request(updateItem('comprovante_endereco', data.comprovante_endereco.id, { ...addressPayload, ...telPayload }));
+          } else if (infoFormData.cep) {
+            await directus.request(createItem('comprovante_endereco', { motorista_id: localDriverData.id, ...addressPayload, ...telPayload }));
+          }
+          relatedChanged = true;
+        }
+
         if (relatedChanged) { await fetchRelatedData(); }
       } else {
         const newDriver = await directus.request(createItem('cadastro_motorista', {
-          nome: infoFormData.nome, telefone: infoFormData.telefone,
-          forma_pagamento: infoFormData.forma_pagamento, cpf: infoFormData.cpf, 
+          ...motoristaPayload,
           status_cadastro: infoFormData.status_cadastro || 'draft',
-          vencimento_cx: formatDateForAPI(infoFormData.vencimento_cx) || null,
-          tipo_veiculo: infoFormData.tipo_veiculo || null,
-          quantidade_eixo: infoFormData.quantidade_eixo || null,
         }));
         setLocalDriverData(newDriver); resultDriver = newDriver; toast({ title: "Motorista criado!" });
 
         let relatedCreated = false;
         const telPayloadNew = infoFormData.telefone ? { telefone: infoFormData.telefone } : {};
 
-        if (infoFormData.validade_cnh) { await directus.request(createItem('cnh', { motorista_id: newDriver.id, validade: formatDateForAPI(infoFormData.validade_cnh), ...telPayloadNew })); relatedCreated = true; }
-        if (infoFormData.cep) { await directus.request(createItem('comprovante_endereco', { motorista_id: newDriver.id, cep: infoFormData.cep, ...telPayloadNew })); relatedCreated = true; }
+        if (infoFormData.validade_cnh || infoFormData.cpf) {
+          await directus.request(createItem('cnh', {
+            motorista_id: newDriver.id,
+            validade: infoFormData.validade_cnh ? formatDateForAPI(infoFormData.validade_cnh) : undefined,
+            cpf: infoFormData.cpf || undefined,
+            ...telPayloadNew,
+          }));
+          relatedCreated = true;
+        }
+        if (infoFormData.cep) {
+          await directus.request(createItem('comprovante_endereco', { motorista_id: newDriver.id, ...addressPayload, ...telPayloadNew }));
+          relatedCreated = true;
+        }
         if (relatedCreated) { await fetchRelatedData(); }
       }
       return resultDriver;
@@ -1033,7 +1116,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     const newStatus = v === '_empty_' ? '' : v;
     const cnhStatus = getCnhStatus(data.cnh?.validade);
     if (cnhStatus === 'Expirado' && newStatus !== 'NECESSARIO ATUALIZAR' && newStatus !== 'BLOQUEADO' && newStatus !== 'REPROVADO' && newStatus !== '') {
-      if (!window.confirm(`Atenção: A CNH deste motorista está EXPIRADA!\n\nTem certeza que deseja forçar o farol para ${newStatus} mesmo com a validade vencida?`)) {
+      if (!window.confirm(`Atenção: A CNH deste motorista está EXPIRADA!\n\nTem certeza que deseja forçar o status para ${newStatus} mesmo com a validade vencida?`)) {
         return;
       }
     }
@@ -1053,6 +1136,11 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     try {
       setLoading(true);
       const stateMap = { cnh: setIsEditingCNH, crlv: setIsEditingCRLV, antt: setIsEditingANTT, comprovante_endereco: setIsEditingAddress };
+      const motoristaId = localDriverData?.id || driverData?.id;
+      if (!motoristaId) {
+        toast({ variant: 'destructive', title: 'Salve o motorista antes de anexar documentos.' });
+        return;
+      }
 
       const payload = { ...formData };
       
@@ -1073,8 +1161,25 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
           await directus.request(updateItem(type, currentData.id, payload));
           toast({ title: `${type.toUpperCase()} atualizado` });
         } else {
-          await directus.request(createItem(type, { ...payload, motorista_id: driverData.id }));
+          await directus.request(createItem(type, { ...payload, motorista_id: motoristaId }));
           toast({ title: `${type.toUpperCase()} criado` });
+        }
+
+        if (type === 'cnh' && formData.cpf) {
+          const updatedMotorista = await directus.request(updateItem('cadastro_motorista', motoristaId, {
+            cpf: formData.cpf,
+          }));
+          setLocalDriverData(updatedMotorista);
+        }
+
+        if (type === 'cnh' && formData.validade) {
+          const derivedStatus = deriveCnhValidadeStatus(formData.validade, localDriverData?.status_validade_cnh);
+          if (!localDriverData?.status_validade_cnh && derivedStatus) {
+            const updatedMotorista = await directus.request(updateItem('cadastro_motorista', motoristaId, {
+              status_validade_cnh: derivedStatus,
+            }));
+            setLocalDriverData(updatedMotorista);
+          }
         }
       } catch (error: any) {
         // Se o token expirou, tenta refresh e retry
@@ -1090,8 +1195,15 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
               await directus.request(updateItem(type, currentData.id, payload));
               toast({ title: `${type.toUpperCase()} atualizado` });
             } else {
-              await directus.request(createItem(type, { ...payload, motorista_id: driverData.id }));
+              await directus.request(createItem(type, { ...payload, motorista_id: motoristaId }));
               toast({ title: `${type.toUpperCase()} criado` });
+            }
+
+            if (type === 'cnh' && formData.cpf) {
+              const updatedMotorista = await directus.request(updateItem('cadastro_motorista', motoristaId, {
+                cpf: formData.cpf,
+              }));
+              setLocalDriverData(updatedMotorista);
             }
           } catch (refreshError) {
             console.error('Refresh falhou durante salvamento de documento', refreshError);
@@ -1145,7 +1257,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         await directus.request(updateItem(currentCarreta.collection, currentCarreta.data.id, carretaPayload));
         toast({ title: `${currentCarreta.type} atualizada` });
       } else {
-        await directus.request(createItem(currentCarreta.collection, { ...carretaPayload, motorista_id: driverData.id }));
+        await directus.request(createItem(currentCarreta.collection, { ...carretaPayload, motorista_id: localDriverData?.id || driverData?.id }));
         toast({ title: `${currentCarreta.type} criada` });
       }
     };
@@ -1228,10 +1340,15 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
               {/* GERAL TAB */}
               <TabsContent value="geral" className="space-y-4 mt-4">
+                <IaAtendimentoPanel
+                  telefone={localDriverData?.telefone}
+                  motoristaId={localDriverData?.id}
+                  onUpdate={() => void fetchRelatedData()}
+                />
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2 justify-between">
-                      Informações Básicas
+                      Cadastro do Motorista
                       {!isEditingInfo ? (
                         <Button variant="ghost" size="sm" onClick={() => handleEditInfo()}>
                           <Pencil className="h-4 w-4 mr-2" /> Editar
@@ -1244,74 +1361,205 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                       )}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-2">
-                    {isEditingInfo ? (
-                      <>
-                        <InputField label="Nome Completo" value={infoFormData.nome} onChange={(v: any) => setInfoFormData({ ...infoFormData, nome: v })} />
-                        <InputField label="Telefone" value={infoFormData.telefone} onChange={(v: any) => setInfoFormData({ ...infoFormData, telefone: v })} />
-                        <InputField label="Forma Pagamento (ex: Pix)" value={infoFormData.forma_pagamento} onChange={(v: any) => setInfoFormData({ ...infoFormData, forma_pagamento: v })} />
-                        <InputField label="CPF" value={infoFormData.cpf} onChange={(v: any) => setInfoFormData({ ...infoFormData, cpf: v })} />
-                        
-                        <div className="flex flex-col space-y-1.5">
-                          <span className="text-sm text-muted-foreground">Faróis</span>
-                          <Select value={infoFormData.status_cadastro || '_empty_'} onValueChange={handleStatusChange}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o farol" />
-                            </SelectTrigger>
-                            <SelectContent className="z-[9999]">
-                              {STATUS_OPTIONS.map(opt => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  <div className="flex items-center gap-2">
-                                    <div className={`w-3 h-3 rounded-full ${opt.color.replace('hover:', '').split(' ')[0]}`} />
-                                    {opt.label}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <InputField label="Vencimento CX" isDate={true} value={infoFormData.vencimento_cx} onChange={(v: any) => setInfoFormData({ ...infoFormData, vencimento_cx: v })} />
-                        <InputField label="Validade CNH" isDate={true} value={infoFormData.validade_cnh} onChange={(v: any) => setInfoFormData({ ...infoFormData, validade_cnh: v })} />
-                        <InputField label="CEP do Comprovante" value={infoFormData.cep} onChange={(v: any) => setInfoFormData({ ...infoFormData, cep: v })} />
-                        <InputField label="Tipo de Veículo" value={infoFormData.tipo_veiculo} onChange={(v: any) => setInfoFormData({ ...infoFormData, tipo_veiculo: v })} />
-                        <InputField label="Quantidade de Eixo" value={infoFormData.quantidade_eixo} onChange={(v: any) => setInfoFormData({ ...infoFormData, quantidade_eixo: v })} />
-                        <div className="flex flex-col space-y-1.5">
-                          <span className="text-sm text-muted-foreground">Cadastrado</span>
-                          <Input disabled value={formatDate(localDriverData?.date_created)} className="bg-muted text-muted-foreground cursor-not-allowed" />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <FieldRow label="Nome Completo" value={localDriverData?.nome || ''} />
-                        <FieldRow label="CPF" value={localDriverData?.cpf} />
-                        <FieldRow label="Telefone" value={localDriverData?.telefone} />
-                        <FieldRow label="Forma Pgto" value={localDriverData?.forma_pagamento} />
-                        <FieldRow label="CEP (Comprovante)" value={data.comprovante_endereco?.cep} />
-                        <FieldRow label="Tipo de Veículo" value={localDriverData?.tipo_veiculo} />
-                        <FieldRow label="Quantidade de Eixo" value={localDriverData?.quantidade_eixo} />
-                        <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
-                          <span className="text-sm text-muted-foreground">Faróis:</span>
-                          <Badge className={`${getStatusBadgeColor(localDriverData?.status_cadastro)} text-xs border-transparent shadow-sm`} variant="outline">
-                            {localDriverData?.status_cadastro || '(vazio)'}
-                          </Badge>
-                        </div>
-                        <FieldRow label="Vencimento CX" value={formatDate(localDriverData?.vencimento_cx)} />
-                        
-                        <div className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0 h-9">
-                          <span className="text-sm text-muted-foreground">Validade CNH:</span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm text-right truncate max-w-[200px]">{formatDate(data.cnh?.validade)}</span>
-                            {data.cnh?.validade && (
-                              <Badge className={`text-[10px] px-1.5 h-5 ${getCnhStatus(data.cnh?.validade) === 'No Prazo' ? 'bg-green-600 hover:bg-green-600 text-white' : 'bg-red-600 hover:bg-red-600 text-white'}`}>
-                                {getCnhStatus(data.cnh?.validade)}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
+                  <CardContent className="space-y-4">
+                    <MarcacaoSection title="Resumo do Cadastro">
+                      {isEditingInfo ? (
+                        <>
+                          <MarcacaoRow label="Nome Transportadora">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm"
+                              value={infoFormData.cliente || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, cliente: e.target.value })}
+                              placeholder="Transportadora"
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Nome Motorista">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm"
+                              value={infoFormData.nome || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, nome: e.target.value })}
+                              placeholder="Nome completo"
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="CPF Motorista">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm"
+                              value={infoFormData.cpf || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, cpf: e.target.value })}
+                              placeholder="000.000.000-00"
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Telefone Motorista">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm"
+                              value={infoFormData.telefone || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, telefone: e.target.value })}
+                              placeholder="(00) 00000-0000"
+                            />
+                          </MarcacaoRow>
+                        </>
+                      ) : (
+                        <>
+                          <MarcacaoRow label="Nome Transportadora" value={resolvedTransportadora} />
+                          <MarcacaoRow label="Nome Motorista" value={resolvedNome} emphasize />
+                          <MarcacaoRow label="CPF Motorista" value={resolvedCpf} />
+                          <MarcacaoRow label="Telefone Motorista" value={localDriverData?.telefone} />
+                        </>
+                      )}
+                      <MarcacaoRow label="Placa do Cavalo" value={data.crlv?.placa_cavalo} />
+                      {data.carretas.map((carreta: any, index: number) => (
+                        <MarcacaoRow
+                          key={carreta.type}
+                          label={`Placa da Carreta ${index + 1}`}
+                          value={carreta.data?.placa}
+                        />
+                      ))}
+                    </MarcacaoSection>
 
-                        <FieldRow label="Cadastrado" value={formatDate(localDriverData?.date_created)} />
-                      </>
-                    )}
+                    <MarcacaoSection title="Controle Cadastral">
+                      {isEditingInfo ? (
+                        <>
+                          <MarcacaoRow label="Validade CNH">
+                            <CnhValidadeStatusSelect
+                              value={infoFormData.status_validade_cnh || ''}
+                              onChange={(v) => setInfoFormData({ ...infoFormData, status_validade_cnh: v })}
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Status">
+                            <StatusCadastroSelect
+                              value={infoFormData.status_cadastro || ''}
+                              onChange={handleStatusChange}
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Venc CX">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm ml-auto"
+                              value={infoFormData.vencimento_cx || ''}
+                              onChange={(e) => {
+                                let v = e.target.value.replace(/\D/g, '').slice(0, 8);
+                                if (v.length > 4) v = v.replace(/^(\d{2})(\d{2})(\d+)/, '$1/$2/$3');
+                                else if (v.length > 2) v = v.replace(/^(\d{2})(\d+)/, '$1/$2');
+                                setInfoFormData({ ...infoFormData, vencimento_cx: v });
+                              }}
+                              placeholder="DD/MM/AAAA"
+                            />
+                          </MarcacaoRow>
+                          <div className="px-4 py-3 space-y-2">
+                            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                              Observação
+                            </span>
+                            <Textarea
+                              value={infoFormData.observacao || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, observacao: e.target.value })}
+                              placeholder="Texto livre, sem limite de caracteres..."
+                              rows={4}
+                              className="text-sm"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <MarcacaoRow label="Validade CNH">
+                            {localDriverData?.status_validade_cnh || deriveCnhValidadeStatus(data.cnh?.validade) ? (
+                              <Badge className={`${getCnhValidadeStatusBadgeColor(localDriverData?.status_validade_cnh || deriveCnhValidadeStatus(data.cnh?.validade))} text-xs border-transparent`}>
+                                {localDriverData?.status_validade_cnh || deriveCnhValidadeStatus(data.cnh?.validade)}
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-muted-foreground/50 italic">(vazio)</span>
+                            )}
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Status">
+                            <StatusCadastroBadge status={localDriverData?.status_cadastro} />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Venc CX">
+                            {localDriverData?.vencimento_cx ? (
+                              <Badge className={`${getVencimentoCxBadgeColor(localDriverData?.vencimento_cx)} text-xs border-transparent`}>
+                                {formatDate(localDriverData?.vencimento_cx)}
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-muted-foreground/50 italic">(vazio)</span>
+                            )}
+                          </MarcacaoRow>
+                          <div className="px-4 py-3 space-y-2 border-t border-border/60">
+                            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                              Observação
+                            </span>
+                            <p className="text-sm whitespace-pre-wrap break-words">
+                              {localDriverData?.observacao?.trim() || <span className="text-muted-foreground/50 italic">(vazio)</span>}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </MarcacaoSection>
+
+                    <MarcacaoSection title="Informações Complementares">
+                      {isEditingInfo ? (
+                        <>
+                          <MarcacaoRow label="Forma Pgto">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm"
+                              value={infoFormData.forma_pagamento || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, forma_pagamento: e.target.value })}
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Tipo de Veículo">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm"
+                              value={infoFormData.tipo_veiculo || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, tipo_veiculo: e.target.value })}
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Tipo de Carroceria">
+                            <TipoCarroceriaSelect
+                              value={infoFormData.tipo_carroceria || ''}
+                              onChange={(v) => setInfoFormData({ ...infoFormData, tipo_carroceria: v })}
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Quantidade de Eixo">
+                            <Input
+                              className="max-w-[55%] h-8 text-right text-sm"
+                              value={infoFormData.quantidade_eixo || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, quantidade_eixo: e.target.value })}
+                            />
+                          </MarcacaoRow>
+                          <MarcacaoRow label="CEP">
+                            <div className="flex items-center gap-2 max-w-[55%] ml-auto">
+                              <Input
+                                className="h-8 text-right text-sm"
+                                value={infoFormData.cep || ''}
+                                onChange={(e) => {
+                                  const formatted = formatCep(e.target.value);
+                                  setInfoFormData({ ...infoFormData, cep: formatted });
+                                  if (normalizeCep(formatted).length === 8) {
+                                    handleCepLookup(formatted);
+                                  }
+                                }}
+                                placeholder="00000-000"
+                              />
+                              {isCepLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                            </div>
+                          </MarcacaoRow>
+                          <MarcacaoRow label="Endereço" value={infoFormData.endereco} />
+                          <MarcacaoRow label="Bairro" value={infoFormData.bairro} />
+                          <MarcacaoRow label="Cidade" value={infoFormData.cidade} />
+                          <MarcacaoRow label="UF" value={infoFormData.estado} />
+                          <MarcacaoRow label="Cadastrado" value={formatDate(localDriverData?.date_created)} />
+                        </>
+                      ) : (
+                        <>
+                          <FieldRow label="Forma Pgto" value={localDriverData?.forma_pagamento} />
+                          <FieldRow label="Tipo de Veículo" value={localDriverData?.tipo_veiculo} />
+                          <FieldRow label="Tipo de Carroceria" value={localDriverData?.tipo_carroceria} />
+                          <FieldRow label="Quantidade de Eixo" value={localDriverData?.quantidade_eixo} />
+                          <FieldRow label="CEP" value={data.comprovante_endereco?.cep} />
+                          <FieldRow label="Endereço" value={data.comprovante_endereco?.endereco} />
+                          <FieldRow label="Bairro" value={data.comprovante_endereco?.bairro} />
+                          <FieldRow label="Cidade" value={data.comprovante_endereco?.cidade} />
+                          <FieldRow label="UF" value={data.comprovante_endereco?.estado} />
+                          <FieldRow label="Cadastrado" value={formatDate(localDriverData?.date_created)} />
+                        </>
+                      )}
+                    </MarcacaoSection>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -1471,121 +1719,51 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         )}
                       </>
                     )}
+
+                    <div className="col-span-2 mt-4 pt-3 border-t">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold flex items-center gap-2"><ScrollText className="h-4 w-4" /> ANTT Cavalo</span>
+                        {!isEditingANTT ? (
+                          <Button variant="ghost" size="sm" onClick={() => handleEditDoc('antt', data.antt)}>
+                            <Pencil className="h-3 w-3 mr-1" /> Editar / Anexar
+                          </Button>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => handleCancelDoc('antt')}><X className="h-3 w-3" /></Button>
+                            <Button size="sm" onClick={() => handleSaveDoc('antt', anttForm, data.antt)}><Save className="h-3 w-3" /></Button>
+                          </div>
+                        )}
+                      </div>
+                      {isEditingANTT ? (
+                        <div className="grid gap-1 md:grid-cols-2">
+                          <FieldRow label="Placa" value={crlvForm.placa_cavalo || data.crlv?.placa_cavalo} />
+                          <InputField label="Número ANTT" value={anttForm.numero_antt} onChange={(v: any) => setAnttForm({ ...anttForm, numero_antt: v })} />
+                          <CpfInputField label="CNPJ/CPF" value={anttForm.cnpj_cpf} onChange={(v: any) => setAnttForm({ ...anttForm, cnpj_cpf: v })} referenceCpf={localDriverData?.cpf} />
+                          <InputField label="Nome" value={anttForm.nome} onChange={(v: any) => setAnttForm({ ...anttForm, nome: v })} />
+                          <div className="col-span-2 mt-2">
+                            <AttachmentEditor
+                              label="Anexo ANTT Cavalo"
+                              value={anttForm.link}
+                              onChange={(v: any) => setAnttForm({ ...anttForm, link: v })}
+                              uploadingId="antt_upload"
+                              onOcrResult={(text: string) => setAnttForm((prev: any) => ({ ...prev, observacao: prev.observacao ? prev.observacao + '\n\n[OCR]: ' + text : '[OCR]: ' + text }))}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid gap-1 md:grid-cols-2">
+                          <FieldRow label="Placa" value={data.crlv?.placa_cavalo} />
+                          <FieldRow label="Número ANTT" value={data.antt?.numero_antt} />
+                          <FieldRow label="CNPJ/CPF" value={data.antt?.cnpj_cpf} />
+                          <FieldRow label="Nome" value={data.antt?.nome} />
+                          <AttachmentPreview label="Anexo ANTT Cavalo" value={data.antt?.link} />
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
-                {/* Address */}
-                <Card>
-                  <CardHeader className="py-3 px-4 bg-muted/20 border-b">
-                    <CardTitle className="text-base flex justify-between items-center">
-                      <div className="flex items-center gap-2"><FileText className="h-4 w-4" /> Comprovante de Endereço</div>
-                      {!isEditingAddress ? (
-                        <Button variant="ghost" size="sm" onClick={() => handleEditDoc('comprovante_endereco', data.comprovante_endereco)}>
-                          <Pencil className="h-3 w-3 mr-1" /> Editar / Anexar
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleCancelDoc('comprovante_endereco')}><X className="h-3 w-3" /></Button>
-                          <Button size="sm" onClick={() => handleSaveDoc('comprovante_endereco', addressForm, data.comprovante_endereco)}><Save className="h-3 w-3" /></Button>
-                        </div>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 grid gap-1 md:grid-cols-2">
-                    {isEditingAddress ? (
-                      <>
-                        <div className="col-span-2"><InputField label="CEP" value={addressForm.cep} onChange={(v: any) => setAddressForm({ ...addressForm, cep: v })} /></div>
-                        <InputField label="Endereço" value={addressForm.endereco} onChange={(v: any) => setAddressForm({ ...addressForm, endereco: v })} />
-                        <InputField label="Número" value={addressForm.numero} onChange={(v: any) => setAddressForm({ ...addressForm, numero: v })} />
-                        <InputField label="Bairro" value={addressForm.bairro} onChange={(v: any) => setAddressForm({ ...addressForm, bairro: v })} />
-                        <InputField label="Cidade" value={addressForm.cidade} onChange={(v: any) => setAddressForm({ ...addressForm, cidade: v })} />
-                        <InputField label="Estado" value={addressForm.estado} onChange={(v: any) => setAddressForm({ ...addressForm, estado: v })} />
-                        <div className="col-span-2">
-                          <span className="text-sm text-muted-foreground">Dados OCR / Observações</span>
-                          <Textarea value={addressForm.observacao || ''} onChange={(e) => setAddressForm({ ...addressForm, observacao: e.target.value })} rows={3} placeholder="Texto extraído pelo OCR aparecerá aqui..." />
-                        </div>
-                        <div className="col-span-2 mt-2">
-                          <AttachmentEditor
-                            label="Comp. Endereço"
-                            value={addressForm.link}
-                            onChange={(v: any) => setAddressForm({ ...addressForm, link: v })}
-                            uploadingId="addr_upload"
-                            onOcrResult={(text: string) => setAddressForm((prev: any) => ({ ...prev, observacao: prev.observacao ? prev.observacao + '\n\n[OCR]: ' + text : '[OCR]: ' + text }))}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <FieldRow label="CEP" value={data.comprovante_endereco?.cep} />
-                        <FieldRow label="Endereço" value={data.comprovante_endereco?.endereco} />
-                        <FieldRow label="Número" value={data.comprovante_endereco?.numero} />
-                        <FieldRow label="Bairro" value={data.comprovante_endereco?.bairro} />
-                        <FieldRow label="Cidade" value={data.comprovante_endereco?.cidade} />
-                        <FieldRow label="UF" value={data.comprovante_endereco?.estado} />
-                        <AttachmentPreview label="Comp. Endereço" value={data.comprovante_endereco?.link} />
-                        {data.comprovante_endereco?.observacao && (
-                          <div className="col-span-2 mt-2 p-2 bg-muted/20 rounded text-xs">
-                            <span className="font-semibold">OCR/Obs:</span> {data.comprovante_endereco.observacao}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* ANTT */}
-                <Card>
-                  <CardHeader className="py-3 px-4 bg-muted/20 border-b">
-                    <CardTitle className="text-base flex justify-between items-center">
-                      <div className="flex items-center gap-2"><ScrollText className="h-4 w-4" /> ANTT</div>
-                      {!isEditingANTT ? (
-                        <Button variant="ghost" size="sm" onClick={() => handleEditDoc('antt', data.antt)}>
-                          <Pencil className="h-3 w-3 mr-1" /> Editar / Anexar
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleCancelDoc('antt')}><X className="h-3 w-3" /></Button>
-                          <Button size="sm" onClick={() => handleSaveDoc('antt', anttForm, data.antt)}><Save className="h-3 w-3" /></Button>
-                        </div>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 grid gap-1 md:grid-cols-2">
-                    {isEditingANTT ? (
-                      <>
-                        <InputField label="Número ANTT" value={anttForm.numero_antt} onChange={(v: any) => setAnttForm({ ...anttForm, numero_antt: v })} />
-                        <CpfInputField label="CNPJ/CPF" value={anttForm.cnpj_cpf} onChange={(v: any) => setAnttForm({ ...anttForm, cnpj_cpf: v })} referenceCpf={localDriverData?.cpf} />
-                        <InputField label="Nome" value={anttForm.nome} onChange={(v: any) => setAnttForm({ ...anttForm, nome: v })} />
-                        <div className="col-span-2">
-                          <span className="text-sm text-muted-foreground">Dados OCR / Observações</span>
-                          <Textarea value={anttForm.observacao || ''} onChange={(e) => setAnttForm({ ...anttForm, observacao: e.target.value })} rows={3} placeholder="Texto extraído pelo OCR aparecerá aqui..." />
-                        </div>
-                        <div className="col-span-2 mt-2">
-                          <AttachmentEditor
-                            label="Anexo ANTT"
-                            value={anttForm.link}
-                            onChange={(v: any) => setAnttForm({ ...anttForm, link: v })}
-                            uploadingId="antt_upload"
-                            onOcrResult={(text: string) => setAnttForm((prev: any) => ({ ...prev, observacao: prev.observacao ? prev.observacao + '\n\n[OCR]: ' + text : '[OCR]: ' + text }))}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <FieldRow label="Número ANTT" value={data.antt?.numero_antt} />
-                        <FieldRow label="CNPJ/CPF" value={data.antt?.cnpj_cpf} />
-                        <FieldRow label="Nome" value={data.antt?.nome} />
-                        <AttachmentPreview label="Anexo ANTT" value={data.antt?.link} />
-                        {data.antt?.observacao && (
-                          <div className="col-span-2 mt-2 p-2 bg-muted/20 rounded text-xs">
-                            <span className="font-semibold">OCR/Obs:</span> {data.antt.observacao}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-                {/* CARRETAS (Agora dentro de docs) */}
+                {/* CARRETAS */}
                 {data.carretas.map((carreta: any, index: number) => {
                   const isEditingThis = isEditingCarreta && currentCarretaIndex === index;
                   return (
@@ -1615,6 +1793,15 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             <InputField label="Modelo" value={carretaForm.modelo} onChange={(v: any) => setCarretaForm({ ...carretaForm, modelo: v })} />
                             <InputField label="Ano Fab" value={carretaForm.ano_fabricacao} onChange={(v: any) => setCarretaForm({ ...carretaForm, ano_fabricacao: v })} />
                             <InputField label="Ano Mod" value={carretaForm.ano_modelo} onChange={(v: any) => setCarretaForm({ ...carretaForm, ano_modelo: v })} />
+                            <div className="col-span-full mt-3 pt-3 border-t">
+                              <span className="text-sm font-semibold flex items-center gap-2 mb-2"><ScrollText className="h-4 w-4" /> ANTT {carreta.type}</span>
+                              <div className="grid gap-1 md:grid-cols-2">
+                                <FieldRow label="Placa" value={carretaForm.placa} />
+                                <InputField label="Número ANTT" value={carretaForm.antt_numero} onChange={(v: any) => setCarretaForm({ ...carretaForm, antt_numero: v })} />
+                                <InputField label="CNPJ/CPF" value={carretaForm.antt_cnpj_cpf} onChange={(v: any) => setCarretaForm({ ...carretaForm, antt_cnpj_cpf: v })} />
+                                <InputField label="Nome" value={carretaForm.antt_nome} onChange={(v: any) => setCarretaForm({ ...carretaForm, antt_nome: v })} />
+                              </div>
+                            </div>
                             <div className="col-span-full">
                               <span className="text-sm text-muted-foreground">Dados OCR (Observações)</span>
                               <Textarea value={carretaForm.observacao || ''} onChange={(e) => setCarretaForm({ ...carretaForm, observacao: e.target.value })} rows={3} placeholder="Texto extraído..." />
@@ -1637,6 +1824,15 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             <FieldRow label="CPF/CNPJ" value={carreta.data?.cnpj_cpf_proprietario} />
                             <FieldRow label="Modelo" value={carreta.data?.modelo} />
                             <FieldRow label="Ano" value={carreta.data ? `${carreta.data.ano_fabricacao || ''}/${carreta.data.ano_modelo || ''}` : ''} />
+                            <div className="col-span-full mt-3 pt-3 border-t">
+                              <span className="text-sm font-semibold flex items-center gap-2 mb-2"><ScrollText className="h-4 w-4" /> ANTT {carreta.type}</span>
+                              <div className="grid gap-1 md:grid-cols-2">
+                                <FieldRow label="Placa" value={carreta.data?.placa} />
+                                <FieldRow label="Número ANTT" value={carreta.data?.antt_numero} />
+                                <FieldRow label="CNPJ/CPF" value={carreta.data?.antt_cnpj_cpf} />
+                                <FieldRow label="Nome" value={carreta.data?.antt_nome} />
+                              </div>
+                            </div>
                             <div className="col-span-full">
                               <AttachmentPreview label="Anexo Carreta" value={carreta.data?.link} />
                               {carreta.data?.observacao && (

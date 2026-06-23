@@ -13,6 +13,15 @@ export interface AppRole {
     created_at?: string;
 }
 
+const normalizeRole = (role: any): AppRole => ({
+    id: role.id,
+    name: role.name || role.nome || 'Cargo GMX',
+    description: role.description || role.descricao,
+    permissions: Array.isArray(role.permissions) ? role.permissions : [],
+    color: role.color,
+    created_at: role.created_at,
+});
+
 export function useRoles() {
     const queryClient = useQueryClient();
 
@@ -21,9 +30,9 @@ export function useRoles() {
         queryFn: async () => {
             try {
                 const response = await directus.request(readItems('app_roles', {
-                    sort: ['name' as any]
+                    sort: ['nome' as any]
                 }));
-                return response as AppRole[];
+                return response.map((role: any) => normalizeRole(role)) as AppRole[];
             } catch (error) {
                 console.error("Error fetching roles:", error);
                 return [];
@@ -33,7 +42,15 @@ export function useRoles() {
 
     const createRole = async (role: Omit<AppRole, 'id' | 'created_at'>) => {
         try {
-            await directus.request(createItem('app_roles', role));
+            try {
+                await directus.request(createItem('app_roles', role));
+            } catch {
+                await directus.request(createItem('app_roles', {
+                    nome: role.name,
+                    descricao: role.description,
+                    permissions: role.permissions,
+                }));
+            }
             toast.success('Cargo criado com sucesso!');
             queryClient.invalidateQueries({ queryKey: ['app_roles'] });
         } catch (error) {
@@ -45,7 +62,15 @@ export function useRoles() {
 
     const updateRole = async (id: number, role: Partial<AppRole>) => {
         try {
-            await directus.request(updateItem('app_roles', id, role));
+            try {
+                await directus.request(updateItem('app_roles', id, role));
+            } catch {
+                await directus.request(updateItem('app_roles', id, {
+                    ...(role.name !== undefined ? { nome: role.name } : {}),
+                    ...(role.description !== undefined ? { descricao: role.description } : {}),
+                    ...(role.permissions !== undefined ? { permissions: role.permissions } : {}),
+                }));
+            }
             toast.success('Cargo atualizado!');
             queryClient.invalidateQueries({ queryKey: ['app_roles'] });
         } catch (error) {

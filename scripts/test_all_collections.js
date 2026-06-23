@@ -1,7 +1,7 @@
 
 import { createDirectus, rest, staticToken, readCollections } from '@directus/sdk';
 
-const url = "http://91.99.137.101:8057";
+const url = "https://gmx.sanjaworks.com/api";
 const token = "1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah";
 
 console.log(`Connecting to ${url}...`);

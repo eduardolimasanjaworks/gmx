@@ -37,6 +37,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { OperationsFilter } from "@/components/operations/OperationsFilter";
+import { fetchAddressByCep } from "@/lib/cepLookup";
+import { ContatoProativoPanel } from "@/components/dashboard/ContatoProativoPanel";
 
 // Haversine formula
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -87,6 +90,7 @@ export const VehicleTrackingMap = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [tempFactory, setTempFactory] = useState<any>(null);
   const [showAllLocations, setShowAllLocations] = useState(false);
+  const [selectedOperations, setSelectedOperations] = useState<string[]>([]);
   
   // Edit Location
   const [isEditingLoc, setIsEditingLoc] = useState(false);
@@ -97,6 +101,24 @@ export const VehicleTrackingMap = () => {
   const queryClient = useQueryClient();
 
   const { refreshToken, user } = useAuth();
+
+  const normalizarOperacao = (value: unknown): string => String(value ?? '').trim().toUpperCase();
+
+  const extrairOperacoesDriver = (driver: any): string[] => {
+    const fontes = [
+      driver?.operacao,
+      driver?.tipo_operacao,
+      driver?.motorista_id?.operacao,
+      driver?.motorista_id?.tipo_operacao,
+      driver?.motorista_id?.tipo_rota,
+      driver?.motorista_id?.produto_predominante,
+    ]
+      .filter(Boolean)
+      .flatMap((item) => String(item).split(/[;,/|]/g))
+      .map(normalizarOperacao)
+      .filter(Boolean);
+    return Array.from(new Set(fontes));
+  };
 
   const fetchDrivers = async () => {
     let filterQuery: any = undefined;
@@ -181,6 +203,14 @@ export const VehicleTrackingMap = () => {
   const allAvailableDrivers = useMemo(() => {
     let filtered = [...fetchedDrivers];
 
+    if (selectedOperations.length > 0) {
+      const filtro = new Set(selectedOperations.map(normalizarOperacao));
+      filtered = filtered.filter((d: any) => {
+        const operacoes = extrairOperacoesDriver(d);
+        return operacoes.some((op) => filtro.has(op));
+      });
+    }
+
     if (originPoint) {
       const MAX_KM = radiusKm[0];
       filtered = filtered.filter((d: any) => {
@@ -194,7 +224,7 @@ export const VehicleTrackingMap = () => {
     }
 
     return filtered;
-  }, [fetchedDrivers, originPoint, radiusKm]);
+  }, [fetchedDrivers, originPoint, radiusKm, selectedOperations]);
 
   // Apenas os motoristas com coordenadas GPS vão para o mapa
   const drivers = allAvailableDrivers.filter((d: any) =>
@@ -210,7 +240,7 @@ export const VehicleTrackingMap = () => {
     popup: {
       title: `${d.motorista_id?.nome || 'Motorista'} ${d.motorista_id?.sobrenome || ''}`,
       content: `${d.localizacao_atual || 'Localização não informada'}\nVeículo: ${d.motorista_id?.tipo_veiculo || 'N/A'}`,
-      image: d.motorista_id?.foto ? `http://91.99.137.101:8057/assets/${d.motorista_id.foto}` : undefined
+      image: d.motorista_id?.foto ? `https://gmx.sanjaworks.com/api/assets/${d.motorista_id.foto}` : undefined
     },
     driverData: d
   }));
@@ -286,6 +316,9 @@ export const VehicleTrackingMap = () => {
         }));
         return results;
       } catch (err: any) {
+        // #region debug-point D:locais-salvos-read-error
+        fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'gmx-iagmx-integration', runId: 'pre-fix', hypothesisId: 'D', location: 'gmx/src/components/tracking/VehicleTrackingMap.tsx:savedLocations', msg: '[DEBUG] Directus negou leitura de locais_salvos', data: { userId: user?.id ?? null, error: err?.message ?? String(err), errors: err?.errors ?? null }, ts: Date.now() }) }).catch(() => {});
+        // #endregion
         console.error("Directus Erro Locais (read):", err, err.errors);
         return [];
       }
@@ -436,14 +469,60 @@ export const VehicleTrackingMap = () => {
     // If we want to support map clicking later
   };
 
+  const escolherMelhorResultado = (query: string, results: any[]) => {
+    const tokens = query
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length >= 2);
+    const numero = query.match(/\b\d{1,6}\b/)?.[0];
+
+    const pontuar = (candidate: any) => {
+      const display = String(candidate.display_name ?? '').toLowerCase();
+      const address = candidate.address ?? {};
+      let score = Number(candidate.importance ?? 0) * 4;
+
+      const tokenMatches = tokens.filter((t) => display.includes(t)).length;
+      score += tokenMatches * 2;
+
+      const houseNumber = String(address.house_number ?? '');
+      if (numero && houseNumber === numero) score += 8;
+      else if (numero && display.includes(numero)) score += 4;
+
+      const classType = `${candidate.class ?? ''}:${candidate.type ?? ''}`;
+      if (/highway|building|house/.test(classType)) score += 2;
+      if (/city|state|administrative/.test(classType)) score -= 2;
+      return score;
+    };
+
+    return [...results].sort((a, b) => pontuar(b) - pontuar(a))[0];
+  };
+
   const handleSearchFactory = async () => {
     if (!factorySearchTerm.trim()) return;
     setIsSearching(true);
     try {
-      const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(factorySearchTerm)}`);
+      const cep = factorySearchTerm.match(/\b\d{5}-?\d{3}\b/)?.[0];
+      const enderecoCep = cep ? await fetchAddressByCep(cep).catch(() => null) : null;
+      const queryBase = enderecoCep
+        ? `${factorySearchTerm}, ${enderecoCep.endereco}, ${enderecoCep.bairro}, ${enderecoCep.cidade} ${enderecoCep.estado}, Brasil`
+        : `${factorySearchTerm}, Brasil`;
+
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        addressdetails: '1',
+        limit: '8',
+        countrycodes: 'br',
+        dedupe: '1',
+        q: queryBase,
+      });
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        headers: { 'Accept-Language': 'pt-BR,pt;q=0.9' },
+      });
       const results = await resp.json();
       if (results && results.length > 0) {
-        const { lat, lon } = results[0];
+        const melhor = escolherMelhorResultado(queryBase, results);
+        const { lat, lon } = melhor;
         const newPoint: [number, number] = [parseFloat(lat), parseFloat(lon)];
         setOriginPoint(newPoint);
         setMapCenter(newPoint);
@@ -658,6 +737,11 @@ export const VehicleTrackingMap = () => {
             {/* Divisor */}
             <div className="hidden md:block w-px h-10 bg-slate-200 dark:bg-slate-700" />
 
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Operações</Label>
+              <OperationsFilter value={selectedOperations} onChange={setSelectedOperations} className="h-9" />
+            </div>
+
             {/* 2. Ponto de Origem */}
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ponto de Busca (Fábrica)</Label>
@@ -729,18 +813,18 @@ export const VehicleTrackingMap = () => {
               <Input
                 type="number"
                 min={10}
-                max={2000}
+                            max={800}
                 value={radiusKm[0]}
                 onChange={(e) => {
                   const val = Number(e.target.value || 0);
-                  if (!Number.isNaN(val) && val >= 10) setRadiusKm([Math.min(val, 2000)]);
+                              if (!Number.isNaN(val) && val >= 10) setRadiusKm([Math.min(val, 800)]);
                 }}
                 className="h-8"
               />
               <Slider
                 value={radiusKm}
                 onValueChange={setRadiusKm}
-                max={2000}
+                            max={800}
                 min={10}
                 step={10}
                 className="mt-1"
@@ -925,6 +1009,7 @@ export const VehicleTrackingMap = () => {
               )}
             </CardContent>
           </Card>
+          <ContatoProativoPanel className="mt-6" />
         </div>
 
         {/* Drivers List */}
@@ -942,6 +1027,7 @@ export const VehicleTrackingMap = () => {
             <CardContent className="p-3 overflow-y-auto grow space-y-3 bg-slate-50/30 dark:bg-slate-950/30">
               {allAvailableDrivers.map((driver: any) => {
                 const hasGps = driver.latitude && driver.longitude;
+                const operacoes = extrairOperacoesDriver(driver);
                 // calculate dist if origin is set to show in UI
                 let distLabel = "";
                 if (originPoint && hasGps) {
@@ -986,6 +1072,18 @@ export const VehicleTrackingMap = () => {
                     </div>
 
                     <div className="text-xs text-muted-foreground space-y-2 mt-3">
+                      {operacoes.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                            {operacoes.slice(0, 2).join(' · ')}
+                          </Badge>
+                          {operacoes.length > 2 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              +{operacoes.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-start gap-2">
                         <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
                         <div className="flex flex-col">

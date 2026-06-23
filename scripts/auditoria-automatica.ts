@@ -6,7 +6,7 @@
 
 import { createDirectus, rest, staticToken, readItems, createItem } from '@directus/sdk';
 
-const DIRECTUS_URL = process.env.VITE_DIRECTUS_URL || 'http://91.99.137.101:8057';
+const DIRECTUS_URL = process.env.VITE_DIRECTUS_URL || 'https://gmx.sanjaworks.com/api';
 const DIRECTUS_TOKEN = process.env.VITE_DIRECTUS_TOKEN || '';
 
 const directus = createDirectus(DIRECTUS_URL)

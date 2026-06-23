@@ -7,11 +7,37 @@ export interface ConfigRota {
   id: number;
   origem: string;
   destino: string;
+  origem_latitude?: number | null;
+  origem_longitude?: number | null;
+  destino_latitude?: number | null;
+  destino_longitude?: number | null;
   operacao?: string;
   operacao_id?: number | null;
   valor_minimo: number;
   valor_maximo: number;
   ativo?: boolean;
+  fonte_planilha?: string | null;
+  especie_produto?: string | null;
+  origem_regiao?: string | null;
+  uf_origem?: string | null;
+  uf_destino?: string | null;
+  capacidade?: string | null;
+  distancia_km?: number | null;
+  frete_peso_cargox?: number | null;
+  frete_bruto_icms?: number | null;
+  frete_pis_cofins?: number | null;
+  frete_liquido_cargox?: number | null;
+  contrato_frete_gmx?: number | null;
+  frete_peso_terceiro?: number | null;
+  total_terceiro?: number | null;
+  km_rodado_frete_atual?: number | null;
+  icms?: string | null;
+  real_pallet_atual?: number | null;
+  evidencia?: string | null;
+  status_tarifa?: string | null;
+  km_rodado_terceiro?: number | null;
+  frete_terceiro_padrao?: number | null;
+  frete_terceiro_maximo?: number | null;
 }
 
 export type ConfigRotaInput = Omit<ConfigRota, 'id'>;
@@ -42,7 +68,12 @@ export function useConfigRotas() {
   };
 
   const updateRota = async (id: number, input: Partial<ConfigRotaInput>) => {
-    await directus.request(updateItem('config_rotas', id, input));
+    await directus.request(
+      updateItem('config_rotas', id, {
+        ...input,
+        operacao: input.operacao?.toUpperCase(),
+      }),
+    );
     toast.success('Rota atualizada');
     queryClient.invalidateQueries({ queryKey: ['config_rotas'] });
   };

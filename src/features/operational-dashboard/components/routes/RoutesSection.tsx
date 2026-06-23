@@ -3,8 +3,10 @@
  * @purpose TOP rotas + matriz motorista×destino (layout Miro).
  */
 
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   BarChart,
@@ -34,8 +36,16 @@ export function RoutesSection({ filters }: RoutesSectionProps) {
     setRouteDestination,
   } = filters;
 
+  const [fromDate, setFromDate] = useState(routesRange.from.toISOString().slice(0, 10));
+  const [toDate, setToDate] = useState(routesRange.to.toISOString().slice(0, 10));
+  const effectiveRange = useMemo(() => {
+    const from = fromDate ? new Date(`${fromDate}T00:00:00`) : routesRange.from;
+    const to = toDate ? new Date(`${toDate}T23:59:59`) : routesRange.to;
+    return { from, to };
+  }, [fromDate, toDate, routesRange.from, routesRange.to]);
+
   const { topRoutes, matrix } = useRoutesAnalytics(
-    routesRange,
+    effectiveRange,
     effectiveOperations,
     state.routeFilter.origin,
     state.routeFilter.destination,
@@ -64,6 +74,16 @@ export function RoutesSection({ filters }: RoutesSectionProps) {
           value={state.routeFilter.destination}
           onChange={setRouteDestination}
         />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] font-bold uppercase text-slate-600">De</label>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase text-slate-600">Até</label>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+        </div>
       </div>
 
       <ToggleGroup

@@ -22,7 +22,7 @@ try {
     console.log("No .env found or error reading it.");
 }
 
-const CLIENT_URL = env.VITE_DIRECTUS_URL || "http://91.99.137.101:8057";
+const CLIENT_URL = env.VITE_DIRECTUS_URL || "https://gmx.sanjaworks.com/api";
 const CLIENT_TOKEN = env.VITE_DIRECTUS_TOKEN || "1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah";
 
 const PARENT = 'cadastro_motorista';

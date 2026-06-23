@@ -123,7 +123,7 @@ const ApiDocs = () => {
                         </p>
                         <div className="flex gap-4 pt-4">
                             <Badge variant="outline" className="text-sm py-1 px-3">v1.0.0</Badge>
-                            <Badge variant="secondary" className="text-sm py-1 px-3">Base URL: http://91.99.137.101:8057</Badge>
+                            <Badge variant="secondary" className="text-sm py-1 px-3">Base URL: https://gmx.sanjaworks.com/api</Badge>
                         </div>
                     </div>
                 </section>

@@ -9,6 +9,11 @@ export interface MatchingCriteria {
         id: string;
         origin: string;
         destination: string;
+        config_rota_id?: number | null;
+        origem_latitude?: number;
+        origem_longitude?: number;
+        destino_latitude?: number;
+        destino_longitude?: number;
         produto_predominante: string;
         tipo_carga: string;
         peso_total?: number;
@@ -20,22 +25,28 @@ export interface MatchingCriteria {
         id: string;
         nome: string;
         localizacao_atual?: string;
+        localizacao_prevista?: string;
         latitude?: number;
         longitude?: number;
         status: string;
         disponivel_em?: string;
+        data_ultima_atualizacao?: string;
         tipo_veiculo?: string;
         capacidade_kg?: number;
         historico_rotas?: string[];
         viagens_concluidas?: number;
         taxa_aceite?: number; // 0-100
         gr_aprovada?: boolean;
+        operacoes_elegiveis?: string[];
     };
 }
 
 export interface MatchingScore {
     motorista_id: string;
     motorista_nome: string;
+    localizacao_atual?: string;
+    localizacao_prevista?: string;
+    data_ultima_atualizacao?: string;
     score_total: number;
     score_disponibilidade: number;
     score_equipamento: number;
@@ -53,6 +64,13 @@ export interface MatchingScore {
     };
     distancia_km?: number;
     tempo_ate_disponivel_horas?: number;
+}
+
+function formatarDataHora(valor?: string): string {
+    if (!valor) return 'data não informada';
+    const data = new Date(valor);
+    if (Number.isNaN(data.getTime())) return valor;
+    return data.toLocaleString('pt-BR');
 }
 
 /**
@@ -81,33 +99,71 @@ function calcularDistancia(
  * Score de Disponibilidade (0-100)
  * Quanto mais rápido disponível, maior o score
  */
-function calcularScoreDisponibilidade(motorista: MatchingCriteria['motorista']): {
+function calcularScoreDisponibilidade(
+    motorista: MatchingCriteria['motorista'],
+    embarque?: MatchingCriteria['embarque']
+): {
     score: number;
     justificativa: string;
     horas: number;
 } {
-    if (motorista.status === 'disponivel') {
-        return { score: 100, justificativa: 'Disponível imediatamente', horas: 0 };
+    const referenciaData = embarque?.data_coleta ? new Date(embarque.data_coleta) : new Date();
+    const referencia = Number.isNaN(referenciaData.getTime()) ? new Date() : referenciaData;
+
+    if (motorista.status === 'disponivel' && !motorista.disponivel_em) {
+        return {
+            score: 100,
+            justificativa:
+                referencia > new Date()
+                    ? `Disponível para a coleta prevista em ${formatarDataHora(embarque?.data_coleta)}`
+                    : 'Disponível imediatamente',
+            horas: 0,
+        };
     }
 
-    if (motorista.status === 'retornando' && motorista.disponivel_em) {
+    if (motorista.disponivel_em) {
         const horasAteDisponivel =
-            (new Date(motorista.disponivel_em).getTime() - Date.now()) / (1000 * 60 * 60);
+            (new Date(motorista.disponivel_em).getTime() - referencia.getTime()) / (1000 * 60 * 60);
+        const complementoLocal = motorista.localizacao_prevista
+            ? ` em ${motorista.localizacao_prevista}`
+            : motorista.localizacao_atual
+              ? ` saindo de ${motorista.localizacao_atual}`
+              : '';
 
         if (horasAteDisponivel < 0) {
-            return { score: 100, justificativa: 'Já deveria estar disponível', horas: 0 };
+            return {
+                score: 100,
+                justificativa: `Já deve estar livre${complementoLocal}`,
+                horas: 0,
+            };
         }
 
         if (horasAteDisponivel <= 2) {
-            return { score: 90, justificativa: `Disponível em ${horasAteDisponivel.toFixed(1)}h`, horas: horasAteDisponivel };
+            return {
+                score: 90,
+                justificativa: `Previsto para liberar em ${horasAteDisponivel.toFixed(1)}h${complementoLocal}`,
+                horas: horasAteDisponivel,
+            };
         }
         if (horasAteDisponivel <= 6) {
-            return { score: 70, justificativa: `Disponível em ${horasAteDisponivel.toFixed(1)}h`, horas: horasAteDisponivel };
+            return {
+                score: 70,
+                justificativa: `Previsto para liberar em ${horasAteDisponivel.toFixed(1)}h${complementoLocal}`,
+                horas: horasAteDisponivel,
+            };
         }
         if (horasAteDisponivel <= 12) {
-            return { score: 50, justificativa: `Disponível em ${horasAteDisponivel.toFixed(1)}h`, horas: horasAteDisponivel };
+            return {
+                score: 50,
+                justificativa: `Previsto para liberar em ${horasAteDisponivel.toFixed(1)}h${complementoLocal}`,
+                horas: horasAteDisponivel,
+            };
         }
-        return { score: 30, justificativa: `Disponível em ${horasAteDisponivel.toFixed(1)}h`, horas: horasAteDisponivel };
+        return {
+            score: 30,
+            justificativa: `Previsto para liberar em ${horasAteDisponivel.toFixed(1)}h${complementoLocal}`,
+            horas: horasAteDisponivel,
+        };
     }
 
     return { score: 0, justificativa: 'Indisponível ou bloqueado', horas: 999 };
@@ -159,29 +215,33 @@ function calcularScoreLocalizacao(
     embarque: MatchingCriteria['embarque'],
     motorista: MatchingCriteria['motorista']
 ): { score: number; justificativa: string; distancia_km?: number } {
-    // Geocoding simplificado (em produção, usar API real)
-    const cidadesCoords: Record<string, { lat: number; lng: number }> = {
-        'São Paulo': { lat: -23.5505, lng: -46.6333 },
-        'Rio de Janeiro': { lat: -22.9068, lng: -43.1729 },
-        'Curitiba': { lat: -25.4284, lng: -49.2733 },
-        'Porto Alegre': { lat: -30.0346, lng: -51.2177 },
-        'Brasília': { lat: -15.8267, lng: -47.9218 },
-    };
+    const origemCoords =
+        Number.isFinite(embarque.origem_latitude) && Number.isFinite(embarque.origem_longitude)
+            ? { lat: Number(embarque.origem_latitude), lng: Number(embarque.origem_longitude) }
+            : null;
 
-    const origemCity = embarque.origin.split(',')[0].trim();
-    const motoristaCity = motorista.localizacao_atual?.split(',')[0].trim();
-
-    if (!motoristaCity || !cidadesCoords[origemCity]) {
-        return { score: 50, justificativa: 'Localização não disponível' };
+    if (!origemCoords) {
+        return {
+            score: 50,
+            justificativa: embarque.config_rota_id
+                ? `Rota #${embarque.config_rota_id} sem coordenadas de origem`
+                : 'Rota sem coordenadas de origem',
+        };
     }
 
-    const origemCoords = cidadesCoords[origemCity];
-    const motoristaCoords = motorista.latitude && motorista.longitude
-        ? { lat: motorista.latitude, lng: motorista.longitude }
-        : cidadesCoords[motoristaCity];
+    const motoristaCoords =
+        Number.isFinite(motorista.latitude) && Number.isFinite(motorista.longitude)
+            ? { lat: Number(motorista.latitude), lng: Number(motorista.longitude) }
+            : null;
 
     if (!motoristaCoords) {
-        return { score: 50, justificativa: 'Coordenadas não disponíveis' };
+        const localInformado = motorista.localizacao_prevista || motorista.localizacao_atual;
+        return {
+            score: localInformado ? 35 : 20,
+            justificativa: localInformado
+                ? `Local informado sem coordenadas validadas: ${localInformado}`
+                : 'Sem coordenadas validas do motorista',
+        };
     }
 
     const distancia = calcularDistancia(
@@ -198,9 +258,25 @@ function calcularScoreLocalizacao(
     if (distancia > 500) score = 30;
     if (distancia > 1000) score = 10;
 
+    let complemento = 'comparando o ultimo GPS valido com a origem da carga';
+    if (motorista.data_ultima_atualizacao) {
+        const horasDesdeGps =
+            (Date.now() - new Date(motorista.data_ultima_atualizacao).getTime()) / (1000 * 60 * 60);
+        if (Number.isFinite(horasDesdeGps) && horasDesdeGps > 24) {
+            score = Math.max(0, score - 10);
+            complemento = `ultimo GPS atualizado ha ${horasDesdeGps.toFixed(0)}h`;
+        }
+    }
+    if (motorista.disponivel_em && new Date(motorista.disponivel_em).getTime() > Date.now()) {
+        score = Math.max(0, score - 5);
+        complemento += motorista.localizacao_prevista
+            ? ` · previsao futura em ${motorista.localizacao_prevista}`
+            : ' · motorista ainda em deslocamento/liberacao futura';
+    }
+
     return {
         score,
-        justificativa: `${distancia.toFixed(0)} km da origem`,
+        justificativa: `${distancia.toFixed(0)} km da origem · ${complemento}`,
         distancia_km: distancia
     };
 }
@@ -272,7 +348,7 @@ export function calcularMatchingScore(
     embarque: MatchingCriteria['embarque'],
     motorista: MatchingCriteria['motorista']
 ): MatchingScore {
-    const disponibilidade = calcularScoreDisponibilidade(motorista);
+    const disponibilidade = calcularScoreDisponibilidade(motorista, embarque);
     const equipamento = calcularScoreEquipamento(embarque, motorista);
     const localizacao = calcularScoreLocalizacao(embarque, motorista);
     const historico = calcularScoreHistorico(embarque, motorista);
@@ -299,6 +375,9 @@ export function calcularMatchingScore(
     return {
         motorista_id: motorista.id,
         motorista_nome: motorista.nome,
+        localizacao_atual: motorista.localizacao_atual,
+        localizacao_prevista: motorista.localizacao_prevista,
+        data_ultima_atualizacao: motorista.data_ultima_atualizacao,
         score_total: Math.round(scoreTotal),
         score_disponibilidade: Math.round(disponibilidade.score),
         score_equipamento: Math.round(equipamento.score),

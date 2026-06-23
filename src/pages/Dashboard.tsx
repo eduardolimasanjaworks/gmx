@@ -8,9 +8,7 @@ import { UserManagement } from "@/components/dashboard/UserManagement";
 import { ShipmentFollow } from "@/components/dashboard/ShipmentFollow";
 import { OperatorPerformance } from "@/components/dashboard/OperatorPerformance";
 import { VehicleTrackingMap } from "@/components/tracking/VehicleTrackingMap";
-import { ConversasPanel } from "@/components/dashboard/ConversasPanel";
-import { ConfigIAPanel } from "@/features/config-ia/ConfigIAPanel";
-import { TelemetriaDutyControl } from "@/features/telemetria/components/TelemetriaDutyControl";
+import { RotasCrudPanel } from "@/components/dashboard/RotasCrudPanel";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -26,8 +24,8 @@ import {
   LogOut,
   User as UserIcon,
   Map as MapIcon,
-  MessageCircle,
-  Bot
+  Lock,
+  Route as RouteIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,17 +69,16 @@ const Dashboard = () => {
   const allTabs = [
     { id: 'registry', label: 'Cadastros', icon: Users, perm: 'cadastros' },
     { id: 'tracking', label: 'Rastreamento', icon: MapIcon, perm: 'disponiveis' },
+    { id: 'rotas', label: 'Rotas', icon: RouteIcon, perm: 'embarques' },
     { id: 'shipments', label: 'Embarques', icon: Package, perm: 'embarques' },
-    { id: 'conversas', label: 'Conversas', icon: MessageCircle, perm: null },
     { id: 'history', label: 'Histórico', icon: History, perm: 'historico' },
-    { id: 'operators', label: 'Operadores', icon: Activity, perm: 'usuarios' },
+    { id: 'operators', label: 'Operadores', icon: Activity, perm: 'usuarios', disabled: true },
     { id: 'users', label: 'Usuários', icon: Settings, perm: 'usuarios' },
-    { id: 'config-ia', label: 'Config IA', icon: Bot, perm: 'usuarios' },
     { id: 'stats', label: 'Dashboard', icon: BarChart3, perm: 'dashboard' },
     { id: 'follow', label: 'Follow', icon: ClipboardList, perm: 'embarques' },
   ];
 
-  const availableTabs = allTabs.filter(tab => tab.perm === null || hasPermission(tab.perm));
+  const availableTabs = allTabs.filter(tab => !tab.disabled && (tab.perm === null || hasPermission(tab.perm)));
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -150,8 +147,6 @@ const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <TelemetriaDutyControl />
-
             <a href="/swagger-ui.html" target="_blank" rel="noopener noreferrer" className="hidden sm:flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-primary transition-colors border px-3 py-1.5 rounded-md hover:bg-muted">
               <Book className="h-3.5 w-3.5" />
               Docs
@@ -191,7 +186,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className={`container mx-auto px-4 ${activeTab === 'conversas' ? 'py-3' : 'py-6'}`}>
+      <main className="container mx-auto px-4 py-6">
         {availableTabs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center animate-in zoom-in-95 duration-500">
             <div className="h-24 w-24 bg-muted/30 rounded-full flex items-center justify-center mb-6">
@@ -206,7 +201,7 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={handleTabChange} className={activeTab === 'conversas' ? 'space-y-3' : 'space-y-6'}>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <div className="bg-muted/30 border rounded-xl p-1 shadow-inner overflow-x-auto">
               <TabsList className="flex w-full justify-start lg:justify-between gap-1 bg-transparent h-auto p-0">
                 <div className="flex gap-1">
@@ -220,6 +215,20 @@ const Dashboard = () => {
                       <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide">{tab.label}</span>
                     </TabsTrigger>
                   ))}
+                  <button
+                    type="button"
+                    disabled
+                    title="Em desenvolvimento, aba operadores não está pronta"
+                    className="inline-flex flex-1 min-w-[120px] max-w-[220px] items-center justify-center gap-2 overflow-hidden rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-700 opacity-90 transition-all duration-200 cursor-not-allowed"
+                  >
+                    <Lock className="h-4 w-4 shrink-0" />
+                    <span className="truncate text-[10px] sm:text-xs font-semibold uppercase tracking-wide">
+                      Operadores
+                    </span>
+                    <span className="hidden max-w-[92px] truncate text-[10px] normal-case tracking-normal lg:inline">
+                      Em desenvolvimento
+                    </span>
+                  </button>
                 </div>
                 <div className="flex gap-1">
                   {availableTabs.filter(tab => tab.id === 'stats' || tab.id === 'follow').map(tab => (
@@ -261,6 +270,12 @@ const Dashboard = () => {
                 </TabsContent>
               )}
 
+              {activeTab === 'rotas' && hasPermission('embarques') && (
+                <TabsContent value="rotas" className="space-y-6 mt-0">
+                  <RotasCrudPanel />
+                </TabsContent>
+              )}
+
               {activeTab === 'history' && hasPermission('historico') && (
                 <TabsContent value="history" className="space-y-6 mt-0">
                   <ShipmentHistory />
@@ -282,18 +297,6 @@ const Dashboard = () => {
               {activeTab === 'users' && hasPermission('usuarios') && (
                 <TabsContent value="users" className="space-y-6 mt-0">
                   <UserManagement />
-                </TabsContent>
-              )}
-
-              {activeTab === 'config-ia' && hasPermission('usuarios') && (
-                <TabsContent value="config-ia" className="space-y-6 mt-0">
-                  <ConfigIAPanel />
-                </TabsContent>
-              )}
-
-              {activeTab === 'conversas' && (
-                <TabsContent value="conversas" className="mt-0">
-                  <ConversasPanel />
                 </TabsContent>
               )}
 

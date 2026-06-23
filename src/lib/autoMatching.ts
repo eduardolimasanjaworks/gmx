@@ -7,7 +7,7 @@
 import { createDirectus, rest, staticToken, readItems, createItem, updateItem } from '@directus/sdk';
 import { calcularMatchingScore, MatchingCriteria } from './matchingAlgorithm';
 
-const DIRECTUS_URL = process.env.VITE_DIRECTUS_URL || 'http://91.99.137.101:8057';
+const DIRECTUS_URL = process.env.VITE_DIRECTUS_URL || 'https://gmx.sanjaworks.com/api';
 const DIRECTUS_TOKEN = process.env.VITE_DIRECTUS_TOKEN || '';
 
 const directus = createDirectus(DIRECTUS_URL)
@@ -211,6 +211,11 @@ async function processarCarga(embarque: any, motoristas: any[], config: AutoMatc
         id: embarque.id,
         origin: embarque.origin || '',
         destination: embarque.destination || '',
+        config_rota_id: Number.isFinite(Number(embarque.config_rota_id)) ? Number(embarque.config_rota_id) : null,
+        origem_latitude: Number.isFinite(Number(embarque.origem_latitude)) ? Number(embarque.origem_latitude) : undefined,
+        origem_longitude: Number.isFinite(Number(embarque.origem_longitude)) ? Number(embarque.origem_longitude) : undefined,
+        destino_latitude: Number.isFinite(Number(embarque.destino_latitude)) ? Number(embarque.destino_latitude) : undefined,
+        destino_longitude: Number.isFinite(Number(embarque.destino_longitude)) ? Number(embarque.destino_longitude) : undefined,
         produto_predominante: embarque.produto_predominante || '',
         tipo_carga: embarque.tipo_carga || 'geral',
         peso_total: embarque.peso_total,

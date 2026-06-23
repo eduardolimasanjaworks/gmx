@@ -34,7 +34,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     cargo: "",
     value: 0,
     pickupDate: "",
-    deliveryDate: ""
+    deliveryDate: "",
+    driverName: "",
+    vehicleType: "",
+    grOk: false,
+    placasOk: false,
+    gerouDiarias: false,
+    diariaInicio: "",
+    diariaFim: "",
   });
   const [uploading, setUploading] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
@@ -55,7 +62,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         cargo: shipment.cargo || "",
         value: shipment.value || 0,
         pickupDate: shipment.pickup_date ? new Date(shipment.pickup_date).toISOString().slice(0, 16) : "",
-        deliveryDate: shipment.delivery_date ? new Date(shipment.delivery_date).toISOString().slice(0, 16) : ""
+        deliveryDate: shipment.delivery_date ? new Date(shipment.delivery_date).toISOString().slice(0, 16) : "",
+        driverName: shipment.driver_name || shipment.driver?.name || "",
+        vehicleType: shipment.tipo_veiculo || shipment.vehicle_type || "",
+        grOk: Boolean(shipment.gr_ok ?? shipment.gr_feito),
+        placasOk: Boolean(shipment.placas_ok),
+        gerouDiarias: Boolean(shipment.gerou_diarias),
+        diariaInicio: shipment.data_agendada_inicio ? new Date(shipment.data_agendada_inicio).toISOString().slice(0, 16) : "",
+        diariaFim: shipment.data_agendada_termino ? new Date(shipment.data_agendada_termino).toISOString().slice(0, 16) : "",
       });
       setIsEditingDetails(false);
     }
@@ -334,6 +348,13 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         origin: editedData.origin,
         destination: editedData.destination,
         cargo_type: editedData.cargo,
+        driver_name: editedData.driverName || null,
+        tipo_veiculo: editedData.vehicleType || null,
+        gr_ok: editedData.grOk,
+        placas_ok: editedData.placasOk,
+        gerou_diarias: editedData.gerouDiarias,
+        data_agendada_inicio: editedData.gerouDiarias ? (editedData.diariaInicio || null) : null,
+        data_agendada_termino: editedData.gerouDiarias ? (editedData.diariaFim || null) : null,
         total_value: editedData.value,
         pickup_date: editedData.pickupDate || null,
         delivery_date: editedData.deliveryDate || null
@@ -354,6 +375,13 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       shipment.origin = editedData.origin;
       shipment.destination = editedData.destination;
       shipment.cargo = editedData.cargo;
+      shipment.driver_name = editedData.driverName;
+      shipment.tipo_veiculo = editedData.vehicleType;
+      shipment.gr_ok = editedData.grOk;
+      shipment.placas_ok = editedData.placasOk;
+      shipment.gerou_diarias = editedData.gerouDiarias;
+      shipment.data_agendada_inicio = editedData.diariaInicio;
+      shipment.data_agendada_termino = editedData.diariaFim;
       shipment.value = editedData.value;
       shipment.pickup_date = editedData.pickupDate;
       shipment.delivery_date = editedData.deliveryDate;
@@ -444,7 +472,14 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                           cargo: shipment.cargo || "",
                           value: shipment.value || 0,
                           pickupDate: shipment.pickup_date ? new Date(shipment.pickup_date).toISOString().slice(0, 16) : "",
-                          deliveryDate: shipment.delivery_date ? new Date(shipment.delivery_date).toISOString().slice(0, 16) : ""
+                          deliveryDate: shipment.delivery_date ? new Date(shipment.delivery_date).toISOString().slice(0, 16) : "",
+                          driverName: shipment.driver_name || shipment.driver?.name || "",
+                          vehicleType: shipment.tipo_veiculo || shipment.vehicle_type || "",
+                          grOk: Boolean(shipment.gr_ok ?? shipment.gr_feito),
+                          placasOk: Boolean(shipment.placas_ok),
+                          gerouDiarias: Boolean(shipment.gerou_diarias),
+                          diariaInicio: shipment.data_agendada_inicio ? new Date(shipment.data_agendada_inicio).toISOString().slice(0, 16) : "",
+                          diariaFim: shipment.data_agendada_termino ? new Date(shipment.data_agendada_termino).toISOString().slice(0, 16) : "",
                         });
                       }}>
                         <X className="h-4 w-4 mr-1" />
@@ -502,6 +537,82 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground">Nome do Motorista</label>
+                        <Input
+                          value={editedData.driverName}
+                          onChange={(e) => setEditedData(prev => ({ ...prev, driverName: e.target.value }))}
+                          placeholder="Nome do motorista"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground">Tipo de Veículo</label>
+                        <Input
+                          value={editedData.vehicleType}
+                          onChange={(e) => setEditedData(prev => ({ ...prev, vehicleType: e.target.value }))}
+                          placeholder="Ex: Carreta"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground">GR OK</label>
+                        <select
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={editedData.grOk ? "sim" : "nao"}
+                          onChange={(e) => setEditedData(prev => ({ ...prev, grOk: e.target.value === "sim" }))}
+                        >
+                          <option value="sim">SIM</option>
+                          <option value="nao">NÃO</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground">PLACAS OK</label>
+                        <select
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={editedData.placasOk ? "sim" : "nao"}
+                          onChange={(e) => setEditedData(prev => ({ ...prev, placasOk: e.target.value === "sim" }))}
+                        >
+                          <option value="sim">SIM</option>
+                          <option value="nao">NÃO</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm text-muted-foreground">Gerou diárias?</label>
+                        <select
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={editedData.gerouDiarias ? "sim" : "nao"}
+                          onChange={(e) => setEditedData(prev => ({ ...prev, gerouDiarias: e.target.value === "sim" }))}
+                        >
+                          <option value="sim">SIM</option>
+                          <option value="nao">NÃO</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {editedData.gerouDiarias && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm text-muted-foreground">Data agendada início</label>
+                          <Input
+                            type="datetime-local"
+                            value={editedData.diariaInicio}
+                            onChange={(e) => setEditedData(prev => ({ ...prev, diariaInicio: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm text-muted-foreground">Data agendada término</label>
+                          <Input
+                            type="datetime-local"
+                            value={editedData.diariaFim}
+                            onChange={(e) => setEditedData(prev => ({ ...prev, diariaFim: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
                         <label className="text-sm text-muted-foreground">Data de Coleta</label>
                         <Input
                           type="datetime-local"
@@ -554,6 +665,65 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                         </div>
                       </div>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-start gap-2">
+                        <Package className="h-5 w-5 text-primary mt-1" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Nome do Motorista</p>
+                          <p className="font-medium">{shipment.driver_name || shipment.driver?.name || 'Não informado'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Package className="h-5 w-5 text-primary mt-1" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Tipo de Veículo</p>
+                          <p className="font-medium">{shipment.tipo_veiculo || shipment.vehicle_type || 'Não informado'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">GR OK</p>
+                        <Badge variant={(shipment.gr_ok ?? shipment.gr_feito) ? "default" : "secondary"}>
+                          {(shipment.gr_ok ?? shipment.gr_feito) ? "SIM" : "NÃO"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">PLACAS OK</p>
+                        <Badge variant={shipment.placas_ok ? "default" : "secondary"}>
+                          {shipment.placas_ok ? "SIM" : "NÃO"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Gerou diárias?</p>
+                        <Badge variant={shipment.gerou_diarias ? "default" : "secondary"}>
+                          {shipment.gerou_diarias ? "SIM" : "NÃO"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {shipment.gerou_diarias && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Data agendada início</p>
+                          <p className="font-medium">
+                            {shipment.data_agendada_inicio
+                              ? new Date(shipment.data_agendada_inicio).toLocaleString('pt-BR')
+                              : 'Não informada'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Data agendada término</p>
+                          <p className="font-medium">
+                            {shipment.data_agendada_termino
+                              ? new Date(shipment.data_agendada_termino).toLocaleString('pt-BR')
+                              : 'Não informada'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-start gap-2">

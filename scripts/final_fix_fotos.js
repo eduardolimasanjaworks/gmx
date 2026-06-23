@@ -1,6 +1,6 @@
 import { createDirectus, rest, staticToken, readFields, createCollection, deleteCollection, createField, createPermission, readPolicies, createItem } from '@directus/sdk';
 
-const DIRECTUS_URL = "http://91.99.137.101:8057";
+const DIRECTUS_URL = "https://gmx.sanjaworks.com/api";
 const DIRECTUS_TOKEN = "1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah";
 const TABLE_NAME = 'fotos';
 const RELATED_TABLE = 'cadastro_motorista';

@@ -3,18 +3,10 @@
  * @purpose Disponibilidade diária com detalhe ao clicar na barra (layout Miro).
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { DashboardFilterApi } from '../../hooks/useDashboardFilterState';
 import { useAvailabilityDaily } from '../../hooks/useAvailabilityDaily';
 import { DashboardEmptyState } from '../shared/DashboardEmptyState';
@@ -27,16 +19,59 @@ interface AvailabilitySectionProps {
 
 export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
   const { state, globalRange, setAvailabilitySearch, setSelectedAvailabilityDay } = filters;
+  const [fromDate, setFromDate] = useState(globalRange.from.toISOString().slice(0, 10));
+  const [toDate, setToDate] = useState(globalRange.to.toISOString().slice(0, 10));
+  const [searchBy, setSearchBy] = useState({
+    motorista: true,
+    origem: true,
+    veiculo: true,
+  });
 
-  const { data, isLoading } = useAvailabilityDaily(globalRange, state.availabilitySearch);
+  const effectiveRange = useMemo(() => {
+    const from = fromDate ? new Date(`${fromDate}T00:00:00`) : globalRange.from;
+    const to = toDate ? new Date(`${toDate}T23:59:59`) : globalRange.to;
+    return { from, to };
+  }, [fromDate, toDate, globalRange.from, globalRange.to]);
 
-  const chartData = useMemo(() => data?.bars ?? [], [data?.bars]);
+  const { data, isLoading } = useAvailabilityDaily(effectiveRange, '');
+
+  const detailsByDay = useMemo(() => {
+    const q = state.availabilitySearch.trim().toLowerCase();
+    const selectedFields = Object.entries(searchBy)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    const map = new Map<number, typeof data extends { detailsByDay: infer T } ? T : any>();
+    if (!data?.detailsByDay) return new Map<number, any[]>();
+
+    data.detailsByDay.forEach((rows, day) => {
+      const filteredRows = rows.filter((row) => {
+        if (!q) return true;
+        const chunks: string[] = [];
+        if (selectedFields.includes('motorista')) chunks.push(row.driverName);
+        if (selectedFields.includes('origem')) chunks.push(row.origin);
+        if (selectedFields.includes('veiculo')) chunks.push(row.vehicleLabel);
+        return chunks.join(' ').toLowerCase().includes(q);
+      });
+      if (filteredRows.length > 0) {
+        map.set(day, filteredRows);
+      }
+    });
+    return map as Map<number, any[]>;
+  }, [data?.detailsByDay, state.availabilitySearch, searchBy]);
+
+  const tableRows = useMemo(
+    () =>
+      [...detailsByDay.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([day, rows]) => ({ day, count: rows.length })),
+    [detailsByDay],
+  );
 
   const details = useMemo(() => {
     const day = state.selectedAvailabilityDay;
-    if (day == null || !data?.detailsByDay) return [];
-    return data.detailsByDay.get(day) ?? [];
-  }, [state.selectedAvailabilityDay, data?.detailsByDay]);
+    if (day == null) return [];
+    return detailsByDay.get(day) ?? [];
+  }, [state.selectedAvailabilityDay, detailsByDay]);
 
   const monthLabel = format(globalRange.from, 'MMMM', { locale: ptBR }).toUpperCase();
 
@@ -52,6 +87,33 @@ export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
         onChange={(e) => setAvailabilitySearch(e.target.value)}
         className="max-w-md border-2 border-slate-400"
       />
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="space-y-1">
+          <label className="text-xs font-bold uppercase text-slate-600">De</label>
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold uppercase text-slate-600">Até</label>
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold uppercase text-slate-600">Buscar por</label>
+          <div className="flex gap-3 rounded-md border bg-slate-50 px-3 py-2">
+            <label className="flex items-center gap-1 text-xs">
+              <Checkbox checked={searchBy.motorista} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, motorista: Boolean(v) }))} />
+              Motorista
+            </label>
+            <label className="flex items-center gap-1 text-xs">
+              <Checkbox checked={searchBy.origem} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, origem: Boolean(v) }))} />
+              Origem
+            </label>
+            <label className="flex items-center gap-1 text-xs">
+              <Checkbox checked={searchBy.veiculo} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, veiculo: Boolean(v) }))} />
+              Veículo
+            </label>
+          </div>
+        </div>
+      </div>
 
       <div className="overflow-hidden rounded-lg border-2 border-slate-500">
         <div className="bg-lime-400 px-4 py-2 border-b-2 border-slate-700">
@@ -59,32 +121,39 @@ export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
             Disponibilidade diária — {monthLabel}
           </h3>
         </div>
-        <div className="h-[300px] bg-white p-4">
+        <div className="bg-white p-4">
           {isLoading ? (
-            <Skeleton className="h-full w-full" />
-          ) : chartData.length === 0 ? (
+            <Skeleton className="h-[300px] w-full" />
+          ) : tableRows.length === 0 ? (
             <DashboardEmptyState />
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" />
-                <XAxis dataKey="day" stroke="#0f172a" />
-                <YAxis allowDecimals={false} stroke="#0f172a" />
-                <Tooltip formatter={(v: number) => [`${v} veículo(s)`, 'Disponíveis']} />
-                <Bar
-                  dataKey="count"
-                  fill="#22c55e"
-                  stroke="#14532d"
-                  strokeWidth={1}
-                  radius={[4, 4, 0, 0]}
-                  cursor="pointer"
-                  onClick={(payload) => {
-                    const day = (payload as { payload?: { day?: number } })?.payload?.day;
-                    if (typeof day === 'number') setSelectedAvailabilityDay(day);
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b-2 border-slate-700 bg-slate-100 text-left">
+                    <th className="p-2 font-bold text-slate-900">Dia</th>
+                    <th className="p-2 font-bold text-slate-900">Qtd. disponíveis</th>
+                    <th className="p-2 font-bold text-slate-900">Ação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row) => (
+                    <tr key={row.day} className="border-b border-slate-300">
+                      <td className="p-2 font-medium text-slate-900">{row.day}</td>
+                      <td className="p-2 tabular-nums font-semibold">{row.count}</td>
+                      <td className="p-2">
+                        <button
+                          className="text-xs font-semibold text-emerald-700 underline"
+                          onClick={() => setSelectedAvailabilityDay(row.day)}
+                        >
+                          Ver detalhes
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -97,17 +166,27 @@ export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
           {details.length === 0 ? (
             <DashboardEmptyState title="Sem registros neste dia" />
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {details.map((row) => (
-                <div
-                  key={row.id}
-                  className="rounded-md border-2 border-emerald-700 bg-lime-300 p-3 text-sm font-semibold text-slate-900"
-                >
-                  <p>1 — Motorista: {row.driverName}</p>
-                  <p>Origem: {row.origin}</p>
-                  <p>Veículo: {row.vehicleLabel}</p>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b-2 border-slate-700 bg-slate-50 text-left">
+                    <th className="p-2 font-bold text-slate-900">Motorista</th>
+                    <th className="p-2 font-bold text-slate-900">Origem</th>
+                    <th className="p-2 font-bold text-slate-900">Veículo</th>
+                    <th className="p-2 font-bold text-slate-900">Data/hora</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {details.map((row) => (
+                    <tr key={row.id} className="border-b border-slate-300">
+                      <td className="p-2 font-medium">{row.driverName}</td>
+                      <td className="p-2">{row.origin}</td>
+                      <td className="p-2">{row.vehicleLabel}</td>
+                      <td className="p-2">{new Date(row.dateCreated).toLocaleString('pt-BR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

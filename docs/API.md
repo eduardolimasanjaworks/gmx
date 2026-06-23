@@ -114,7 +114,7 @@ Este endpoint é o principal para o cadastro. Ele deve ser usado para preencher 
 ---
 
 
-> **Nota:** No Frontend, a visualização usa a URL: `http://91.99.137.101:8057/assets/<UUID_DA_IMAGEM>`
+> **Nota:** No Frontend, a visualização usa a URL: `https://gmx.sanjaworks.com/api/assets/<UUID_DA_IMAGEM>`
 
 ---
 

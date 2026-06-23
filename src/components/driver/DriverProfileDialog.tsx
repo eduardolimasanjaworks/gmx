@@ -29,6 +29,8 @@ import {
 } from "@/components/driver/driver-status-constants";
 import { fetchAddressByCep, formatCep, normalizeCep } from "@/lib/cepLookup";
 import { IaAtendimentoPanel } from "@/components/driver/IaAtendimentoPanel";
+import { DriverAiDocumentsPanel } from "@/components/driver/DriverAiDocumentsPanel";
+import { useTiposOperacao } from "@/hooks/useTiposOperacao";
 
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -75,6 +77,18 @@ const getCnhStatus = (dateStr: string) => {
   if (isBefore(d, today)) return 'Expirado';
   return 'No Prazo';
 };
+
+const normalizeOperationToken = (value: unknown) => String(value ?? '').trim().toUpperCase();
+
+const parseEligibleOperations = (value: unknown): string[] =>
+  Array.from(
+    new Set(
+      String(value ?? '')
+        .split(/[;,/|]/g)
+        .map(normalizeOperationToken)
+        .filter(Boolean),
+    ),
+  );
 
 const getAuthenticatedUrl = (url?: string) => {
   if (!url) return undefined;
@@ -232,6 +246,7 @@ const CpfInputField = ({ label, value, onChange, referenceCpf }: any) => {
 
 export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData, initialEditMode = false, onUpdate }: DriverProfileDialogProps) => {
   const { refreshToken, logout, token } = useAuth();
+  const { tipos: tiposOperacao = [] } = useTiposOperacao();
   const [data, setData] = useState({
     cnh: null as any,
     antt: null as any,
@@ -298,7 +313,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       const placa = data.crlv?.placa_cavalo || 'SemPlaca';
 
       toast({ title: 'Criando pasta...', description: 'Aguarde enquanto a pasta é criada no Drive.' });
-      const createFolderRes = await fetch('http://localhost:8099/create-drive-folder', {
+      const createFolderRes = await fetch('/create-drive-folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -330,7 +345,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         formData.append('fileName', fileName);
         formData.append('folderId', newFolderId);
 
-        const uploadRes = await fetch('http://localhost:8099/upload-to-drive', {
+        const uploadRes = await fetch('/upload-to-drive', {
           method: 'POST',
           body: formData
         });
@@ -986,6 +1001,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       tipo_veiculo: sourceData.tipo_veiculo || '',
       tipo_carroceria: sourceData.tipo_carroceria || '',
       quantidade_eixo: sourceData.quantidade_eixo || '',
+      tipo_rota: sourceData.tipo_rota || '',
       cliente: sourceData.cliente || sourceData.nome_transportadora || '',
     });
     setIsEditingInfo(true);
@@ -1005,6 +1021,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
         tipo_veiculo: infoFormData.tipo_veiculo || null,
         tipo_carroceria: infoFormData.tipo_carroceria || null,
         quantidade_eixo: infoFormData.quantidade_eixo || null,
+        tipo_rota: infoFormData.tipo_rota || null,
         cliente: infoFormData.cliente || null,
       };
 
@@ -1296,6 +1313,17 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   };
   const handleCancelCarreta = () => { setIsEditingCarreta(false); setCurrentCarretaIndex(null); setCarretaForm({}); };
 
+  const operacoesSelecionadas = parseEligibleOperations(infoFormData.tipo_rota);
+
+  const toggleOperacaoElegivel = (operacao: string) => {
+    const token = normalizeOperationToken(operacao);
+    const atuais = parseEligibleOperations(infoFormData.tipo_rota);
+    const proximas = atuais.includes(token)
+      ? atuais.filter((item) => item !== token)
+      : [...atuais, token];
+    setInfoFormData({ ...infoFormData, tipo_rota: proximas.join(', ') });
+  };
+
 
   // Render Helper for Input Fields
 
@@ -1522,6 +1550,42 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                               onChange={(e) => setInfoFormData({ ...infoFormData, quantidade_eixo: e.target.value })}
                             />
                           </MarcacaoRow>
+                          <div className="px-4 py-3 space-y-3 border-t border-border/60">
+                            <span className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                              Operacoes elegiveis para embarque
+                            </span>
+                            <Input
+                              value={infoFormData.tipo_rota || ''}
+                              onChange={(e) => setInfoFormData({ ...infoFormData, tipo_rota: e.target.value })}
+                              placeholder="Ex: GRANEL, CIMENTO, SIDER"
+                              className="text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Esse campo alimenta apenas o ranking de motoristas para um embarque especifico. Ele nao interfere na fila diaria de abordagem proativa.
+                            </p>
+                            {tiposOperacao.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                {tiposOperacao
+                                  .filter((tipo) => tipo.ativo !== false)
+                                  .map((tipo) => {
+                                    const nome = normalizeOperationToken(tipo.nome);
+                                    const ativo = operacoesSelecionadas.includes(nome);
+                                    return (
+                                      <Button
+                                        key={tipo.id}
+                                        type="button"
+                                        size="sm"
+                                        variant={ativo ? 'default' : 'outline'}
+                                        className="h-7"
+                                        onClick={() => toggleOperacaoElegivel(nome)}
+                                      >
+                                        {nome}
+                                      </Button>
+                                    );
+                                  })}
+                              </div>
+                            )}
+                          </div>
                           <MarcacaoRow label="CEP">
                             <div className="flex items-center gap-2 max-w-[55%] ml-auto">
                               <Input
@@ -1551,6 +1615,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                           <FieldRow label="Tipo de Veículo" value={localDriverData?.tipo_veiculo} />
                           <FieldRow label="Tipo de Carroceria" value={localDriverData?.tipo_carroceria} />
                           <FieldRow label="Quantidade de Eixo" value={localDriverData?.quantidade_eixo} />
+                          <FieldRow label="Operações Elegíveis" value={localDriverData?.tipo_rota} />
                           <FieldRow label="CEP" value={data.comprovante_endereco?.cep} />
                           <FieldRow label="Endereço" value={data.comprovante_endereco?.endereco} />
                           <FieldRow label="Bairro" value={data.comprovante_endereco?.bairro} />
@@ -1566,6 +1631,14 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
               {/* DOCUMENTOS TAB */}
               <TabsContent value="docs" className="space-y-4 mt-4">
+                {localDriverData?.id && (
+                  <DriverAiDocumentsPanel
+                    motoristaId={localDriverData.id}
+                    telefone={localDriverData.telefone}
+                    adminToken={ADMIN_TOKEN}
+                    onUpdated={() => void fetchRelatedData()}
+                  />
+                )}
                 {/* CNH */}
                 <Card>
                   <CardHeader className="py-3 px-4 bg-muted/20 border-b">

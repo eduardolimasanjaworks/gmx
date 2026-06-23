@@ -8,19 +8,23 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { z } from "zod";
 
+declare const __GMX_DEFAULT_ADMIN_EMAIL__: string;
+declare const __GMX_DEFAULT_ADMIN_PASSWORD__: string;
+
 const authSchema = z.object({
   email: z.string().email("Email inválido"),
   password: z.string().min(1, "A senha é obrigatória"), // Directus pwd rules may vary
 });
 
 const Auth = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(__GMX_DEFAULT_ADMIN_EMAIL__ || "");
+  const [password, setPassword] = useState(__GMX_DEFAULT_ADMIN_PASSWORD__ || "");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { login, user } = useAuth();
   const { toast } = useToast();
+  const hasDefaultCredentials = Boolean(__GMX_DEFAULT_ADMIN_EMAIL__ && __GMX_DEFAULT_ADMIN_PASSWORD__);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -35,7 +39,8 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const validation = authSchema.safeParse({ email, password });
+      const normalizedEmail = email.trim();
+      const validation = authSchema.safeParse({ email: normalizedEmail, password });
 
       if (!validation.success) {
         toast({
@@ -47,7 +52,7 @@ const Auth = () => {
         return;
       }
 
-      await login(email, password);
+      await login(normalizedEmail, password);
       // Navigation happens in useEffect when user state updates
 
     } catch (error) {
@@ -104,6 +109,7 @@ const Auth = () => {
               <Input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 placeholder="••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -114,6 +120,12 @@ const Auth = () => {
             <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
               {loading ? "Autenticando..." : "Entrar no Sistema"}
             </Button>
+
+            {hasDefaultCredentials && (
+              <div className="rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                Credenciais locais de admin foram pré-preenchidas a partir do ambiente
+              </div>
+            )}
 
             <div className="text-center text-sm text-muted-foreground mt-4">
               <p>Esqueceu a senha? Contate o administrador do sistema.</p>

@@ -679,6 +679,13 @@ export const ShipmentBoard = () => {
                                     Placas: {shipment.placa_cavalo || shipment.truck_plate || "-"}
                                   </p>
                                   <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Truck className="w-3 h-3" />
+                                    Tipo Veículo: {shipment.tipo_veiculo || shipment.vehicle_type || "-"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    Motorista: {shipment.driver_name || shipment.driver || "-"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                                     <Package className="w-3 h-3" />
                                     Quantidade: {shipment.quantidade_kg || shipment.palets || shipment.quantidade || "-"}
                                   </p>
@@ -696,6 +703,14 @@ export const ShipmentBoard = () => {
                                       grFeitoPorNome={shipment.gr_feito_por_nome}
                                       compact
                                     />
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Badge variant={(shipment.gr_ok ?? shipment.gr_feito) ? "default" : "secondary"} className="text-[10px]">
+                                      GR OK {(shipment.gr_ok ?? shipment.gr_feito) ? "SIM" : "NÃO"}
+                                    </Badge>
+                                    <Badge variant={shipment.placas_ok ? "default" : "secondary"} className="text-[10px]">
+                                      PLACAS OK {shipment.placas_ok ? "SIM" : "NÃO"}
+                                    </Badge>
                                   </div>
 
                                   {shipment.rejected_drivers_count > 0 && (column.status === "new" || column.status === "sent") && (
@@ -720,9 +735,10 @@ export const ShipmentBoard = () => {
                                       e.stopPropagation();
                                       setOfertarEmbarque(shipment);
                                     }}
+                                    title="Abre a lista ranqueada de motoristas elegíveis e dispara a oferta inicial via WhatsApp"
                                   >
                                     <MessageCircle className="h-3 w-3 mr-1.5" />
-                                    Ofertar frete
+                                    Ver ranking e ofertar
                                   </Button>
                                 )}
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { directus, directusUrl, getDirectusUrl } from '@/lib/directus';
+import { directus, getDirectusUrl } from '@/lib/directus';
 import { readMe, readItems } from '@directus/sdk';
 import { useToast } from '@/hooks/use-toast';
 import { Logger } from '@/lib/logger';
@@ -28,6 +28,33 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const FULL_APP_PERMISSIONS = [
+    'cadastros',
+    'disponiveis',
+    'embarques',
+    'historico',
+    'dashboard',
+    'faq',
+    'usuarios',
+    'gestao_equipe',
+] as const;
+
+const normalizePermissions = (value: unknown): string[] => {
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+};
+
+const normalizeAppRole = (role: any) => {
+    if (!role) return null;
+
+    const permissions = normalizePermissions(role.permissions);
+    const name = role.name || role.nome || 'Cargo GMX';
+
+    return {
+        id: role.id ?? -1,
+        name,
+        permissions,
+    };
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -35,26 +62,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
+    const buildAdminFallbackProfile = async (directusUser: any) => {
+        try {
+            const storedToken = localStorage.getItem('directus_token');
+            if (!storedToken) return directusUser;
+
+            const baseUrl = getDirectusUrl().replace(/\/$/, '');
+            const response = await fetch(`${baseUrl}/permissions/me`, {
+                headers: {
+                    Authorization: `Bearer ${storedToken}`,
+                },
+            });
+
+            if (!response.ok) return directusUser;
+
+            const data = await response.json().catch(() => null);
+            const perms = data?.data;
+            const isSystemAdmin =
+                perms?.directus_users?.read?.access === 'full' &&
+                perms?.directus_roles?.read?.access === 'full' &&
+                perms?.directus_permissions?.read?.access === 'full';
+
+            if (!isSystemAdmin) return directusUser;
+
+            return {
+                ...directusUser,
+                app_role: {
+                    id: -999,
+                    name: 'Administrador do Sistema',
+                    permissions: [...FULL_APP_PERMISSIONS],
+                },
+            };
+        } catch (error) {
+            Logger.warn('System admin fallback failed', error);
+            return directusUser;
+        }
+    };
+
     const enrichUser = async (directusUser: any) => {
         try {
             if (!directusUser || !directusUser.email) return directusUser;
 
             const appUsers = await directus.request(readItems('app_users', {
                 filter: { email: { _eq: directusUser.email } },
-                fields: ['*', 'role_id.*', 'permissions']
+                fields: ['*', 'role_id.*']
             }));
 
             if (appUsers && appUsers.length > 0) {
                 const appProfile = appUsers[0];
-                let effectiveRole = appProfile.role_id;
+                let effectiveRole = normalizeAppRole(appProfile.role_id);
 
                 // Handle Custom Permissions without Role
-                if (!effectiveRole && appProfile.permissions && appProfile.permissions.length > 0) {
-                    effectiveRole = {
-                        id: -1,
-                        name: 'Personalizado',
-                        permissions: appProfile.permissions
-                    };
+                if (!effectiveRole) {
+                    const customPermissions = normalizePermissions(appProfile.permissions);
+                    if (customPermissions.length > 0) {
+                        effectiveRole = {
+                            id: -1,
+                            name: 'Personalizado',
+                            permissions: customPermissions
+                        };
+                    }
+                }
+
+                if (!effectiveRole || effectiveRole.permissions.length === 0) {
+                    return await buildAdminFallbackProfile(directusUser);
                 }
 
                 return {
@@ -62,10 +133,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     app_role: effectiveRole
                 };
             }
-            return directusUser;
+            return await buildAdminFallbackProfile(directusUser);
         } catch (error) {
             Logger.warn("User profile enrichment failed (app_users match not found)", error);
-            return directusUser;
+            return await buildAdminFallbackProfile(directusUser);
         }
     };
 
@@ -190,7 +261,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const login = async (email: string, password: string) => {
         try {
             setLoading(true);
-            Logger.info(`Starting login for: ${email}`);
+            const normalizedEmail = email.trim();
+            Logger.info(`Starting login for: ${normalizedEmail}`);
 
             const baseUrl = getDirectusUrl().replace(/\/$/, '');
             const loginUrl = `${baseUrl}/auth/login`;
@@ -202,7 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return await fetch(loginUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, password, mode: 'json' }),
+                        body: JSON.stringify({ email: normalizedEmail, password, mode: 'json' }),
                         signal: controller.signal,
                     });
                 } finally {

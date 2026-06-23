@@ -11,6 +11,7 @@ const IAGMX_KEY = import.meta.env.VITE_IAGMX_ADMIN_KEY || 'iagmx-pausa-2026';
 
 export interface DispararOfertaInput {
   embarqueId: string | number;
+  configRotaId?: number | null;
   motoristaId: string;
   telefone: string;
   origem: string;
@@ -63,6 +64,7 @@ export async function dispararOfertaIagmx(input: DispararOfertaInput): Promise<D
     body: JSON.stringify({
       telefone,
       embarque_id: input.embarqueId,
+      config_rota_id: input.configRotaId,
       origem: input.origem,
       destino: input.destino,
       valor_ofertado: input.valorOfertado,

@@ -1,10 +1,23 @@
-version: '3.8'
+networks:
+  gmx_net:
+    external: true
+    name: gmx_net
 
 services:
   web:
-    image: victorhfr99/gmx-web:latest
+    env_file:
+      - ../stack.env
+    build:
+      context: .
+      args:
+        VITE_DIRECTUS_URL: ${VITE_DIRECTUS_URL}
+        VITE_DIRECTUS_TOKEN: ${VITE_DIRECTUS_TOKEN}
+        VITE_ERP_PUBLIC_URL: ${VITE_ERP_PUBLIC_URL}
+        VITE_IAGMX_URL: ${VITE_IAGMX_URL}
+        VITE_CONVERSAS_URL: ${VITE_CONVERSAS_URL}
+        VITE_IAGMX_ADMIN_KEY: ${VITE_IAGMX_ADMIN_KEY}
+    container_name: gmx_web
+    networks: [gmx_net]
     ports:
       - "8080:80"
-    environment:
-      - NODE_ENV=production
     restart: unless-stopped

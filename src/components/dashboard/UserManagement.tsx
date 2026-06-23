@@ -5,15 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Edit, Trash2, User, Save, X, Settings, KeyRound } from "lucide-react";
+import { Plus, Edit, Trash2, User, Save, X, Settings, KeyRound, ChevronDown, Wrench } from "lucide-react";
 import { useUsers, type Permission } from "@/hooks/useUsers";
-import { useRoles, type AppRole } from "@/hooks/useRoles";
+import { useRoles } from "@/hooks/useRoles";
 import { useAuth } from "@/context/AuthContext";
 import { TelemetriaPanel } from "@/features/telemetria/components/TelemetriaPanel";
+import { TrainingPhonesPanel } from "@/components/dashboard/TrainingPhonesPanel";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 
 const permissionsList: { id: Permission; label: string }[] = [
@@ -29,8 +31,8 @@ const permissionsList: { id: Permission; label: string }[] = [
 
 export const UserManagement = () => {
   const { user: authUser } = useAuth();
-  const { users, isLoading, createUser, updateUser, updateUserPassword, deleteUser, refetch: refetchUsers } = useUsers();
-  const { roles, isLoading: rolesLoading, createRole, deleteRole, updateRole } = useRoles();
+  const { users, isLoading, createUser, updateUser, updateUserPassword, deleteUser } = useUsers();
+  const { roles, isLoading: rolesLoading, createRole, deleteRole } = useRoles();
 
   const canViewTelemetria = useMemo(() => {
     if (!authUser) return false;
@@ -140,16 +142,10 @@ export const UserManagement = () => {
       if (editingData.role && editingData.role !== 'none') {
         matchedRoleName = editingData.role;
       } else {
-        // Fallback or explicit 'personalizado'
-        for (const role of roles) {
-          if (JSON.stringify(userPermissions?.sort()) === JSON.stringify(role.permissions.sort())) {
-            matchedRoleName = role.name;
-            break;
-          }
-        }
+        matchedRoleName = 'none';
       }
 
-      await updateUser(userId, undefined, matchedRoleName, userPermissions as Permission[], editingData.email);
+      await updateUser(userId, undefined, matchedRoleName, (userPermissions || []) as Permission[], editingData.email);
       setEditingUser(null);
       setEditingData({ email: "", role: "" });
     } catch (error) {
@@ -321,12 +317,6 @@ export const UserManagement = () => {
         </Dialog>
       </div>
 
-      {canViewTelemetria && (
-        <div className="border-t pt-6">
-          <TelemetriaPanel />
-        </div>
-      )}
-
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle>Cadastrar Novo Usuário</CardTitle>
@@ -364,6 +354,7 @@ export const UserManagement = () => {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
                     value={formData.password}
                     onChange={(e) => handleFormChange("password", e.target.value)}
                     placeholder="••••••••"
@@ -549,6 +540,7 @@ export const UserManagement = () => {
                     <div className="grid gap-2">
                       <Input
                         type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
                         value={passwordData.password}
                         onChange={(e) => setPasswordData((prev) => ({ ...prev, password: e.target.value }))}
                         placeholder="Nova senha (mín. 6 caracteres)"
@@ -556,6 +548,7 @@ export const UserManagement = () => {
                       />
                       <Input
                         type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
                         value={passwordData.confirm}
                         onChange={(e) => setPasswordData((prev) => ({ ...prev, confirm: e.target.value }))}
                         placeholder="Confirmar nova senha"
@@ -639,6 +632,43 @@ export const UserManagement = () => {
           >
             Próxima
           </Button>
+        </div>
+      )}
+
+      <div className="border-t pt-6">
+        <TrainingPhonesPanel />
+      </div>
+
+      {canViewTelemetria && (
+        <div className="border-t pt-6">
+          <Card className="shadow-card border-dashed">
+            <Collapsible defaultOpen={false}>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4" />
+                      Recurso em construcao
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      A telemetria permanece recolhida por padrao nesta tela.
+                    </p>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" size="sm" className="justify-between gap-2">
+                      Abrir telemetria
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent>
+                  <TelemetriaPanel />
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
         </div>
       )}
 

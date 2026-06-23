@@ -23,8 +23,61 @@ export interface User {
   role_id?: any; // To store full role object
 }
 
+const normalizePermissions = (value: unknown): Permission[] => {
+  return Array.isArray(value) ? value.filter((item): item is Permission => typeof item === "string") : [];
+};
+
+const normalizeRoleName = (role: any) => role?.name || role?.nome || "personalizado";
+
+const buildAppUserPayload = (displayName?: string, permissions?: Permission[]) => {
+  const payload: Record<string, unknown> = {};
+
+  if (displayName !== undefined) {
+    payload.display_name = displayName;
+    payload.nome = displayName;
+  }
+
+  payload.active = true;
+  payload.ativo = true;
+
+  if (permissions !== undefined) {
+    payload.permissions = permissions;
+  }
+
+  return payload;
+};
+
+const normalizeAppUser = (u: any): User => {
+  let userPerms: Permission[] = [];
+  if (u.permissions && Array.isArray(u.permissions) && u.permissions.length > 0) {
+    userPerms = normalizePermissions(u.permissions);
+  } else if (u.role_id?.permissions) {
+    userPerms = normalizePermissions(u.role_id.permissions);
+  }
+
+  return {
+    id: String(u.id),
+    email: u.email,
+    display_name: u.display_name || u.nome || u.email || "Sem nome",
+    role: normalizeRoleName(u.role_id),
+    permissions: userPerms,
+    created_at: u.date_created,
+    role_id: u.role_id
+  };
+};
+
+const roleNameFilter = (roleName: string) => ({
+  _or: [
+    { name: { _eq: roleName } },
+    { nome: { _eq: roleName } }
+  ]
+});
+
 
 export const useUsers = () => {
+  const isCustomRole = (roleName?: string | null) =>
+    !roleName || roleName === 'none' || roleName === 'personalizado';
+
   // ... (state permanecem iguais)
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,33 +88,11 @@ export const useUsers = () => {
     try {
       setIsLoading(true);
       const data = await directus.request(readItems('app_users', {
-        fields: ['*', 'role_id.*', 'permissions'],
+        fields: ['*', 'role_id.*'],
         sort: ['-id' as any]
       }));
 
-      const mappedUsers = data.map((u: any) => {
-        // Logic for permissions:
-        // 1. If user has direct permissions set (custom), use them.
-        // 2. Else if user has a role, use role permissions.
-        // 3. Else empty.
-
-        let userPerms: Permission[] = [];
-        if (u.permissions && Array.isArray(u.permissions) && u.permissions.length > 0) {
-          userPerms = u.permissions;
-        } else if (u.role_id?.permissions) {
-          userPerms = u.role_id.permissions;
-        }
-
-        return {
-          id: u.id,
-          email: u.email,
-          display_name: u.display_name,
-          role: u.role_id?.name || 'personalizado',
-          permissions: userPerms,
-          created_at: u.date_created,
-          role_id: u.role_id
-        };
-      });
+      const mappedUsers = data.map((u: any) => normalizeAppUser(u));
 
       setUsers(mappedUsers);
     } catch (error: any) {
@@ -86,10 +117,10 @@ export const useUsers = () => {
       if (displayName) updateData.display_name = displayName;
       if (email) updateData.email = email;
 
-      if (roleName) {
-        if (roleName !== 'personalizado') {
+      if (roleName !== undefined) {
+        if (!isCustomRole(roleName)) {
           const roles = await directus.request(readItems('app_roles', {
-            filter: { name: { _eq: roleName } }
+            filter: roleNameFilter(roleName)
           }));
           if (roles.length > 0) {
             updateData.role_id = roles[0].id;
@@ -97,10 +128,7 @@ export const useUsers = () => {
           }
         } else {
           updateData.role_id = null; // Detach role
-          // If switching to personalized, we expect permissions to be passed
-          if (permissions) {
-            updateData.permissions = permissions;
-          }
+          updateData.permissions = permissions ?? [];
         }
       } else {
         // If only updating permissions (without changing role mode explicitly, or if already personalized)
@@ -122,7 +150,32 @@ export const useUsers = () => {
         }
       }
 
-      await directus.request(updateItem('app_users', userId, updateData));
+      if (Object.keys(updateData).length === 0) {
+        toast({
+          title: "Nada para atualizar",
+          description: "Nenhuma alteração detectada."
+        });
+        return;
+      }
+      try {
+        await directus.request(updateItem('app_users', userId, updateData));
+      } catch (primaryError) {
+        const legacyCompatibleData = {
+          ...updateData,
+          ...(displayName !== undefined ? { nome: displayName } : {}),
+          active: undefined,
+          display_name: undefined,
+          ativo: true,
+        };
+
+        Object.keys(legacyCompatibleData).forEach((key) => {
+          if (legacyCompatibleData[key] === undefined) {
+            delete legacyCompatibleData[key];
+          }
+        });
+
+        await directus.request(updateItem('app_users', userId, legacyCompatibleData));
+      }
 
       toast({
         title: "Usuário atualizado",
@@ -145,9 +198,9 @@ export const useUsers = () => {
       let roleId = null;
       let finalPermissions = null;
 
-      if (roleName !== 'personalizado') {
+      if (!isCustomRole(roleName)) {
         const roles = await directus.request(readItems('app_roles', {
-          filter: { name: { _eq: roleName } }
+          filter: roleNameFilter(roleName)
         }));
         if (roles && roles.length > 0) {
           roleId = roles[0].id;
@@ -158,7 +211,7 @@ export const useUsers = () => {
         }
       } else {
         // Personalized mode
-        finalPermissions = permissions;
+        finalPermissions = permissions ?? [];
       }
 
       console.log(`Creating user with Role ID: ${roleId} (Name: ${roleName}), Perms:`, finalPermissions);
@@ -180,16 +233,30 @@ export const useUsers = () => {
       // 3. Criar Perfil da Aplicação (App User)
       const appUserPayload: any = {
         email,
-        display_name: displayName,
         role_id: roleId,
-        active: true
+        ...buildAppUserPayload(displayName),
       };
 
-      if (finalPermissions) {
+      if (finalPermissions && finalPermissions.length > 0) {
         appUserPayload.permissions = finalPermissions;
       }
 
-      await directus.request(createItem('app_users', appUserPayload));
+      try {
+        await directus.request(createItem('app_users', appUserPayload));
+      } catch (primaryError) {
+        const legacyPayload: any = {
+          email,
+          role_id: roleId,
+          nome: displayName,
+          ativo: true,
+        };
+
+        if (finalPermissions && finalPermissions.length > 0) {
+          legacyPayload.permissions = finalPermissions;
+        }
+
+        await directus.request(createItem('app_users', legacyPayload));
+      }
 
       toast({
         title: "Usuário criado com sucesso",

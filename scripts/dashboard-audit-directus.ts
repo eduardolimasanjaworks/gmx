@@ -2,7 +2,7 @@
  * Auditoria rápida das coleções do dashboard (rodar com token se REST anônimo falhar).
  * Uso: npx tsx scripts/dashboard-audit-directus.ts
  */
-const BASE = process.env.VITE_DIRECTUS_URL ?? 'http://91.99.137.101:8057';
+const BASE = process.env.VITE_DIRECTUS_URL ?? 'https://gmx.sanjaworks.com/api';
 
 const collections = ['follow', 'embarques', 'disponivel'] as const;
 

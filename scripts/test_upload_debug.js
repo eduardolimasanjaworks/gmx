@@ -3,7 +3,7 @@ import { createDirectus, rest, uploadFiles, staticToken } from '@directus/sdk';
 import fs from 'fs';
 import path from 'path';
 
-const url = "http://91.99.137.101:8057";
+const url = "https://gmx.sanjaworks.com/api";
 const token = "1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah";
 
 const client = createDirectus(url)

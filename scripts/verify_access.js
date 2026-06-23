@@ -1,5 +1,5 @@
 
-const DIRECTUS_URL = "http://91.99.137.101:8057";
+const DIRECTUS_URL = "https://gmx.sanjaworks.com/api";
 const TOKEN = "1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah";
 const TABLE = "cadastro_motorista";
 

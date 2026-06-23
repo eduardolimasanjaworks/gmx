@@ -28,10 +28,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Bot, Plus, Trash2, Route, Phone, Tags, Pencil } from 'lucide-react';
+import { Bot, Plus, Trash2, Route, Phone, Tags, Pencil, MessageCircle } from 'lucide-react';
 import { useConfigRotas, type ConfigRota } from '@/hooks/useConfigRotas';
 import { useTiposOperacao } from '@/hooks/useTiposOperacao';
 import { useTelefonesNotificacao } from '@/hooks/useTelefonesNotificacao';
+import { AgentSimulatorPanel } from './AgentSimulatorPanel';
 
 export function ConfigIAPanel() {
   return (
@@ -42,13 +43,16 @@ export function ConfigIAPanel() {
           Configuração IA
         </h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Rotas de negociação (piso/teto), tipos de operação e telefones que recebem alerta quando a
-          IA esgota a negociação.
+          Simulador visual do agente, rotas de negociação, tipos de operação e telefones que recebem
+          alerta quando a IA esgota a negociação.
         </p>
       </div>
 
-      <Tabs defaultValue="rotas">
+      <Tabs defaultValue="simulador">
         <TabsList>
+          <TabsTrigger value="simulador" className="gap-2">
+            <MessageCircle className="h-4 w-4" /> Simulador
+          </TabsTrigger>
           <TabsTrigger value="rotas" className="gap-2">
             <Route className="h-4 w-4" /> Rotas
           </TabsTrigger>
@@ -62,6 +66,9 @@ export function ConfigIAPanel() {
 
         <TabsContent value="rotas" className="mt-4">
           <RotasSection />
+        </TabsContent>
+        <TabsContent value="simulador" className="mt-4">
+          <AgentSimulatorPanel />
         </TabsContent>
         <TabsContent value="operacoes" className="mt-4">
           <OperacoesSection />

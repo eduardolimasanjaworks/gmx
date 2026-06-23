@@ -21,7 +21,7 @@ const DEFAULT_ALL_FIELDS: FieldConfig[] = [
   { id: 'estado', field_name: 'estado', display_name: 'Estado (UF)', field_type: 'string', visible_in_card: true, visible_in_table: true, display_order: 7 },
   { id: 'forma_pagamento', field_name: 'forma_pagamento', display_name: 'Forma Pgto', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 8 },
   { id: 'rastreador', field_name: 'rastreador', display_name: 'Rastreador', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 9 },
-  { id: 'tipo_rota', field_name: 'tipo_rota', display_name: 'Tipo de Rota', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 10 },
+  { id: 'tipo_rota', field_name: 'tipo_rota', display_name: 'Operações Elegíveis', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 10 },
   { id: 'data_nascimento', field_name: 'data_nascimento', display_name: 'Data Nasc.', field_type: 'date', visible_in_card: false, visible_in_table: false, display_order: 11 },
   { id: 'nome_mae', field_name: 'nome_mae', display_name: 'Nome da Mãe', field_type: 'text', visible_in_card: false, visible_in_table: false, display_order: 12 },
   { id: 'cep_residencia', field_name: 'cep_residencia', display_name: 'CEP', field_type: 'text', visible_in_card: false, visible_in_table: false, display_order: 13 },

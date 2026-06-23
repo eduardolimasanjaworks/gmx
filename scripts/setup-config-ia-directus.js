@@ -3,10 +3,11 @@
  * Cria coleções config_rotas, tipos_operacao, telefones_notificacao no Directus GMX.
  * Uso: DIRECTUS_URL=... node scripts/setup-config-ia-directus.js
  */
-const BASE = (process.env.DIRECTUS_URL || 'http://127.0.0.1:8057').replace(/\/$/, '');
+const BASE = (process.env.DIRECTUS_URL || process.env.VITE_DIRECTUS_URL || 'http://127.0.0.1:8057').replace(/\/$/, '');
 const EMAIL = process.env.DIRECTUS_ADMIN_EMAIL || 'gmx@gmx.com';
 const PASSWORD = process.env.DIRECTUS_ADMIN_PASSWORD || 'admin123';
 const ADMIN_POLICY = process.env.DIRECTUS_ADMIN_POLICY || '7fb88d53-685e-41d6-87ef-5f22cc3ff5d8';
+const STATIC_TOKEN = process.env.DIRECTUS_TOKEN || process.env.VITE_DIRECTUS_TOKEN || '';
 
 async function req(method, path, token, data) {
   const headers = { 'Content-Type': 'application/json' };
@@ -74,14 +75,17 @@ async function ensurePermissions(token, collection) {
 }
 
 async function main() {
-  const { json: login } = await req('POST', '/auth/login', null, {
-    email: EMAIL,
-    password: PASSWORD,
-  });
-  const token = login?.data?.access_token;
+  let token = STATIC_TOKEN;
   if (!token) {
-    console.error('Login falhou', login);
-    process.exit(1);
+    const { json: login } = await req('POST', '/auth/login', null, {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    token = login?.data?.access_token;
+    if (!token) {
+      console.error('Login falhou', login);
+      process.exit(1);
+    }
   }
 
   console.log('tipos_operacao...');
@@ -107,11 +111,37 @@ async function main() {
   await ensureCollection(token, 'config_rotas', 'route', '{{origem}} → {{destino}}');
   await ensureField(token, 'config_rotas', 'origem', 'string', { required: true });
   await ensureField(token, 'config_rotas', 'destino', 'string', { required: true });
+  await ensureField(token, 'config_rotas', 'origem_latitude', 'decimal');
+  await ensureField(token, 'config_rotas', 'origem_longitude', 'decimal');
+  await ensureField(token, 'config_rotas', 'destino_latitude', 'decimal');
+  await ensureField(token, 'config_rotas', 'destino_longitude', 'decimal');
   await ensureField(token, 'config_rotas', 'operacao_id', 'integer');
   await ensureField(token, 'config_rotas', 'operacao', 'string');
   await ensureField(token, 'config_rotas', 'valor_minimo', 'decimal');
   await ensureField(token, 'config_rotas', 'valor_maximo', 'decimal');
   await ensureField(token, 'config_rotas', 'ativo', 'boolean');
+  await ensureField(token, 'config_rotas', 'fonte_planilha', 'string');
+  await ensureField(token, 'config_rotas', 'especie_produto', 'string');
+  await ensureField(token, 'config_rotas', 'origem_regiao', 'string');
+  await ensureField(token, 'config_rotas', 'uf_origem', 'string');
+  await ensureField(token, 'config_rotas', 'uf_destino', 'string');
+  await ensureField(token, 'config_rotas', 'capacidade', 'string');
+  await ensureField(token, 'config_rotas', 'distancia_km', 'decimal');
+  await ensureField(token, 'config_rotas', 'frete_peso_cargox', 'decimal');
+  await ensureField(token, 'config_rotas', 'frete_bruto_icms', 'decimal');
+  await ensureField(token, 'config_rotas', 'frete_pis_cofins', 'decimal');
+  await ensureField(token, 'config_rotas', 'frete_liquido_cargox', 'decimal');
+  await ensureField(token, 'config_rotas', 'contrato_frete_gmx', 'decimal');
+  await ensureField(token, 'config_rotas', 'frete_peso_terceiro', 'decimal');
+  await ensureField(token, 'config_rotas', 'total_terceiro', 'decimal');
+  await ensureField(token, 'config_rotas', 'km_rodado_frete_atual', 'decimal');
+  await ensureField(token, 'config_rotas', 'icms', 'string');
+  await ensureField(token, 'config_rotas', 'real_pallet_atual', 'decimal');
+  await ensureField(token, 'config_rotas', 'evidencia', 'text');
+  await ensureField(token, 'config_rotas', 'status_tarifa', 'string');
+  await ensureField(token, 'config_rotas', 'km_rodado_terceiro', 'decimal');
+  await ensureField(token, 'config_rotas', 'frete_terceiro_padrao', 'decimal');
+  await ensureField(token, 'config_rotas', 'frete_terceiro_maximo', 'decimal');
   await ensurePermissions(token, 'config_rotas');
 
   console.log('telefones_notificacao...');

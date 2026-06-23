@@ -5,10 +5,11 @@
  * Uso: DIRECTUS_URL=... DIRECTUS_ADMIN_EMAIL=... DIRECTUS_ADMIN_PASSWORD=... \
  *      node scripts/setup-embarque-gr-directus.js
  */
-const BASE = (process.env.DIRECTUS_URL || 'http://127.0.0.1:8057').replace(/\/$/, '');
+const BASE = (process.env.DIRECTUS_URL || process.env.VITE_DIRECTUS_URL || 'http://127.0.0.1:8057').replace(/\/$/, '');
 const EMAIL = process.env.DIRECTUS_ADMIN_EMAIL || 'gmx@gmx.com';
 const PASSWORD = process.env.DIRECTUS_ADMIN_PASSWORD || 'admin123';
 const ADMIN_POLICY = process.env.DIRECTUS_ADMIN_POLICY || '7fb88d53-685e-41d6-87ef-5f22cc3ff5d8';
+const STATIC_TOKEN = process.env.DIRECTUS_TOKEN || process.env.VITE_DIRECTUS_TOKEN || '';
 
 async function req(method, path, token, data) {
   const headers = { 'Content-Type': 'application/json' };
@@ -76,14 +77,17 @@ async function ensurePermissions(token, collection) {
 }
 
 async function main() {
-  const { json: login } = await req('POST', '/auth/login', null, {
-    email: EMAIL,
-    password: PASSWORD,
-  });
-  const token = login?.data?.access_token;
+  let token = STATIC_TOKEN;
   if (!token) {
-    console.error('Login falhou', login);
-    process.exit(1);
+    const { json: login } = await req('POST', '/auth/login', null, {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    token = login?.data?.access_token;
+    if (!token) {
+      console.error('Login falhou', login);
+      process.exit(1);
+    }
   }
 
   console.log('embarques — campos Feito GR...');
@@ -105,6 +109,7 @@ async function main() {
     note: 'ID Directus do atendente que marcou Feito GR',
     width: 'half',
   });
+  await ensurePermissions(token, 'embarques');
 
   console.log('embarque_gr_log — auditoria marcar/desmarcar...');
   await ensureCollection(token, 'embarque_gr_log', 'history', 'Embarque #{{embarque_id}} — {{acao}}');

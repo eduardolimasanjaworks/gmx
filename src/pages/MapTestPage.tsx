@@ -45,7 +45,7 @@ const MapTestPage = ({ styleName, initialLayer, description }: MapTestPageProps)
         popup: {
             title: `${d.motorista_id?.nome || 'Motorista'} ${d.motorista_id?.sobrenome || ''}`,
             content: `${d.localizacao_atual || 'Localização não informada'}`,
-            image: d.motorista_id?.foto ? `http://91.99.137.101:8057/assets/${d.motorista_id.foto}` : undefined
+            image: d.motorista_id?.foto ? `https://gmx.sanjaworks.com/api/assets/${d.motorista_id.foto}` : undefined
         }
     }));
 

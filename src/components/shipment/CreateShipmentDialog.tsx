@@ -25,6 +25,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
     origin: "",
     destination: "",
     cargo_type: "",
+    vehicle_type: "",
     weight: "",
     total_value: "",
     driver_value: "",
@@ -54,6 +55,8 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
         origin: formData.origin,
         destination: formData.destination,
         cargo_type: formData.cargo_type || null,
+        tipo_veiculo: formData.vehicle_type || null,
+        operacao: formData.cargo_type || null,
         total_value: formData.total_value ? parseFloat(formData.total_value) : null,
         pickup_date: formData.pickup_date || null,
         delivery_date: formData.delivery_date || null,
@@ -85,6 +88,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
         origin: "",
         destination: "",
         cargo_type: "",
+        vehicle_type: "",
         weight: "",
         total_value: "",
         driver_value: "",
@@ -140,7 +144,8 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
             <Label htmlFor="cargo_type">Tipo de Carga</Label>
             <Input
               id="cargo_type"
@@ -148,6 +153,16 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
               value={formData.cargo_type}
               onChange={(e) => setFormData({ ...formData, cargo_type: e.target.value })}
             />
+          </div>
+            <div className="space-y-2">
+              <Label htmlFor="vehicle_type">Tipo de Veículo</Label>
+              <Input
+                id="vehicle_type"
+                placeholder="Ex: Carreta, Bitrem, Truck"
+                value={formData.vehicle_type}
+                onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

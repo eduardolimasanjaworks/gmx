@@ -15,10 +15,17 @@ export function useTiposOperacao() {
   const { data: tipos = [], isLoading } = useQuery({
     queryKey: ['tipos_operacao'],
     queryFn: async () => {
-      const rows = await directus.request(
-        readItems('tipos_operacao', { sort: ['nome'], limit: -1 }),
-      );
-      return rows as TipoOperacao[];
+      try {
+        const rows = await directus.request(
+          readItems('tipos_operacao', { sort: ['nome'], limit: -1 }),
+        );
+        return rows as TipoOperacao[];
+      } catch (error) {
+        // #region debug-point D:tipos-operacao-read-error
+        fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'gmx-iagmx-integration', runId: 'pre-fix', hypothesisId: 'D', location: 'gmx/src/hooks/useTiposOperacao.ts:queryFn', msg: '[DEBUG] Directus negou leitura de tipos_operacao', data: { error: error instanceof Error ? error.message : String(error) }, ts: Date.now() }) }).catch(() => {});
+        // #endregion
+        throw error;
+      }
     },
   });
 

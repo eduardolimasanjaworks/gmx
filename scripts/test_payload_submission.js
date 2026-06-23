@@ -1,7 +1,7 @@
 
 import fs from 'fs';
 
-const DIRECTUS_URL = "http://91.99.137.101:8057/items/cadastro_motorista";
+const DIRECTUS_URL = "https://gmx.sanjaworks.com/api/items/cadastro_motorista";
 const TOKEN = "1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah";
 
 const PAYLOAD = {

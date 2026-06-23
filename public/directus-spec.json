@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "http://91.99.137.101:8057",
+      "url": "https://gmx.sanjaworks.com/api",
       "description": "Directus Server"
     }
   ],

@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const SPEC_URL = "http://91.99.137.101:8057/server/specs/oas";
+const SPEC_URL = "https://gmx.sanjaworks.com/api/server/specs/oas";
 const PUBLIC_DIR = path.resolve('public');
 const TARGET_JSON = path.join(PUBLIC_DIR, 'directus-spec.json');
 const TARGET_HTML = path.join(PUBLIC_DIR, 'docs.html');
@@ -24,7 +24,7 @@ async function setupSwagger() {
 
     if (spec.servers && spec.servers.length > 0) {
       console.log("Original Servers:", spec.servers);
-      spec.servers = [{ url: "http://91.99.137.101:8057", description: "Directus Server" }];
+      spec.servers = [{ url: "https://gmx.sanjaworks.com/api", description: "Directus Server" }];
     }
 
     console.log(`Writing JSON to ${TARGET_JSON}...`);

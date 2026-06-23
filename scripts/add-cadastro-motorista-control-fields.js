@@ -7,7 +7,7 @@
 
 import { createDirectus, rest, staticToken, createField, readFields, updateField } from '@directus/sdk';
 
-const DIRECTUS_URL = process.env.DIRECTUS_URL || process.env.VITE_DIRECTUS_URL || 'http://91.99.137.101:8057';
+const DIRECTUS_URL = process.env.DIRECTUS_URL || process.env.VITE_DIRECTUS_URL || 'https://gmx.sanjaworks.com/api';
 const DIRECTUS_TOKEN = process.env.DIRECTUS_TOKEN || process.env.VITE_DIRECTUS_TOKEN || 'WcIgx0hfDqdtusOP6KOrhkP9eVPlbsOq';
 const TABLE_NAME = 'cadastro_motorista';
 

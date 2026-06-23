@@ -3,7 +3,7 @@ import { createDirectus, rest, staticToken, readCollections, deleteCollection } 
 
 // Manually load env if dotenv is not working as expected in this context, 
 // though 'dotenv/config' usually handles it for standard node scripts.
-const DIRECTUS_URL = "http://91.99.137.101:8057";
+const DIRECTUS_URL = "https://gmx.sanjaworks.com/api";
 const DIRECTUS_TOKEN = "1nuqaAuhjy-3bURuLhfu5o5JbLHLO4Ah";
 
 if (!DIRECTUS_URL || !DIRECTUS_TOKEN) {

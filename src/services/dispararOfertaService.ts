@@ -1,8 +1,6 @@
 /**
  * Disparo de oferta via iagmx → Evolution (texto fixo ERP).
  */
-import { updateEmbarque } from '@/lib/embarques';
-
 const IAGMX_URL = (
   import.meta.env.VITE_IAGMX_URL || 'https://iagmx.sanjaworks.com'
 ).replace(/\/$/, '');
@@ -96,6 +94,7 @@ export async function dispararOfertaIagmx(input: DispararOfertaInput): Promise<D
   }
 
   if (body.enviado !== false) {
+    const { updateEmbarque } = await import('@/lib/embarques');
     await updateEmbarque(String(input.embarqueId), {
       status: 'sent',
       driver_id: parseInt(input.motoristaId, 10),

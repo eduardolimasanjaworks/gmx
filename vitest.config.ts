@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
-    include: ['src/features/operational-dashboard/**/*.test.ts'],
+    include: ['src/**/*.test.ts'],
   },
   resolve: {
     alias: {

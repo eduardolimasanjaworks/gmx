@@ -20,6 +20,8 @@ export interface MatchingCriteria {
         valor_frete?: number;
         data_coleta: string;
         urgencia?: 'baixa' | 'media' | 'alta';
+        preferencia_proximidade?: 'agora' | 'coleta';
+        gps_max_horas?: number;
     };
     motorista: {
         id: string;
@@ -233,7 +235,9 @@ function calcularScoreLocalizacao(
     const coletaOk = !Number.isNaN(coletaDate.getTime());
     const dispDate = motorista.disponivel_em ? new Date(motorista.disponivel_em) : null;
     const dispOk = dispDate != null && !Number.isNaN(dispDate.getTime());
+    const preferenciaColeta = embarque.preferencia_proximidade !== 'agora';
     const previsaoUsada =
+        preferenciaColeta &&
         coletaOk &&
         dispOk &&
         coletaDate.getTime() >= (dispDate as Date).getTime() &&
@@ -274,9 +278,10 @@ function calcularScoreLocalizacao(
     if (!previsaoUsada && motorista.data_ultima_atualizacao) {
         const horasDesdeGps =
             (Date.now() - new Date(motorista.data_ultima_atualizacao).getTime()) / (1000 * 60 * 60);
-        if (Number.isFinite(horasDesdeGps) && horasDesdeGps > 24) {
+        const limiteGps = Number.isFinite(Number(embarque.gps_max_horas)) ? Number(embarque.gps_max_horas) : 24;
+        if (Number.isFinite(horasDesdeGps) && horasDesdeGps > limiteGps) {
             score = Math.max(0, score - 10);
-            complemento = `ultimo GPS atualizado ha ${horasDesdeGps.toFixed(0)}h`;
+            complemento = `ultimo GPS atualizado ha ${horasDesdeGps.toFixed(0)}h (limite da rota: ${limiteGps}h)`;
         }
     }
     if (!previsaoUsada && motorista.disponivel_em && new Date(motorista.disponivel_em).getTime() > Date.now()) {

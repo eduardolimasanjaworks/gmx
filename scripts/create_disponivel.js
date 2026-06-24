@@ -39,6 +39,8 @@ async function createDisponivelTable() {
             { name: 'operador', type: 'string', interface: 'input', display: 'Operador' },
             { name: 'data_contato', type: 'timestamp', interface: 'datetime', display: 'Data Contato' },
             { name: 'local_disponibilidade', type: 'string', interface: 'input', display: 'Local Disponibilidade' },
+            { name: 'local_destino_atual', type: 'string', interface: 'input', display: 'Local Destino Atual' },
+            { name: 'local_liberacao_prevista', type: 'string', interface: 'input', display: 'Local Liberação Prevista' },
             { name: 'data_previsao_disponibilidade', type: 'timestamp', interface: 'datetime', display: 'Data Previsão Disponibilidade' },
             { name: 'status', type: 'string', interface: 'input', display: 'Status' },
             { name: 'observacao', type: 'text', interface: 'input-multiline', display: 'Observação' },

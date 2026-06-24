@@ -6,6 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  EMPTY_REGRAS_DRAFT,
+  RotaOperationalRulesCard,
+  type RotaRegrasDraft,
+  regrasDraftFromEvidence,
+  resumoRegrasRota,
+  rulesDraftToEvidence,
+} from '@/components/dashboard/RotaOperationalRulesCard';
 import { useConfigRotas, type ConfigRota, type ConfigRotaInput } from '@/hooks/useConfigRotas';
 import { useTiposOperacao } from '@/hooks/useTiposOperacao';
 import { OperationsFilter } from '@/components/operations/OperationsFilter';
@@ -255,6 +263,8 @@ export function RotasCrudPanel() {
   const [novo, setNovo] = useState<DraftRota>(EMPTY_DRAFT);
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [edicao, setEdicao] = useState<DraftRota>(EMPTY_DRAFT);
+  const [novoRegras, setNovoRegras] = useState<RotaRegrasDraft>(EMPTY_REGRAS_DRAFT);
+  const [edicaoRegras, setEdicaoRegras] = useState<RotaRegrasDraft>(EMPTY_REGRAS_DRAFT);
   const [salvando, setSalvando] = useState<'novo' | number | null>(null);
   const [selectedOperations, setSelectedOperations] = useState<string[]>([]);
   const [configOpen, setConfigOpen] = useState(false);
@@ -344,8 +354,12 @@ export function RotasCrudPanel() {
     if (!validar(novo)) return;
     setSalvando('novo');
     try {
-      await createRota(montarPayload(novo));
+      await createRota({
+        ...montarPayload(novo),
+        evidencia: rulesDraftToEvidence(novoRegras),
+      });
       setNovo(EMPTY_DRAFT);
+      setNovoRegras(EMPTY_REGRAS_DRAFT);
     } finally {
       setSalvando(null);
     }
@@ -354,15 +368,20 @@ export function RotasCrudPanel() {
   const iniciarEdicao = (rota: ConfigRota) => {
     setEditandoId(rota.id);
     setEdicao(toDraft(rota));
+    setEdicaoRegras(regrasDraftFromEvidence(rota.evidencia));
   };
 
   const salvarEdicao = async (id: number) => {
     if (!validar(edicao)) return;
     setSalvando(id);
     try {
-      await updateRota(id, montarPayload(edicao));
+      await updateRota(id, {
+        ...montarPayload(edicao),
+        evidencia: rulesDraftToEvidence(edicaoRegras),
+      });
       setEditandoId(null);
       setEdicao(EMPTY_DRAFT);
+      setEdicaoRegras(EMPTY_REGRAS_DRAFT);
     } finally {
       setSalvando(null);
     }
@@ -494,6 +513,12 @@ export function RotasCrudPanel() {
             </CollapsibleContent>
           </Collapsible>
 
+          <RotaOperationalRulesCard
+            draft={novoRegras}
+            onChange={setNovoRegras}
+            description="A equipe define se o ranking prioriza o agora ou a data de coleta, qual a tolerância do GPS e como a negociação sobe antes de escalar."
+          />
+
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input
@@ -591,6 +616,7 @@ export function RotasCrudPanel() {
                         {field.label}
                       </th>
                     ))}
+                    <th className="py-2 pr-3 font-semibold text-foreground">Regras</th>
                     <th className="py-2 pr-3 font-semibold text-foreground">Status</th>
                     <th className="py-2 pr-3 text-right">Acoes</th>
                   </tr>
@@ -599,119 +625,139 @@ export function RotasCrudPanel() {
                   {rotasFiltradas.map((rota) => {
                     const isEditing = editandoId === rota.id;
                     return (
-                      <tr key={rota.id} className="border-b align-top">
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'origem') : <span className="font-medium">{rota.origem}</span>}
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'origem_latitude', 'number') : (
-                            <span className="font-mono text-xs">{formatarNumero(rota.origem_latitude, 6)}</span>
-                          )}
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'origem_longitude', 'number') : (
-                            <span className="font-mono text-xs">{formatarNumero(rota.origem_longitude, 6)}</span>
-                          )}
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'destino') : <span className="font-medium">{rota.destino}</span>}
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'destino_latitude', 'number') : (
-                            <span className="font-mono text-xs">{formatarNumero(rota.destino_latitude, 6)}</span>
-                          )}
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'destino_longitude', 'number') : (
-                            <span className="font-mono text-xs">{formatarNumero(rota.destino_longitude, 6)}</span>
-                          )}
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? (
-                            <Input
-                              list={`operacoes-rotas-edit-${rota.id}`}
-                              value={edicao.operacao}
-                              onChange={(e) => setEdicao((s) => ({ ...s, operacao: e.target.value }))}
-                            />
-                          ) : (
-                            rota.operacao || '—'
-                          )}
-                          <datalist id={`operacoes-rotas-edit-${rota.id}`}>
-                            {operacoes.map((operacao) => (
-                              <option key={operacao} value={operacao} />
-                            ))}
-                          </datalist>
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'valor_minimo', 'number') : moeda(rota.valor_minimo)}
-                        </td>
-                        <td className="py-3 pr-3">
-                          {isEditing ? renderInput(edicao, setEdicao, 'valor_maximo', 'number') : moeda(rota.valor_maximo)}
-                        </td>
-                        {visibleOptionalDefs.map((field) => (
-                          <td key={`${rota.id}-${field.key}`} className="py-3 pr-3">
-                            {isEditing
-                              ? renderInput(edicao, setEdicao, field.key, field.type)
-                              : renderCellValue(rota, field)}
+                      <>
+                        <tr key={rota.id} className="border-b align-top">
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'origem') : <span className="font-medium">{rota.origem}</span>}
                           </td>
-                        ))}
-                        <td className="py-3 pr-3">
-                          {isEditing ? (
-                            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <input
-                                type="checkbox"
-                                checked={edicao.ativo}
-                                onChange={(e) => setEdicao((s) => ({ ...s, ativo: e.target.checked }))}
-                              />
-                              Ativa
-                            </label>
-                          ) : (
-                            <Badge variant={rota.ativo === false ? 'secondary' : 'default'}>
-                              {rota.ativo === false ? 'Inativa' : 'Ativa'}
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="py-3 text-right">
-                          <div className="flex justify-end gap-2">
-                            {isEditing ? (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => void salvarEdicao(rota.id)}
-                                  disabled={salvando === rota.id}
-                                  className="gap-1"
-                                >
-                                  {salvando === rota.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                  Salvar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setEditandoId(null);
-                                    setEdicao(EMPTY_DRAFT);
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button size="sm" variant="outline" onClick={() => iniciarEdicao(rota)}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => void deleteRota(rota.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'origem_latitude', 'number') : (
+                              <span className="font-mono text-xs">{formatarNumero(rota.origem_latitude, 6)}</span>
                             )}
-                          </div>
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'origem_longitude', 'number') : (
+                              <span className="font-mono text-xs">{formatarNumero(rota.origem_longitude, 6)}</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'destino') : <span className="font-medium">{rota.destino}</span>}
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'destino_latitude', 'number') : (
+                              <span className="font-mono text-xs">{formatarNumero(rota.destino_latitude, 6)}</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'destino_longitude', 'number') : (
+                              <span className="font-mono text-xs">{formatarNumero(rota.destino_longitude, 6)}</span>
+                            )}
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? (
+                              <Input
+                                list={`operacoes-rotas-edit-${rota.id}`}
+                                value={edicao.operacao}
+                                onChange={(e) => setEdicao((s) => ({ ...s, operacao: e.target.value }))}
+                              />
+                            ) : (
+                              rota.operacao || '—'
+                            )}
+                            <datalist id={`operacoes-rotas-edit-${rota.id}`}>
+                              {operacoes.map((operacao) => (
+                                <option key={operacao} value={operacao} />
+                              ))}
+                            </datalist>
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'valor_minimo', 'number') : moeda(rota.valor_minimo)}
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? renderInput(edicao, setEdicao, 'valor_maximo', 'number') : moeda(rota.valor_maximo)}
+                          </td>
+                          {visibleOptionalDefs.map((field) => (
+                            <td key={`${rota.id}-${field.key}`} className="py-3 pr-3">
+                              {isEditing
+                                ? renderInput(edicao, setEdicao, field.key, field.type)
+                                : renderCellValue(rota, field)}
+                            </td>
+                          ))}
+                          <td className="py-3 pr-3">
+                            <div className="max-w-[250px] text-xs text-muted-foreground leading-relaxed">
+                              {resumoRegrasRota(rota.evidencia)}
+                            </div>
+                          </td>
+                          <td className="py-3 pr-3">
+                            {isEditing ? (
+                              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={edicao.ativo}
+                                  onChange={(e) => setEdicao((s) => ({ ...s, ativo: e.target.checked }))}
+                                />
+                                Ativa
+                              </label>
+                            ) : (
+                              <Badge variant={rota.ativo === false ? 'secondary' : 'default'}>
+                                {rota.ativo === false ? 'Inativa' : 'Ativa'}
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-3 text-right">
+                            <div className="flex justify-end gap-2">
+                              {isEditing ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void salvarEdicao(rota.id)}
+                                    disabled={salvando === rota.id}
+                                    className="gap-1"
+                                  >
+                                    {salvando === rota.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    Salvar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditandoId(null);
+                                      setEdicao(EMPTY_DRAFT);
+                                      setEdicaoRegras(EMPTY_REGRAS_DRAFT);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => iniciarEdicao(rota)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => void deleteRota(rota.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                        {isEditing ? (
+                          <tr className="border-b bg-muted/20">
+                            <td colSpan={12 + visibleOptionalDefs.length} className="px-3 py-3">
+                              <RotaOperationalRulesCard
+                                title={`Regras da rota #${rota.id}`}
+                                description="Essas regras entram no ranking e também na negociação automática da oferta."
+                                draft={edicaoRegras}
+                                onChange={setEdicaoRegras}
+                              />
+                            </td>
+                          </tr>
+                        ) : null}
+                      </>
                     );
                   })}
                 </tbody>

@@ -23,3 +23,24 @@ export const directus = createDirectus(getDirectusUrl())
 // Client for public/anonymous access (Dashboard stats, etc.)
 // Relies on public permissions being set on the collections
 export const publicDirectus = createDirectus(directusUrl).with(rest());
+
+// Token administrativo legado já usado em fluxos internos do GMX.
+// Serve para leituras de telas que o usuário quer liberar por página, não por coleção.
+export const DIRECTUS_ADMIN_TOKEN = 'WcIgx0hfDqdtusOP6KOrhkP9eVPlbsOq';
+
+export async function directusAdminItems<T>(
+  collection: string,
+  searchParams: Record<string, string>,
+): Promise<T[]> {
+  const qs = new URLSearchParams(searchParams);
+  const response = await fetch(`${getDirectusUrl()}/items/${collection}?${qs.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${DIRECTUS_ADMIN_TOKEN}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Directus admin fetch failed: ${response.status}`);
+  }
+  const json = await response.json();
+  return Array.isArray(json?.data) ? (json.data as T[]) : [];
+}

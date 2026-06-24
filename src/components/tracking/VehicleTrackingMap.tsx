@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Truck, MapPin, Clock, CalendarIcon, Crosshair, Map as MapIcon, RotateCcw, XCircle, Factory, Search, MoreVertical, Edit2, Trash2, Check, X } from "lucide-react";
 import { AdvancedMap } from "@/components/ui/interactive-map";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { directus } from "@/lib/directus";
+import { directus, directusAdminItems } from "@/lib/directus";
 import { readItems, createItem, updateItem, deleteItem } from "@directus/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
 import L from 'leaflet';
@@ -93,6 +93,11 @@ function coordenadasPorLocal(local?: string | null): [number, number] | null {
 
 export const VehicleTrackingMap = () => {
   const ENABLE_SAVED_LOCATIONS = false;
+  type DriverHistoryPoint = {
+    latitude?: number | string | null;
+    longitude?: number | string | null;
+    date_created?: string | null;
+  };
   const [searchParams] = useSearchParams();
   const urlDate = searchParams.get('load_date');
   const urlLat = searchParams.get('load_lat');
@@ -408,11 +413,11 @@ export const VehicleTrackingMap = () => {
       const motoristaId = selectedDriver.motorista_id?.id || selectedDriver.motorista_id;
       if (!motoristaId) return [];
       try {
-        const history = await directus.request(readItems('historico_localizacao', {
-          filter: { motorista_id: { _eq: motoristaId } },
-          sort: ['date_created'],
-          limit: 100
-        }));
+        const history = await directusAdminItems<DriverHistoryPoint>('historico_localizacao', {
+          filter: JSON.stringify({ motorista_id: { _eq: motoristaId } }),
+          sort: 'date_created',
+          limit: '100',
+        });
         return history;
       } catch (err) {
         return [];
@@ -509,7 +514,7 @@ export const VehicleTrackingMap = () => {
 
       // Add past starting point if history exists
       if (driverHistory.length > 0) {
-        const firstP = driverHistory[0];
+        const firstP = driverHistory[0] as DriverHistoryPoint;
         if (firstP.latitude && firstP.longitude) {
           defaultMarkers.push({
             id: 'driver-start',

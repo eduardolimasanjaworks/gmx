@@ -4,8 +4,7 @@
  * Serve para a equipe revisar cadastro sem abrir motorista por motorista.
  */
 import { useQuery } from '@tanstack/react-query';
-import { directus } from '@/lib/directus';
-import { readItems } from '@directus/sdk';
+import { directusAdminItems } from '@/lib/directus';
 
 export interface DriverAiValidationItem {
   id: number;
@@ -36,25 +35,23 @@ export function useDriverAiValidationQueue() {
   return useQuery({
     queryKey: ['motorista-ocr-validacao-global'],
     queryFn: async () => {
-      const rows = await directus.request(
-        readItems('motorista_ocr_sugestao', {
-          filter: { status: { _eq: 'pendente' } },
-          fields: [
-            'id',
-            'status',
-            'tipo_documento',
-            'colecao_destino',
-            'date_created',
-            'confidence_score',
-            'motorista_id.id',
-            'motorista_id.nome',
-            'motorista_id.sobrenome',
-            'motorista_id.telefone',
-          ],
-          sort: ['-date_created'],
-          limit: 30,
-        }),
-      );
+      const rows = await directusAdminItems<DriverAiValidationItem>('motorista_ocr_sugestao', {
+        fields: [
+          'id',
+          'status',
+          'tipo_documento',
+          'colecao_destino',
+          'date_created',
+          'confidence_score',
+          'motorista_id.id',
+          'motorista_id.nome',
+          'motorista_id.sobrenome',
+          'motorista_id.telefone',
+        ].join(','),
+        filter: JSON.stringify({ status: { _eq: 'pendente' } }),
+        sort: '-date_created',
+        limit: '30',
+      });
       return (rows as DriverAiValidationItem[]).map((item) => ({
         ...item,
         nome_motorista: nomeMotorista(item),

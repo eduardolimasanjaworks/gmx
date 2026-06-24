@@ -13,6 +13,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
 import { Readable } from 'node:stream';
 import express from 'express';
 import multer from 'multer';
@@ -226,6 +227,52 @@ app.delete('/upload', express.json(), (req, res) => {
   } catch {
     return res.status(404).json({ ok: false });
   }
+});
+
+app.post('/ocr', uploadDisk.single('file'), (req, res) => {
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+  }
+
+  const filePath = file.path;
+  const scriptPath = path.join(process.cwd(), 'scripts', 'ocr_pipeline.py');
+  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+
+  execFile(pythonCmd, [scriptPath, filePath], { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+    // Sempre removemos o arquivo temporário enviado após o processamento
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (e) {
+      console.error('Erro ao deletar arquivo temporário de OCR:', e);
+    }
+
+    if (error) {
+      console.error('Erro na execução do pipeline de OCR:', error);
+      console.error('Stderr do script Python:', stderr);
+      return res.status(500).json({
+        success: false,
+        error: `Erro ao executar o pipeline de OCR: ${error.message}`,
+        details: stderr
+      });
+    }
+
+    try {
+      const result = JSON.parse(stdout);
+      return res.json(result);
+    } catch (parseError) {
+      console.error('Erro ao parsear JSON de saída do OCR:', parseError);
+      console.error('Stdout bruto:', stdout);
+      return res.status(500).json({
+        success: false,
+        error: 'A saída do script de OCR não é um JSON válido.',
+        rawOutput: stdout,
+        details: parseError.message
+      });
+    }
+  });
 });
 
 app.get('/health', (_req, res) => res.json({ ok: true }));

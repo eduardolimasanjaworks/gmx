@@ -361,7 +361,7 @@ export const AdvancedMap = ({
         {activeBaseLayer === 'google-streets' && (
           <TileLayer
             attribution='&copy; Google'
-            url="http://mt0.google.com/vt/lyrs=m&hl=pt-BR&x={x}&y={y}&z={z}"
+            url="https://mt0.google.com/vt/lyrs=m&hl=pt-BR&x={x}&y={y}&z={z}"
             maxZoom={20}
             subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
           />
@@ -370,7 +370,7 @@ export const AdvancedMap = ({
         {activeBaseLayer === 'google-hybrid' && (
           <TileLayer
             attribution='&copy; Google'
-            url="http://mt0.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}"
+            url="https://mt0.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}"
             maxZoom={20}
             subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
           />

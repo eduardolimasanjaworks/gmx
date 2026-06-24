@@ -57,7 +57,9 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
 const CITY_COORDS: Record<string, [number, number]> = {
   'GUARULHOS_SP': [-23.4543, -46.5337],
   'CAMPINAS_SP': [-22.9099, -47.0626],
+  'JACAREI_SP': [-23.3053, -45.9658],
   'SAO PAULO_SP': [-23.5505, -46.6333],
+  'SAO JOSE DOS CAMPOS_SP': [-23.1896, -45.8841],
   'RIO DE JANEIRO_RJ': [-22.9068, -43.1729],
   'BELO HORIZONTE_MG': [-19.9167, -43.9345],
   'CURITIBA_PR': [-25.4284, -49.2733],
@@ -70,10 +72,18 @@ const CITY_COORDS: Record<string, [number, number]> = {
 };
 
 function normalizarLocalChave(local: string): string | null {
-  const t = String(local || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const t = String(local || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
   const m = t.match(/^(.*?)[,/\- ]\s*([A-Z]{2})$/);
   if (!m) return null;
-  return `${m[1].trim()}_${m[2].trim()}`;
+  const cidade = m[1].trim();
+  const uf = m[2].trim();
+  if (cidade === 'RIO' && uf === 'DE') return 'RIO DE JANEIRO_RJ';
+  return `${cidade}_${uf}`;
 }
 
 function coordenadasPorLocal(local?: string | null): [number, number] | null {
@@ -1110,6 +1120,9 @@ export const VehicleTrackingMap = () => {
                       Visualizando Histórico
                     </Badge>
                   )}
+                  <Badge variant="outline" className="hidden sm:inline-flex">
+                    {fetchedDrivers.length} registros
+                  </Badge>
                   <Badge className="bg-primary text-white">{drivers.length} no mapa</Badge>
                 </div>
               </div>

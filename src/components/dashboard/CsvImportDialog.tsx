@@ -137,9 +137,9 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
 
     const processFile = async () => {
         if (!selectedFile) return;
-        if (isEmbarques && (!mapping || !mappingObrigatorioValido(mapping))) {
+        if (isEmbarques && (!mapping || (!defaultRotaId && !mappingObrigatorioValido(mapping)))) {
             toast.error("Mapeamento incompleto", {
-                description: "Origem e destino precisam estar mapeados antes da importacao."
+                description: "Mapeie origem e destino, ou selecione uma rota fixa para preencher ambos automaticamente."
             });
             return;
         }
@@ -155,12 +155,22 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
 
             if (isEmbarques) {
                 const mappedRows = mapCsvRowsToEmbarques(rows, mapping!);
-                const op = defaultOperacao.trim() || undefined;
+                const rotaManual =
+                    defaultRotaId ? rotas.find((r: any) => String(r?.id) === String(defaultRotaId)) : null;
+                const op =
+                    (defaultOperacao.trim() || (rotaManual?.operacao ? String(rotaManual.operacao).trim() : "")) ||
+                    undefined;
                 const rotaIdManual = defaultRotaId ? Number(defaultRotaId) : undefined;
-                const enrichedRows = mappedRows.map((row) => ({
-                    ...row,
-                    operacao: row.operacao?.trim() ? row.operacao : op,
-                }));
+                const enrichedRows = mappedRows.map((row) => {
+                    const origem = row.origem?.trim() ? row.origem : (rotaManual?.origem ? String(rotaManual.origem).trim() : row.origem);
+                    const destino = row.destino?.trim() ? row.destino : (rotaManual?.destino ? String(rotaManual.destino).trim() : row.destino);
+                    return {
+                        ...row,
+                        origem,
+                        destino,
+                        operacao: row.operacao?.trim() ? row.operacao : op,
+                    };
+                });
                 const stats = await criarEmbarquesDoCsv(enrichedRows, {
                     usuario: "portal",
                     defaultOperacao: op,
@@ -319,7 +329,12 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
                     <Button variant="outline" onClick={closeDialog} disabled={isProcessing}>Cancelar</Button>
                     <Button
                         onClick={() => void processFile()}
-                        disabled={!selectedFile || isProcessing || isParsing || (isEmbarques && (!mapping || !mappingObrigatorioValido(mapping)))}
+                        disabled={
+                            !selectedFile ||
+                            isProcessing ||
+                            isParsing ||
+                            (isEmbarques && (!mapping || (!defaultRotaId && !mappingObrigatorioValido(mapping))))
+                        }
                         className="w-full sm:w-auto"
                     >
                         {isProcessing ? (

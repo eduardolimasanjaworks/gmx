@@ -3,13 +3,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
 import { createEmbarque } from "@/lib/embarques";
 import { correlacionarEAtualizarEmbarque } from "@/lib/embarque-rota-service";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTiposOperacao } from "@/hooks/useTiposOperacao";
+import { useConfigRotas } from "@/hooks/useConfigRotas";
 
 interface CreateShipmentDialogProps {
   open: boolean;
@@ -20,11 +21,15 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { tipos = [] } = useTiposOperacao();
+  const { rotas = [] } = useConfigRotas();
 
   const [formData, setFormData] = useState({
     origin: "",
     destination: "",
     cargo_type: "",
+    operacao: "",
+    config_rota_id: "",
     vehicle_type: "",
     weight: "",
     total_value: "",
@@ -56,7 +61,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
         destination: formData.destination,
         cargo_type: formData.cargo_type || null,
         tipo_veiculo: formData.vehicle_type || null,
-        operacao: formData.cargo_type || null,
+        operacao: formData.operacao || null,
         total_value: formData.total_value ? parseFloat(formData.total_value) : null,
         pickup_date: formData.pickup_date || null,
         delivery_date: formData.delivery_date || null,
@@ -70,7 +75,11 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
         criado.id,
         formData.origin,
         formData.destination,
-        { usuario: "portal" },
+        {
+          usuario: "portal",
+          operacao: formData.operacao || undefined,
+          rotaIdManual: formData.config_rota_id ? Number(formData.config_rota_id) : undefined,
+        },
       );
 
       toast({
@@ -88,6 +97,8 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
         origin: "",
         destination: "",
         cargo_type: "",
+        operacao: "",
+        config_rota_id: "",
         vehicle_type: "",
         weight: "",
         total_value: "",
@@ -128,6 +139,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
                 placeholder="Ex: São Paulo, SP"
                 value={formData.origin}
                 onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
+                disabled={Boolean(formData.config_rota_id)}
                 required
               />
             </div>
@@ -139,6 +151,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
                 placeholder="Ex: Rio de Janeiro, RJ"
                 value={formData.destination}
                 onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                disabled={Boolean(formData.config_rota_id)}
                 required
               />
             </div>
@@ -146,10 +159,10 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-            <Label htmlFor="cargo_type">Operação</Label>
+            <Label htmlFor="cargo_type">Produto / Tipo de carga</Label>
             <Input
               id="cargo_type"
-              placeholder="Ex: Arroz, Eletrônicos, etc."
+              placeholder="Ex: Arroz, Lata, Malte..."
               value={formData.cargo_type}
               onChange={(e) => setFormData({ ...formData, cargo_type: e.target.value })}
             />
@@ -162,6 +175,71 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
                 value={formData.vehicle_type}
                 onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Operação</Label>
+              <Select
+                value={formData.operacao}
+                onValueChange={(val) => setFormData({ ...formData, operacao: val, config_rota_id: "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a operação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Não definir</SelectItem>
+                  {tipos
+                    .filter((t: any) => t?.ativo !== false)
+                    .map((t: any) => String(t?.nome || '').trim())
+                    .filter(Boolean)
+                    .map((op: string) => (
+                      <SelectItem key={op} value={op}>
+                        {op}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Rota</Label>
+              <Select
+                value={formData.config_rota_id}
+                onValueChange={(val) => {
+                  const rota = rotas.find((r: any) => String(r?.id) === String(val)) || null;
+                  if (!val) {
+                    setFormData((s) => ({ ...s, config_rota_id: "" }));
+                    return;
+                  }
+                  setFormData((s) => ({
+                    ...s,
+                    config_rota_id: String(val),
+                    origin: rota?.origem ? String(rota.origem).trim() : s.origin,
+                    destination: rota?.destino ? String(rota.destino).trim() : s.destination,
+                    operacao:
+                      s.operacao ||
+                      (rota?.operacao ? String(rota.operacao).trim() : ""),
+                  }));
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Automática pela origem/destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Automática pela origem/destino</SelectItem>
+                  {rotas
+                    .filter((r: any) => r?.ativo !== false)
+                    .filter((r: any) => !formData.operacao || String(r?.operacao || '').toUpperCase() === formData.operacao.toUpperCase())
+                    .map((r: any) => (
+                      <SelectItem key={String(r.id)} value={String(r.id)}>
+                        {String(r.origem || '').trim()} → {String(r.destino || '').trim()}
+                        {r.operacao ? ` (${String(r.operacao).trim()})` : ''}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

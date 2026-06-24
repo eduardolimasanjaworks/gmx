@@ -29,6 +29,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
   const [shipmentDocuments, setShipmentDocuments] = useState<any[]>([]);
   const [offerHistory, setOfferHistory] = useState<any[]>([]);
   const [routeLogs, setRouteLogs] = useState<any[]>([]);
+  const [timelinePermWarnings, setTimelinePermWarnings] = useState<{ ofertas?: string; rotas?: string }>({});
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editedData, setEditedData] = useState({
     origin: "",
@@ -63,6 +64,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       fetchShipmentDocuments();
       fetchOfferHistory();
       fetchRouteLogs();
+      setTimelinePermWarnings({});
       setEditedData({
         origin: shipment.origin || "",
         destination: shipment.destination || "",
@@ -83,6 +85,13 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     }
   }, [shipment?.id, open]);
 
+  const statusHttp = (err: any): number | null => {
+    const a = err?.response?.status;
+    const b = err?.status;
+    const n = Number(a ?? b);
+    return Number.isFinite(n) ? n : null;
+  };
+
   const fetchOfferHistory = async () => {
     if (!shipment?.id) return;
     try {
@@ -95,7 +104,15 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         }),
       );
       setOfferHistory(Array.isArray(rows) ? rows : []);
+      setTimelinePermWarnings((s) => ({ ...s, ofertas: undefined }));
     } catch (err) {
+      const st = statusHttp(err);
+      if (st === 401 || st === 403) {
+        setTimelinePermWarnings((s) => ({
+          ...s,
+          ofertas: 'Sem permissão para ler histórico de ofertas no Directus (timeline parcial).',
+        }));
+      }
       console.error('Error fetching historico_ofertas:', err);
       setOfferHistory([]);
     }
@@ -113,7 +130,15 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         }),
       );
       setRouteLogs(Array.isArray(rows) ? rows : []);
+      setTimelinePermWarnings((s) => ({ ...s, rotas: undefined }));
     } catch (err) {
+      const st = statusHttp(err);
+      if (st === 401 || st === 403) {
+        setTimelinePermWarnings((s) => ({
+          ...s,
+          rotas: 'Sem permissão para ler logs de rota no Directus (timeline parcial).',
+        }));
+      }
       console.error('Error fetching embarque_rota_log:', err);
       setRouteLogs([]);
     }
@@ -920,6 +945,61 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <input
+                  ref={emailAttachmentRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.xlsb,.csv"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    void handleFileUpload(file, 'shipment-documents', 'shipment_documents', {
+                      document_title: `Anexo do email (${file.name})`,
+                      document_type: 'email_attachment',
+                    }).then(() => void fetchShipmentDocuments());
+                  }}
+                />
+
+                <div className="space-y-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium">Colar print do email</div>
+                      <div
+                        className="rounded-lg border border-dashed bg-muted/40 p-4 text-sm text-muted-foreground"
+                        onPaste={(e) => void handleEmailPaste(e)}
+                      >
+                        Clique aqui e use Ctrl+V para colar a imagem do email de confirmacao.
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => emailAttachmentRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        {uploading ? 'Enviando...' : 'Upload anexo do email'}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium">Conteudo do email (opcional)</div>
+                      <Textarea
+                        value={emailDraft}
+                        onChange={(e) => setEmailDraft(e.target.value)}
+                        placeholder="Cole aqui o HTML ou texto do email, se quiser manter o conteudo pesquisavel."
+                        className="min-h-[140px]"
+                      />
+                      <Button
+                        className="w-full"
+                        onClick={() => void salvarEmailConteudo()}
+                        disabled={savingEmail}
+                      >
+                        {savingEmail ? 'Salvando...' : 'Salvar conteudo do email'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 {shipment.email_content ? (
                   <div className="space-y-4">
                     <div className="bg-muted p-4 rounded-lg space-y-2">
@@ -1197,29 +1277,42 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                 <CardTitle className="text-lg">Histórico do Embarque</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="w-3 h-3 bg-success rounded-full" />
-                      <div className="w-0.5 h-full bg-border" />
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <p className="font-medium">Oferta Recebida</p>
-                      <p className="text-sm text-muted-foreground">{shipment.deadline}</p>
+                {(timelinePermWarnings.ofertas || timelinePermWarnings.rotas) && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="font-medium">Timeline parcial</div>
+                    <div className="text-xs text-amber-900/80">
+                      {timelinePermWarnings.ofertas && <div>• {timelinePermWarnings.ofertas}</div>}
+                      {timelinePermWarnings.rotas && <div>• {timelinePermWarnings.rotas}</div>}
                     </div>
                   </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="w-3 h-3 bg-primary rounded-full" />
-                      <div className="w-0.5 h-full bg-border" />
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <p className="font-medium">Em Processo de Matching</p>
-                      <p className="text-sm text-muted-foreground">Buscando motorista disponível...</p>
-                    </div>
+                )}
+                {timelineItems.length === 0 ? (
+                  <div className="rounded-lg border bg-muted/40 p-6 text-sm text-muted-foreground">
+                    Nenhum evento encontrado ainda para este embarque.
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {timelineItems.map((item, idx) => (
+                      <div key={`${item.ts}-${idx}`} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className="w-3 h-3 bg-primary rounded-full" />
+                          {idx < timelineItems.length - 1 && <div className="w-0.5 h-full bg-border" />}
+                        </div>
+                        <div className="flex-1 pb-4">
+                          <p className="font-medium">{item.titulo}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(item.ts).toLocaleString('pt-BR')}
+                          </p>
+                          {item.detalhe && (
+                            <p className="mt-1 text-xs text-muted-foreground break-words">
+                              {item.detalhe}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

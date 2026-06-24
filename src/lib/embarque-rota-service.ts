@@ -18,7 +18,16 @@ export interface CsvEmbarqueRow {
   cliente?: string;
   tp?: string;
   produto?: string;
+  operacao?: string;
   paletes?: string | number;
+  quantidade_kg?: string | number;
+  total_value?: string | number;
+  tipo_veiculo?: string;
+  placa_cavalo?: string;
+  pickup_date?: string;
+  delivery_date?: string;
+  delivery_window_start?: string;
+  delivery_window_end?: string;
 }
 
 export type AcaoRotaLog =
@@ -145,7 +154,7 @@ export async function criarEmbarquesDoCsv(
     }
 
     const resultado = resolverCorrelacao(row.origem, row.destino, rotas, {
-      operacao: inferirOperacao(row.produto),
+      operacao: row.operacao?.trim() || inferirOperacao(row.produto),
     });
 
     const embarque = (await directus.request(
@@ -154,12 +163,22 @@ export async function criarEmbarquesDoCsv(
         destination: row.destino.trim(),
         produto_predominante: row.produto?.trim() || null,
         cargo_type: row.produto?.trim() || null,
+        operacao: row.operacao?.trim() || inferirOperacao(row.produto) || null,
+        tipo_veiculo: row.tipo_veiculo?.trim() || null,
+        placa_cavalo: row.placa_cavalo?.trim() || null,
+        quantidade_kg: numeroOpcional(row.quantidade_kg),
+        total_value: numeroOpcional(row.total_value),
+        pickup_date: row.pickup_date?.trim() || null,
+        delivery_date: row.delivery_date?.trim() || null,
+        delivery_window_start: row.delivery_window_start?.trim() || null,
+        delivery_window_end: row.delivery_window_end?.trim() || null,
         status: 'new',
         email_content: [
           row.pedido && `Pedido: ${row.pedido}`,
           row.cliente && `Cliente: ${row.cliente}`,
           row.tp && `TP: ${row.tp}`,
           row.paletes && `Paletes: ${row.paletes}`,
+          row.quantidade_kg && `Quantidade kg: ${row.quantidade_kg}`,
         ]
           .filter(Boolean)
           .join(' | '),
@@ -196,4 +215,11 @@ function inferirOperacao(produto?: string): string | undefined {
   if (p.includes('lata') || p.includes('latinha')) return 'LATA';
   if (p.includes('malte')) return 'MALTE';
   return undefined;
+}
+
+function numeroOpcional(valor?: string | number): number | null {
+  if (valor == null || String(valor).trim() === '') return null;
+  const normalizado = String(valor).replace(/\./g, '').replace(',', '.').trim();
+  const num = Number(normalizado);
+  return Number.isFinite(num) ? num : null;
 }

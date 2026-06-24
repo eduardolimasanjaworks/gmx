@@ -24,20 +24,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, DollarSign, CheckCircle, X, Maximize2, Play, AlertTriangle, FileText, Loader2, Mail, Plus, Calendar, Package, Clock, Truck, Upload, Route, MessageCircle } from "lucide-react";
+import { AlertTriangle, Package, Plus, Upload, Route } from "lucide-react";
 import { OfertarMotoristaDialog } from "@/components/shipment/OfertarMotoristaDialog";
-import { EmbarqueGrCheckbox } from "@/components/shipment/EmbarqueGrCheckbox";
 import { CsvImportDialog } from "@/components/dashboard/CsvImportDialog";
 import { CorrelacionarRotaDialog } from "@/components/dashboard/CorrelacionarRotaDialog";
 import { ShipmentDetailsDialog } from "@/components/shipment/ShipmentDetailsDialog";
-import { ShipmentTimer } from "@/components/shipment/ShipmentTimer";
 import { ShipmentTableView } from "@/components/shipment/ShipmentTableView";
 import { ShipmentViewControls } from "@/components/shipment/ShipmentViewControls";
 import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
 import { CreateShipmentDialog } from "@/components/shipment/CreateShipmentDialog";
 import { OfertaFilaHumanaPanel } from "@/components/dashboard/OfertaFilaHumanaPanel";
+import { ShipmentKanbanCard } from "@/components/shipment/ShipmentKanbanCard";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,7 +52,6 @@ import { statusMapping, EmbarqueStatus } from "@/types/embarque";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow, isToday, isThisMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { supabase } from "@/integrations/supabase/client";
 
 // Draggable Card Wrapper
 function DraggableShipmentCard({ shipment, column, children }: any) {
@@ -75,9 +72,10 @@ function DraggableShipmentCard({ shipment, column, children }: any) {
   });
 
   const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? undefined : transition,
+    opacity: isDragging ? 0.08 : 1,
+    willChange: 'transform',
   };
 
   // Create a custom handle that excludes interactive elements
@@ -142,7 +140,6 @@ export const ShipmentBoard = () => {
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [correlacionarOpen, setCorrelacionarOpen] = useState(false);
   const [ofertarEmbarque, setOfertarEmbarque] = useState<any>(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   // Fetch data from database
@@ -155,7 +152,6 @@ export const ShipmentBoard = () => {
       ),
     [embarques],
   );
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [activeShipment, setActiveShipment] = useState<any>(null);
 
   const sensors = useSensors(
@@ -168,7 +164,6 @@ export const ShipmentBoard = () => {
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    setActiveId(active.id as string);
     setActiveShipment(active.data.current?.shipment);
   };
 
@@ -176,7 +171,6 @@ export const ShipmentBoard = () => {
     const { active, over } = event;
 
     if (!over) {
-      setActiveId(null);
       setActiveShipment(null);
       return;
     }
@@ -212,7 +206,6 @@ export const ShipmentBoard = () => {
       }
     }
 
-    setActiveId(null);
     setActiveShipment(null);
   };
 
@@ -597,195 +590,15 @@ export const ShipmentBoard = () => {
                     <DroppableColumn id={column.status} className="flex-1 overflow-y-auto p-2 space-y-3 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
                       {shipments.map((shipment, index) => (
                         <DraggableShipmentCard key={shipment.id} shipment={shipment} column={column}>
-                          <div
-                            className="group relative"
-                            style={{
-                              zIndex: shipments.length - index
-                            }}
-                          >
-                            {/* Stack "Pages" Effect behind the card */}
-                            <div className="absolute top-1 left-1 right-1 bottom-[-4px] bg-slate-200 dark:bg-slate-800 rounded-xl border border-slate-300 dark:border-slate-700 -z-10 mx-2" />
-                            <div className="absolute top-2 left-2 right-2 bottom-[-8px] bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 -z-20 mx-4" />
-
-                            <Card
-                              className="relative bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all overflow-hidden group-hover:-translate-y-1 duration-200"
-                            >
-                              <CardHeader className="p-3 pb-0">
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <h4 className="font-bold text-sm text-foreground">{shipment.driver || "Aguardando Motorista"}</h4>
-                                    {shipment.rota_status === "pendente" && (
-                                      <span className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded-full block w-fit mt-1">
-                                        Rota pendente
-                                      </span>
-                                    )}
-                                    {shipment.actual_arrival && (
-                                      <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded-full block w-fit mt-1">
-                                        Chegou {shipment.actual_arrival}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <ShipmentTimer
-                                    deadline={shipment.deadline}
-                                    className="text-muted-foreground bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded-md text-[10px]"
-                                    highlight={column.status === "waiting_confirmation"}
-                                    realtime={column.status === "waiting_confirmation"}
-                                  />
-                                </div>
-                              </CardHeader>
-                              <CardContent className="p-3 pt-2 space-y-3">
-
-                                {/* Route Info */}
-                                <div className="space-y-2 relative">
-                                  {/* Dotted Line Connector */}
-                                  <div className="absolute left-[5px] top-[8px] bottom-[28px] w-0.5 border-l-2 border-dotted border-slate-200 dark:border-slate-700" />
-
-                                  <div className="flex items-start gap-2 text-sm relative z-10">
-                                    <div className="w-2.5 h-2.5 rounded-full border-2 border-emerald-500 bg-emerald-50 mt-1 flex-shrink-0" />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="font-semibold text-xs text-foreground truncate">{shipment.origin}</p>
-                                      <p className="text-[10px] text-muted-foreground">Origem</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-start gap-2 text-sm relative z-10">
-                                    <div className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 bg-rose-50 mt-1 flex-shrink-0" />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="font-semibold text-xs text-foreground truncate">{shipment.destination}</p>
-                                      <p className="text-[10px] text-muted-foreground">Destino</p>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="h-px bg-slate-100 dark:bg-slate-800" />
-
-                                {/* Value */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                                    <DollarSign className="h-4 w-4" />
-                                    <span className="font-bold text-sm">
-                                      R$ {shipment.value.toLocaleString()}
-                                    </span>
-                                  </div>
-
-                                  {/* Tags */}
-                                  {shipment.email_content && (
-                                    <Badge variant="outline" className="text-[10px] h-5 border-blue-200 text-blue-600 bg-blue-50">
-                                      Email
-                                    </Badge>
-                                  )}
-                                </div>
-
-                                {/* Info Rows */}
-                                <div className="space-y-1.5 pt-1">
-                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Truck className="w-3 h-3" />
-                                    Placas: {shipment.placa_cavalo || shipment.truck_plate || "-"}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Truck className="w-3 h-3" />
-                                    Tipo Veículo: {shipment.tipo_veiculo || shipment.vehicle_type || "-"}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    Motorista: {shipment.driver_name || shipment.driver || "-"}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Package className="w-3 h-3" />
-                                    Quantidade: {shipment.quantidade_kg || shipment.palets || shipment.quantidade || "-"}
-                                  </p>
-                                  {shipment.delivery_window && (
-                                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                      <Clock className="w-3 h-3" />
-                                      Janela: {shipment.delivery_window}
-                                    </p>
-                                  )}
-                                  <div className="flex flex-col gap-1.5">
-                                    <EmbarqueGrCheckbox
-                                      embarqueId={shipment.id}
-                                      grFeito={shipment.gr_feito}
-                                      grFeitoEm={shipment.gr_feito_em}
-                                      grFeitoPorNome={shipment.gr_feito_por_nome}
-                                      compact
-                                    />
-                                  </div>
-                                  <div className="flex gap-1">
-                                    <Badge variant={(shipment.gr_ok ?? shipment.gr_feito) ? "default" : "secondary"} className="text-[10px]">
-                                      GR OK {(shipment.gr_ok ?? shipment.gr_feito) ? "SIM" : "NÃO"}
-                                    </Badge>
-                                    <Badge variant={shipment.placas_ok ? "default" : "secondary"} className="text-[10px]">
-                                      PLACAS OK {shipment.placas_ok ? "SIM" : "NÃO"}
-                                    </Badge>
-                                  </div>
-
-                                  {shipment.rejected_drivers_count > 0 && (column.status === "new" || column.status === "sent") && (
-                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] border border-red-100">
-                                      <X className="w-3 h-3" />
-                                      {shipment.rejected_drivers_count} recusaram
-                                    </div>
-                                  )}
-                                  {String(shipment.email_content || "").toLowerCase().includes("não foi aceita") && (
-                                    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] border border-amber-200">
-                                      <AlertTriangle className="w-3 h-3" />
-                                      Não aceita no SMART
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Actions */}
-                                {column.status === "new" && shipment.rota_status !== "pendente" && (
-                                  <Button
-                                    className="w-full h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground mb-2"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOfertarEmbarque(shipment);
-                                    }}
-                                    title="Abre a lista ranqueada de motoristas elegíveis e dispara a oferta inicial via WhatsApp"
-                                  >
-                                    <MessageCircle className="h-3 w-3 mr-1.5" />
-                                    Ver ranking e ofertar
-                                  </Button>
-                                )}
-
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full h-8 text-xs bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleViewDetails(shipment);
-                                  }}
-                                >
-                                  <Maximize2 className="h-3 w-3 mr-1.5" />
-                                  Detalhes
-                                </Button>
-
-                                {/* Status Specific Actions */}
-                                {column.status === "waiting_confirmation" && (
-                                  <Button
-                                    className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleConfirmGMX(shipment);
-                                    }}
-                                  >
-                                    Confirmar GMX
-                                  </Button>
-                                )}
-
-                                {column.status === "confirmed" && (
-                                  <Button
-                                    className="w-full h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStartRide(shipment);
-                                    }}
-                                  >
-                                    Iniciar Corrida
-                                  </Button>
-                                )}
-
-                              </CardContent>
-                            </Card>
-                          </div>
+                          <ShipmentKanbanCard
+                            shipment={shipment}
+                            columnStatus={column.status}
+                            zIndex={shipments.length - index}
+                            onOffer={setOfertarEmbarque}
+                            onViewDetails={handleViewDetails}
+                            onConfirmGMX={handleConfirmGMX}
+                            onStartRide={handleStartRide}
+                          />
                         </DraggableShipmentCard>
                       ))}
 
@@ -869,19 +682,12 @@ export const ShipmentBoard = () => {
         {createPortal(
           <DragOverlay dropAnimation={dropAnimation}>
             {activeShipment ? (
-              <div className="w-[330px] opacity-90 rotate-2 cursor-grabbing">
-                <Card className="shadow-2xl bg-white dark:bg-slate-950 border-primary/50">
-                  <CardHeader className="p-3 pb-0">
-                    <div className="flex items-start justify-between">
-                      <h4 className="font-bold text-sm text-foreground">{activeShipment.driver || "Aguardando Motorista"}</h4>
-                      <Badge variant="outline">{activeShipment.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-3">
-                    <p className="text-sm font-medium">{activeShipment.origin} ➔ {activeShipment.destination}</p>
-                    <p className="text-sm font-bold text-emerald-600 mt-2">R$ {activeShipment.value.toLocaleString()}</p>
-                  </CardContent>
-                </Card>
+              <div className="w-[350px] cursor-grabbing">
+                <ShipmentKanbanCard
+                  shipment={activeShipment}
+                  columnStatus={String(activeShipment.status || "new")}
+                  preview
+                />
               </div>
             ) : null}
           </DragOverlay>,

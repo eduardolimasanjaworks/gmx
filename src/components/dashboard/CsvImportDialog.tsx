@@ -8,6 +8,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useFollow } from "@/hooks/useFollow";
 import { parseCsvRows, csvRowsToFollowPayload } from "@/lib/csvFollowParser";
 import { criarEmbarquesDoCsv } from "@/lib/embarque-rota-service";
+import { CsvColumnMapper } from "@/components/dashboard/CsvColumnMapper";
+import {
+    inferirCsvColumnMapping,
+    mapCsvRowsToEmbarques,
+    mappingObrigatorioValido,
+    type CsvColumnMapping,
+    type EmbarqueCsvCampo,
+} from "@/lib/csvEmbarqueMapping";
 
 export type CsvImportMode = "follow" | "embarques";
 
@@ -22,6 +30,10 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
     const [isDragActive, setIsDragActive] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isParsing, setIsParsing] = useState(false);
+    const [parsedRows, setParsedRows] = useState<Record<string, unknown>[]>([]);
+    const [headers, setHeaders] = useState<string[]>([]);
+    const [mapping, setMapping] = useState<CsvColumnMapping | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { importFollow } = useFollow();
     const queryClient = useQueryClient();
@@ -52,89 +64,124 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
         }
     };
 
-    const handleFileSelection = (file: File) => {
+    const resetParsedState = () => {
+        setParsedRows([]);
+        setHeaders([]);
+        setMapping(null);
+        setIsParsing(false);
+    };
+
+    const parseFileRows = (file: File): Promise<Record<string, unknown>[]> =>
+        new Promise((resolve, reject) => {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: (header) => header.replace(/^\uFEFF/, '').trim(),
+                complete: (results) => resolve(results.data as Record<string, unknown>[]),
+                error: reject,
+            });
+        });
+
+    const handleFileSelection = async (file: File) => {
         if (file.type !== "text/csv" && !file.name.endsWith('.csv')) {
             toast.error("Formato inválido", {
                 description: "Por favor, selecione um arquivo formato CSV."
             });
             return;
         }
+        resetParsedState();
         setSelectedFile(file);
+        if (!isEmbarques) return;
+        setIsParsing(true);
+        try {
+            const rows = await parseFileRows(file);
+            if (rows.length === 0) {
+                toast.error("Arquivo vazio", {
+                    description: "O arquivo CSV não contém dados válidos."
+                });
+                setSelectedFile(null);
+                resetParsedState();
+                return;
+            }
+            const firstRow = rows[0] || {};
+            const parsedHeaders = Object.keys(firstRow);
+            setParsedRows(rows);
+            setHeaders(parsedHeaders);
+            setMapping(inferirCsvColumnMapping(parsedHeaders));
+        } catch (error: any) {
+            toast.error("Falha ao ler o arquivo", {
+                description: error?.message || "Nao foi possivel analisar o CSV."
+            });
+            setSelectedFile(null);
+            resetParsedState();
+        } finally {
+            setIsParsing(false);
+        }
     };
 
-    const processFile = () => {
+    const processFile = async () => {
         if (!selectedFile) return;
+        if (isEmbarques && (!mapping || !mappingObrigatorioValido(mapping))) {
+            toast.error("Mapeamento incompleto", {
+                description: "Origem e destino precisam estar mapeados antes da importacao."
+            });
+            return;
+        }
         setIsProcessing(true);
-
-        Papa.parse(selectedFile, {
-            header: true,
-            skipEmptyLines: true,
-            skipFirstNLines: 0,
-            transformHeader: (header) => header.replace(/^\uFEFF/, '').trim(),
-            complete: async (results) => {
-                try {
-                    const rows = results.data as Record<string, unknown>[];
-
-                    if (rows.length === 0) {
-                        toast.error("Arquivo vazio", {
-                            description: "O arquivo CSV não contém dados válidos."
-                        });
-                        setIsProcessing(false);
-                        return;
-                    }
-
-                    const parsed = parseCsvRows(rows);
-
-                    if (isEmbarques) {
-                        const stats = await criarEmbarquesDoCsv(parsed, { usuario: "portal" });
-                        await queryClient.invalidateQueries({ queryKey: ["embarques"] });
-                        toast.success("Embarques importados!", {
-                            description: `${stats.total} linhas — ${stats.correlacionados} com rota, ${stats.pendentes} pendentes de correlação.`,
-                        });
-                    } else {
-                        const lotToInsert = csvRowsToFollowPayload(parsed);
-                        await importFollow(lotToInsert);
-                        toast.success("Importação concluída!", {
-                            description: `${rows.length} registros importados com sucesso.`
-                        });
-                    }
-                    closeDialog();
-                } catch (error: unknown) {
-                    console.error("Erro na importação:", error);
-                    const err = error as { errors?: { message?: string }[]; message?: string };
-                    toast.error("Erro ao importar", {
-                        description: err?.errors?.[0]?.message || err?.message || "Não foi possível salvar. Veja o console."
-                    });
-                } finally {
-                    setIsProcessing(false);
-                }
-            },
-            error: (error) => {
-                console.error("Papa Parse Error:", error);
-                toast.error("Falha ao ler o arquivo", { description: error.message });
-                setIsProcessing(false);
+        try {
+            const rows = isEmbarques && parsedRows.length > 0 ? parsedRows : await parseFileRows(selectedFile);
+            if (rows.length === 0) {
+                toast.error("Arquivo vazio", {
+                    description: "O arquivo CSV nao contem dados validos."
+                });
+                return;
             }
-        });
+
+            if (isEmbarques) {
+                const mappedRows = mapCsvRowsToEmbarques(rows, mapping!);
+                const stats = await criarEmbarquesDoCsv(mappedRows, { usuario: "portal" });
+                await queryClient.invalidateQueries({ queryKey: ["embarques"] });
+                toast.success("Embarques importados!", {
+                    description: `${stats.total} linhas — ${stats.correlacionados} com rota, ${stats.pendentes} pendentes de correlacao.`,
+                });
+            } else {
+                const parsed = parseCsvRows(rows);
+                const lotToInsert = csvRowsToFollowPayload(parsed);
+                await importFollow(lotToInsert as any);
+                toast.success("Importacao concluida!", {
+                    description: `${rows.length} registros importados com sucesso.`
+                });
+            }
+            closeDialog();
+        } catch (error: unknown) {
+            console.error("Erro na importacao:", error);
+            const err = error as { errors?: { message?: string }[]; message?: string };
+            toast.error("Erro ao importar", {
+                description: err?.errors?.[0]?.message || err?.message || "Nao foi possivel salvar. Veja o console."
+            });
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const closeDialog = () => {
         setSelectedFile(null);
         setIsProcessing(false);
+        resetParsedState();
         onOpenChange(false);
     };
 
     return (
         <Dialog open={open} onOpenChange={closeDialog}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>
                         {isEmbarques ? "Importar Embarques (CSV)" : "Importar Follow (CSV)"}
                     </DialogTitle>
                     <DialogDescription>
-                        Colunas esperadas: <strong>Pedido, Origem, Destino, UF, Cliente, TP, Produto</strong>
-                        {isEmbarques && (
-                            <> — cada linha vira um card no kanban com correlação automática de rota.</>
-                        )}
+                        {isEmbarques
+                            ? "Selecione qualquer CSV e mapeie manualmente as colunas para os campos do embarque antes de importar."
+                            : "Colunas esperadas: Pedido, Origem, Destino, UF, Cliente, TP, Produto."}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -157,29 +204,56 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
                             <input type="file" ref={fileInputRef} className="hidden" accept=".csv, text/csv" onChange={handleFileChange} />
                         </div>
                     ) : (
-                        <div className="border rounded-lg p-4 flex items-center justify-between bg-muted/30">
-                            <div className="flex items-center space-x-3 overflow-hidden">
-                                <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
-                                    <FileSpreadsheet className="h-5 w-5" />
+                        <div className="space-y-4">
+                            <div className="border rounded-lg p-4 flex items-center justify-between bg-muted/30">
+                                <div className="flex items-center space-x-3 overflow-hidden">
+                                    <div className="p-2 bg-primary/10 text-primary rounded-md shrink-0">
+                                        <FileSpreadsheet className="h-5 w-5" />
+                                    </div>
+                                    <div className="truncate">
+                                        <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {(selectedFile.size / 1024).toFixed(1)} KB
+                                            {isEmbarques && headers.length > 0 ? ` • ${parsedRows.length} linhas` : ""}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="truncate">
-                                    <p className="text-sm font-medium truncate">{selectedFile.name}</p>
-                                    <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setSelectedFile(null)} disabled={isProcessing || isParsing} className="shrink-0 ml-2">
+                                    <X className="h-4 w-4" />
+                                </Button>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => setSelectedFile(null)} disabled={isProcessing} className="shrink-0 ml-2">
-                                <X className="h-4 w-4" />
-                            </Button>
+
+                            {isEmbarques && isParsing && (
+                                <div className="rounded-md border px-3 py-4 text-sm text-muted-foreground flex items-center">
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Lendo colunas do CSV...
+                                </div>
+                            )}
+
+                            {isEmbarques && !isParsing && headers.length > 0 && mapping && (
+                                <CsvColumnMapper
+                                    headers={headers}
+                                    previewRows={parsedRows.slice(0, 3)}
+                                    mapping={mapping}
+                                    onChange={(campo: EmbarqueCsvCampo, coluna: string) =>
+                                        setMapping((atual) => ({ ...(atual || inferirCsvColumnMapping(headers)), [campo]: coluna }))
+                                    }
+                                />
+                            )}
                         </div>
                     )}
                 </div>
 
                 <DialogFooter className="sm:justify-between">
                     <Button variant="outline" onClick={closeDialog} disabled={isProcessing}>Cancelar</Button>
-                    <Button onClick={processFile} disabled={!selectedFile || isProcessing} className="w-full sm:w-auto">
+                    <Button
+                        onClick={() => void processFile()}
+                        disabled={!selectedFile || isProcessing || isParsing || (isEmbarques && (!mapping || !mappingObrigatorioValido(mapping)))}
+                        className="w-full sm:w-auto"
+                    >
                         {isProcessing ? (
                             <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Importando...</>
-                        ) : "Importar Dados"}
+                        ) : isEmbarques ? "Importar embarques" : "Importar dados"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

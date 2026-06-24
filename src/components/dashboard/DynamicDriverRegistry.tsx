@@ -14,6 +14,7 @@ import { DynamicFieldRenderer } from "@/components/driver/DynamicFieldRenderer";
 import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
 import { enrichDriverRegistryRow, renderRegistryControlCell, REGISTRY_CONTROL_FIELDS } from "@/components/driver/driver-registry-utils";
 import { FieldConfigManager } from "./FieldConfigManager";
+import { DriverAiValidationQueuePanel } from "./DriverAiValidationQueuePanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { directus } from "@/lib/directus";
@@ -284,6 +285,12 @@ export const DynamicDriverRegistry = () => {
     return <div className="p-8 text-center">Carregando...</div>;
   }
 
+  const abrirDriver = (driver: any, editMode = false) => {
+    setSelectedDriver(driver);
+    setStartInEditMode(editMode);
+    setIsProfileOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -296,9 +303,7 @@ export const DynamicDriverRegistry = () => {
         <div className="flex items-center gap-4">
           <div className="flex gap-2">
             <Button onClick={() => {
-              setSelectedDriver(null);
-              setStartInEditMode(true);
-              setIsProfileOpen(true);
+              abrirDriver(null, true);
             }}>
               <User className="h-4 w-4 mr-2" />
               Adicionar Motorista
@@ -349,6 +354,20 @@ export const DynamicDriverRegistry = () => {
           </Button>
         </div>
       </div>
+
+      <DriverAiValidationQueuePanel
+        onOpenDriver={(driver) =>
+          abrirDriver(
+            {
+              id: driver.id,
+              nome: driver.nome,
+              telefone: driver.telefone,
+              name: driver.nome,
+            },
+            false,
+          )
+        }
+      />
 
       <Card>
         <CardHeader>
@@ -408,11 +427,7 @@ export const DynamicDriverRegistry = () => {
               <Card
                 key={driver.id}
                 className="shadow-card transition-all hover:shadow-md cursor-pointer"
-                onClick={() => {
-                  setSelectedDriver(driver);
-                  setStartInEditMode(false);
-                  setIsProfileOpen(true);
-                }}
+                onClick={() => abrirDriver(driver, false)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -468,11 +483,7 @@ export const DynamicDriverRegistry = () => {
                   <TableRow
                     key={driver.id}
                     className="hover:bg-muted/50 cursor-pointer"
-                    onClick={() => {
-                      setSelectedDriver(driver);
-                      setStartInEditMode(false);
-                      setIsProfileOpen(true);
-                    }}
+                    onClick={() => abrirDriver(driver, false)}
                   >
                     {tableColumns.map((field) => (
                       <TableCell key={field.id}>

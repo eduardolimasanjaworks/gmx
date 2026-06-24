@@ -5,20 +5,12 @@
 
 import type { OperationId } from '../constants/operations';
 
-export type GlobalDatePreset = 'hoje' | 'semana' | 'mes';
-
 export type RoutesChartMode = 'destination' | 'route_pair';
 
 export interface GlobalFilters {
   operations: OperationId[];
-  datePreset: GlobalDatePreset;
-}
-
-export interface DateHierarchySelection {
-  years: number[];
-  quarters: number[];
-  months: number[];
-  days: number[];
+  dateFrom: string;
+  dateTo: string;
 }
 
 export interface RouteFilterValues {
@@ -29,9 +21,7 @@ export interface RouteFilterValues {
 export interface DashboardFilterState {
   global: GlobalFilters;
   pieStatuses: string[];
-  dateHierarchy: DateHierarchySelection;
   routeFilter: RouteFilterValues;
-  routeDateHierarchy: DateHierarchySelection;
   routesChartMode: RoutesChartMode;
   availabilitySearch: string;
   selectedAvailabilityDay: number | null;

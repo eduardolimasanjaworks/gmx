@@ -52,6 +52,7 @@ import { statusMapping, EmbarqueStatus } from "@/types/embarque";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow, isToday, isThisMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { resolveDropStatus } from "@/lib/shipmentKanbanDnd";
 
 // Draggable Card Wrapper
 function DraggableShipmentCard({ shipment, column, children }: any) {
@@ -110,7 +111,7 @@ function DraggableShipmentCard({ shipment, column, children }: any) {
 // Helper for Droppable Column (Empty state target)
 function DroppableColumn({ id, children, className }: any) {
   const { setNodeRef } = useDroppable({
-    id: id,
+    id: `column:${id}`,
     data: {
       columnStatus: id,
       type: "Column"
@@ -176,7 +177,6 @@ export const ShipmentBoard = () => {
     }
 
     const activeId = active.id;
-    // const overId = over.id; // Unused but available
 
     const activeData = active.data.current;
 
@@ -186,7 +186,12 @@ export const ShipmentBoard = () => {
     if (!activeData || !overData) return;
 
     const activeStatus = activeData.status;
-    const overStatus = overData.status || overData.columnStatus; // Handle dropping on card or column
+    const overStatus = resolveDropStatus(over.id, overData); // Handle dropping on card or column
+
+    if (!overStatus) {
+      setActiveShipment(null);
+      return;
+    }
 
     if (activeStatus !== overStatus) {
       // Dropped in a new column!

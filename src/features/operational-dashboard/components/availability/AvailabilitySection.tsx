@@ -12,6 +12,7 @@ import { useAvailabilityDaily } from '../../hooks/useAvailabilityDaily';
 import { DashboardEmptyState } from '../shared/DashboardEmptyState';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatPeriodLabel } from '../../utils/date-ranges';
 
 interface AvailabilitySectionProps {
   filters: DashboardFilterApi;
@@ -19,28 +20,20 @@ interface AvailabilitySectionProps {
 
 export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
   const { state, globalRange, setAvailabilitySearch, setSelectedAvailabilityDay } = filters;
-  const [fromDate, setFromDate] = useState(globalRange.from.toISOString().slice(0, 10));
-  const [toDate, setToDate] = useState(globalRange.to.toISOString().slice(0, 10));
   const [searchBy, setSearchBy] = useState({
     motorista: true,
     origem: true,
     veiculo: true,
   });
 
-  const effectiveRange = useMemo(() => {
-    const from = fromDate ? new Date(`${fromDate}T00:00:00`) : globalRange.from;
-    const to = toDate ? new Date(`${toDate}T23:59:59`) : globalRange.to;
-    return { from, to };
-  }, [fromDate, toDate, globalRange.from, globalRange.to]);
-
-  const { data, isLoading } = useAvailabilityDaily(effectiveRange, '');
+  const { data, isLoading } = useAvailabilityDaily(globalRange, '');
 
   const detailsByDay = useMemo(() => {
     const q = state.availabilitySearch.trim().toLowerCase();
     const selectedFields = Object.entries(searchBy)
       .filter(([, v]) => v)
       .map(([k]) => k);
-    const map = new Map<number, typeof data extends { detailsByDay: infer T } ? T : any>();
+    const map = new Map<number, any[]>();
     if (!data?.detailsByDay) return new Map<number, any[]>();
 
     data.detailsByDay.forEach((rows, day) => {
@@ -56,7 +49,7 @@ export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
         map.set(day, filteredRows);
       }
     });
-    return map as Map<number, any[]>;
+    return map;
   }, [data?.detailsByDay, state.availabilitySearch, searchBy]);
 
   const tableRows = useMemo(
@@ -73,7 +66,11 @@ export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
     return detailsByDay.get(day) ?? [];
   }, [state.selectedAvailabilityDay, detailsByDay]);
 
-  const monthLabel = format(globalRange.from, 'MMMM', { locale: ptBR }).toUpperCase();
+  const monthLabel =
+    globalRange.from.getMonth() === globalRange.to.getMonth() &&
+    globalRange.from.getFullYear() === globalRange.to.getFullYear()
+      ? format(globalRange.from, 'MMMM', { locale: ptBR }).toUpperCase()
+      : formatPeriodLabel(globalRange).toUpperCase();
 
   return (
     <section className="space-y-4 rounded-xl border-2 border-slate-400 bg-white p-4 shadow-md">
@@ -87,31 +84,21 @@ export function AvailabilitySection({ filters }: AvailabilitySectionProps) {
         onChange={(e) => setAvailabilitySearch(e.target.value)}
         className="max-w-md border-2 border-slate-400"
       />
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="space-y-1">
-          <label className="text-xs font-bold uppercase text-slate-600">De</label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-bold uppercase text-slate-600">Até</label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-bold uppercase text-slate-600">Buscar por</label>
-          <div className="flex gap-3 rounded-md border bg-slate-50 px-3 py-2">
-            <label className="flex items-center gap-1 text-xs">
-              <Checkbox checked={searchBy.motorista} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, motorista: Boolean(v) }))} />
-              Motorista
-            </label>
-            <label className="flex items-center gap-1 text-xs">
-              <Checkbox checked={searchBy.origem} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, origem: Boolean(v) }))} />
-              Origem
-            </label>
-            <label className="flex items-center gap-1 text-xs">
-              <Checkbox checked={searchBy.veiculo} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, veiculo: Boolean(v) }))} />
-              Veículo
-            </label>
-          </div>
+      <div className="space-y-1">
+        <label className="text-xs font-bold uppercase text-slate-600">Buscar por</label>
+        <div className="flex gap-3 rounded-md border bg-slate-50 px-3 py-2">
+          <label className="flex items-center gap-1 text-xs">
+            <Checkbox checked={searchBy.motorista} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, motorista: Boolean(v) }))} />
+            Motorista
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            <Checkbox checked={searchBy.origem} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, origem: Boolean(v) }))} />
+            Origem
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            <Checkbox checked={searchBy.veiculo} onCheckedChange={(v) => setSearchBy((s) => ({ ...s, veiculo: Boolean(v) }))} />
+            Veículo
+          </label>
         </div>
       </div>
 

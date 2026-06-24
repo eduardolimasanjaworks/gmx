@@ -3,26 +3,18 @@
  * @purpose Filtros globais OPERAÇÕES e DATA (HOJE, SEMANA, MÊS).
  */
 
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { OperationId } from '../../constants/operations';
 import { OPERATION_IDS, OPERATION_LABELS } from '../../constants/operations';
-import type { GlobalDatePreset } from '../../types/filters';
 import type { DashboardFilterApi } from '../../hooks/useDashboardFilterState';
-
-const DATE_PRESETS: { id: GlobalDatePreset; label: string }[] = [
-  { id: 'hoje', label: 'Hoje' },
-  { id: 'semana', label: 'Semana' },
-  { id: 'mes', label: 'Mês' },
-];
 
 interface GlobalFiltersBarProps {
   filters: DashboardFilterApi;
 }
 
 export function GlobalFiltersBar({ filters }: GlobalFiltersBarProps) {
-  const { state, setGlobalDatePreset, toggleOperation, selectAllOperations } = filters;
+  const { state, toggleOperation, selectAllOperations } = filters;
 
   return (
     <div className="space-y-4 rounded-xl border bg-card p-4 shadow-sm">
@@ -51,20 +43,6 @@ export function GlobalFiltersBar({ filters }: GlobalFiltersBarProps) {
           );
         })}
       </div>
-
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Data</h3>
-      <ToggleGroup
-        type="single"
-        value={state.global.datePreset}
-        onValueChange={(v) => v && setGlobalDatePreset(v as GlobalDatePreset)}
-        className="flex flex-wrap gap-2"
-      >
-        {DATE_PRESETS.map((p) => (
-          <ToggleGroupItem key={p.id} value={p.id} className="px-4">
-            {p.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
     </div>
   );
 }

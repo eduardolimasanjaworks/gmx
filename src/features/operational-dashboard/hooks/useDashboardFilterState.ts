@@ -9,26 +9,32 @@ import { OPERATION_IDS } from '../constants/operations';
 import { PIE_STATUS_KEYS } from '../constants/status-labels';
 import type {
   DashboardFilterState,
-  GlobalDatePreset,
   RoutesChartMode,
 } from '../types/filters';
 import { emptyMeansAll, toggleInList } from '../utils/filter-normalize';
 import {
-  globalPresetRange,
-  intersectHierarchy,
+  rangeFromYmd,
   formatPeriodLabel,
 } from '../utils/date-ranges';
 import type { DateRange } from '../utils/date-ranges';
 
+function defaultGlobalDates(now = new Date()): { dateFrom: string; dateTo: string } {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return {
+    dateFrom: `${y}-${m}-01`,
+    dateTo: `${y}-${m}-${d}`,
+  };
+}
+
 const initialState: DashboardFilterState = {
   global: {
     operations: [...OPERATION_IDS],
-    datePreset: 'mes',
+    ...defaultGlobalDates(),
   },
   pieStatuses: [...PIE_STATUS_KEYS],
-  dateHierarchy: { years: [], quarters: [], months: [], days: [] },
   routeFilter: { origin: '', destination: '' },
-  routeDateHierarchy: { years: [], quarters: [], months: [], days: [] },
   routesChartMode: 'destination',
   availabilitySearch: '',
   selectedAvailabilityDay: null,
@@ -37,8 +43,12 @@ const initialState: DashboardFilterState = {
 export function useDashboardFilterState() {
   const [state, setState] = useState<DashboardFilterState>(initialState);
 
-  const setGlobalDatePreset = useCallback((datePreset: GlobalDatePreset) => {
-    setState((s) => ({ ...s, global: { ...s.global, datePreset } }));
+  const setGlobalDateFrom = useCallback((dateFrom: string) => {
+    setState((s) => ({ ...s, global: { ...s.global, dateFrom } }));
+  }, []);
+
+  const setGlobalDateTo = useCallback((dateTo: string) => {
+    setState((s) => ({ ...s, global: { ...s.global, dateTo } }));
   }, []);
 
   const toggleOperation = useCallback((op: OperationId) => {
@@ -59,19 +69,12 @@ export function useDashboardFilterState() {
   }, []);
 
   const globalRange = useMemo(
-    () => globalPresetRange(state.global.datePreset),
-    [state.global.datePreset],
+    () => rangeFromYmd(state.global.dateFrom, state.global.dateTo),
+    [state.global.dateFrom, state.global.dateTo],
   );
 
-  const operationalRange = useMemo(
-    () => intersectHierarchy(globalRange, state.dateHierarchy),
-    [globalRange, state.dateHierarchy],
-  );
-
-  const routesRange = useMemo(
-    () => intersectHierarchy(globalRange, state.routeDateHierarchy),
-    [globalRange, state.routeDateHierarchy],
-  );
+  const operationalRange: DateRange = globalRange;
+  const routesRange: DateRange = globalRange;
 
   const effectiveOperations = useMemo(
     () => emptyMeansAll(state.global.operations, [...OPERATION_IDS]),
@@ -117,7 +120,8 @@ export function useDashboardFilterState() {
   return {
     state,
     setState,
-    setGlobalDatePreset,
+    setGlobalDateFrom,
+    setGlobalDateTo,
     toggleOperation,
     selectAllOperations,
     globalRange,

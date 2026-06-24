@@ -192,6 +192,7 @@ export async function fetchDailyAvailability(
         'status',
         'disponivel',
         'date_created',
+        'local_liberacao_prevista',
         'local_disponibilidade',
         'motorista_id.id',
         'motorista_id.nome',
@@ -226,7 +227,7 @@ export async function fetchDailyAvailability(
     const driverName = driverDisplayName(
       typeof row.motorista_id === 'object' ? row.motorista_id : null,
     );
-    const origin = row.local_disponibilidade ?? '—';
+    const origin = row.local_liberacao_prevista ?? row.local_disponibilidade ?? '—';
     const vehicleLabel =
       (typeof row.motorista_id === 'object' &&
         (row.motorista_id?.tipo_veiculo || row.motorista_id?.placa)) ||

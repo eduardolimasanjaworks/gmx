@@ -151,6 +151,7 @@ export async function rankMotoristasParaEmbarque(
       readItems('disponivel', {
         fields: [
           'id',
+          'motorista_id',
           'motorista_id.id',
           'motorista_id.nome',
           'motorista_id.sobrenome',
@@ -163,6 +164,8 @@ export async function rankMotoristasParaEmbarque(
           'status',
           'localizacao_atual',
           'local_disponibilidade',
+          'local_destino_atual',
+          'local_liberacao_prevista',
           'latitude',
           'longitude',
           'data_previsao_disponibilidade',
@@ -177,20 +180,44 @@ export async function rankMotoristasParaEmbarque(
   ]);
 
   const dispMap = new Map<number, (typeof disponibilidades)[0]>();
+  const motoristaIdsFaltantes = new Set<number>();
   for (const disp of disponibilidades) {
     const mId =
       typeof disp.motorista_id === 'object'
         ? (disp.motorista_id as { id?: number })?.id
-        : disp.motorista_id;
+        : Number(disp.motorista_id);
     if (mId && !dispMap.has(mId)) {
       dispMap.set(mId, disp);
     }
+    if (Number.isFinite(Number(mId)) && typeof disp.motorista_id !== 'object') {
+      motoristaIdsFaltantes.add(Number(mId));
+    }
+  }
+
+  const motoristasFallback = motoristaIdsFaltantes.size
+    ? await directus.request(
+        readItems('cadastro_motorista', {
+          filter: { id: { _in: Array.from(motoristaIdsFaltantes) } },
+          fields: ['id', 'nome', 'sobrenome', 'telefone', 'cidade', 'estado', 'tipo_rota', 'status'],
+          limit: -1,
+        }),
+      )
+    : [];
+  const fallbackMap = new Map<number, (typeof motoristasFallback)[0]>();
+  for (const motorista of motoristasFallback) {
+    fallbackMap.set(Number(motorista.id), motorista);
   }
 
   const melhores: MatchingScore[] = [];
 
   for (const disp of dispMap.values()) {
-    const motorista = (disp.motorista_id ?? {}) as {
+    const motoristaIdRaw =
+      typeof disp.motorista_id === 'object'
+        ? Number((disp.motorista_id as { id?: number })?.id)
+        : Number(disp.motorista_id);
+    const motorista = ((typeof disp.motorista_id === 'object' ? disp.motorista_id : null) ??
+      fallbackMap.get(motoristaIdRaw) ??
+      {}) as {
       id?: number | string;
       nome?: string;
       sobrenome?: string;
@@ -212,11 +239,15 @@ export async function rankMotoristasParaEmbarque(
       continue;
     }
     const coordsAtual = coordenadasPorLocal(String(disp?.localizacao_atual ?? `${motorista.cidade}, ${motorista.estado}`));
+    const localLiberacaoPrevista =
+      typeof disp?.local_liberacao_prevista === 'string' && disp.local_liberacao_prevista.trim()
+        ? disp.local_liberacao_prevista
+        : disp?.local_disponibilidade;
     const motoristaData = {
       id: String(motorista.id),
       nome: `${motorista.nome} ${motorista.sobrenome || ''}`.trim(),
       localizacao_atual: disp?.localizacao_atual || `${motorista.cidade}, ${motorista.estado}`,
-      localizacao_prevista: disp?.local_disponibilidade || undefined,
+      localizacao_prevista: localLiberacaoPrevista || undefined,
       latitude: numeroOpcional(disp?.latitude) ?? coordsAtual?.lat,
       longitude: numeroOpcional(disp?.longitude) ?? coordsAtual?.lng,
       status: disp?.status || 'indisponivel',
@@ -250,10 +281,10 @@ export async function rankMotoristasParaEmbarque(
       dataColetaOk &&
       dispEmOk &&
       dataColeta.getTime() >= (dispEm as Date).getTime() &&
-      typeof disp?.local_disponibilidade === 'string' &&
-      disp.local_disponibilidade.trim()
+      typeof localLiberacaoPrevista === 'string' &&
+      localLiberacaoPrevista.trim()
     ) {
-      const coordsPrev = coordenadasPorLocal(disp.local_disponibilidade);
+      const coordsPrev = coordenadasPorLocal(localLiberacaoPrevista);
       if (coordsPrev) {
         motoristaData.latitude = coordsPrev.lat;
         motoristaData.longitude = coordsPrev.lng;

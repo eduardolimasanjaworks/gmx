@@ -199,6 +199,8 @@ export const DynamicDriverRegistry = () => {
 
       if (currentRecord) {
         if (currentRecord.local_disponibilidade) payload.local_disponibilidade = currentRecord.local_disponibilidade;
+        if (currentRecord.local_destino_atual) payload.local_destino_atual = currentRecord.local_destino_atual;
+        if (currentRecord.local_liberacao_prevista) payload.local_liberacao_prevista = currentRecord.local_liberacao_prevista;
         if (currentRecord.localizacao_atual) payload.localizacao_atual = currentRecord.localizacao_atual;
       }
 

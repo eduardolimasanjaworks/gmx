@@ -35,7 +35,7 @@ export function LogisticsSaturationMap() {
         // Fetch all available drivers
         const response = await directus.request(readItems('disponivel', {
           filter: { status: { _eq: 'disponivel' } },
-          fields: ['id', 'local_disponibilidade', 'status'],
+          fields: ['id', 'local_liberacao_prevista', 'local_disponibilidade', 'status'],
           sort: ['-date_created'],
           limit: 100
         }));
@@ -43,8 +43,8 @@ export function LogisticsSaturationMap() {
         // Map to internal structure
         return response.map((d: any) => ({
           id: d.id,
-          state: extractState(d.local_disponibilidade),
-          current_location: d.local_disponibilidade || 'Desconhecido',
+          state: extractState(d.local_liberacao_prevista || d.local_disponibilidade),
+          current_location: d.local_liberacao_prevista || d.local_disponibilidade || 'Desconhecido',
           availability_status: 'available'
         }));
       } catch (err) {

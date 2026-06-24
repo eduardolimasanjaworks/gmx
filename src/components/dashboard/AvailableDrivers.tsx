@@ -113,7 +113,8 @@ export const AvailableDrivers = () => {
 
           // Location from the Availability Record
           current_location: item.localizacao_atual || item.local_disponibilidade || "Local não informado",
-          local_disponibilidade: item.local_disponibilidade || "-",
+          local_destino_atual: item.local_destino_atual || "-",
+          local_liberacao_prevista: item.local_liberacao_prevista || item.local_disponibilidade || "-",
           latitude: item.latitude || "-",
           longitude: item.longitude || "-",
           data_previsao_disponibilidade: item.data_previsao_disponibilidade ? new Date(item.data_previsao_disponibilidade).toLocaleDateString('pt-BR') : "-",
@@ -459,4 +460,3 @@ export const AvailableDrivers = () => {
     </div>
   );
 };
-

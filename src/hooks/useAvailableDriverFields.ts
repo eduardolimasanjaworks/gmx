@@ -21,10 +21,11 @@ const DEFAULT_AVAILABLE_FIELDS: FieldConfig[] = [
     { id: 'status_logistica', field_name: 'status_logistica', display_name: 'Status', field_type: 'status', visible_in_card: true, visible_in_table: true, display_order: 7 },
     { id: 'telefone', field_name: 'telefone', display_name: 'Telefone', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 8 },
     { id: 'cpf', field_name: 'cpf', display_name: 'CPF', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 9 },
-    { id: 'local_disponibilidade', field_name: 'local_disponibilidade', display_name: 'Local Disponibilidade', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 10 },
-    { id: 'latitude', field_name: 'latitude', display_name: 'Latitude', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 11 },
-    { id: 'longitude', field_name: 'longitude', display_name: 'Longitude', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 12 },
-    { id: 'data_previsao_disponibilidade', field_name: 'data_previsao_disponibilidade', display_name: 'Previsão Disponibilidade', field_type: 'date', visible_in_card: false, visible_in_table: false, display_order: 13 },
+    { id: 'local_destino_atual', field_name: 'local_destino_atual', display_name: 'Destino atual', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 10 },
+    { id: 'local_liberacao_prevista', field_name: 'local_liberacao_prevista', display_name: 'Local liberação', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 11 },
+    { id: 'latitude', field_name: 'latitude', display_name: 'Latitude', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 12 },
+    { id: 'longitude', field_name: 'longitude', display_name: 'Longitude', field_type: 'string', visible_in_card: false, visible_in_table: false, display_order: 13 },
+    { id: 'data_previsao_disponibilidade', field_name: 'data_previsao_disponibilidade', display_name: 'Data liberação', field_type: 'date', visible_in_card: false, visible_in_table: false, display_order: 14 },
 ];
 
 export const useAvailableDriverFields = () => {

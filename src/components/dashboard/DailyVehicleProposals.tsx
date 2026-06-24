@@ -45,7 +45,7 @@ export function DailyVehicleProposals() {
             date: item.date_created,
             driver_id: driver?.id,
             vehicle_type: driver?.tipo_veiculo || 'N/A',
-            current_location: item.local_disponibilidade || driver?.localizacao_atual || 'Não Informado',
+            current_location: item.local_liberacao_prevista || item.local_disponibilidade || driver?.localizacao_atual || 'Não Informado',
             available_at: item.data_liberacao || item.date_created,
             compatible_products: [], // We could infer this from driver tags if available
             suggested_clients: [], // In the future, match with client demands

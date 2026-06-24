@@ -140,15 +140,18 @@ export const VehicleTrackingMap = () => {
   const dataFiltroReferencia = timeTravelDate ? new Date(timeTravelDate) : null;
   if (dataFiltroReferencia) dataFiltroReferencia.setHours(23, 59, 59, 999);
 
+  const localLiberacaoPrevista = (driver: any): string =>
+    String(driver?.local_liberacao_prevista || driver?.local_disponibilidade || '').trim();
+
   const usarPosicaoPrevista = (driver: any): boolean => {
-    if (!driver?.data_previsao_disponibilidade || !driver?.local_disponibilidade || !dataFiltroReferencia) return false;
+    if (!driver?.data_previsao_disponibilidade || !localLiberacaoPrevista(driver) || !dataFiltroReferencia) return false;
     const previsao = new Date(driver.data_previsao_disponibilidade);
     return !Number.isNaN(previsao.getTime()) && previsao <= dataFiltroReferencia;
   };
 
   const coordenadasMotorista = (driver: any): [number, number] | null => {
     if (usarPosicaoPrevista(driver)) {
-      const prev = coordenadasPorLocal(driver.local_disponibilidade);
+      const prev = coordenadasPorLocal(localLiberacaoPrevista(driver));
       if (prev) return prev;
     }
     const lat = Number(driver?.latitude);
@@ -156,7 +159,7 @@ export const VehicleTrackingMap = () => {
     if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
     const atual = coordenadasPorLocal(driver?.localizacao_atual);
     if (atual) return atual;
-    return coordenadasPorLocal(driver?.local_disponibilidade);
+    return coordenadasPorLocal(localLiberacaoPrevista(driver));
   };
 
   const corStatus = (driver: any): string => {
@@ -279,7 +282,7 @@ export const VehicleTrackingMap = () => {
     }
 
     if (showSomentePrevistos) {
-      filtered = filtered.filter((d: any) => Boolean(d.local_disponibilidade) && Boolean(d.data_previsao_disponibilidade));
+      filtered = filtered.filter((d: any) => Boolean(localLiberacaoPrevista(d)) && Boolean(d.data_previsao_disponibilidade));
     }
 
     if (originPoint) {
@@ -310,7 +313,7 @@ export const VehicleTrackingMap = () => {
     size: 'medium',
     popup: {
       title: `${d.motorista_id?.nome || 'Motorista'} ${d.motorista_id?.sobrenome || ''}`,
-      content: `${d.localizacao_atual || 'Localização não informada'}\nStatus: ${String(d.status || 'disponivel')}${usarPosicaoPrevista(d) && d.local_disponibilidade ? `\nPosição prevista: ${d.local_disponibilidade}` : ''}`,
+      content: `${d.localizacao_atual || 'Localização não informada'}\nStatus: ${String(d.status || 'disponivel')}${usarPosicaoPrevista(d) && localLiberacaoPrevista(d) ? `\nPosição prevista: ${localLiberacaoPrevista(d)}` : ''}`,
       image: d.motorista_id?.foto ? `https://gmx.sanjaworks.com/api/assets/${d.motorista_id.foto}` : undefined
     },
     driverData: d
@@ -431,12 +434,12 @@ export const VehicleTrackingMap = () => {
     }
 
     // 3. Draw Future Path to the next defined destination of the Driver (if he is moving somewhere else)
-    const destinoPrevisto = coordenadasPorLocal(selectedDriver.local_disponibilidade);
+    const destinoPrevisto = coordenadasPorLocal(localLiberacaoPrevista(selectedDriver));
     if (destinoPrevisto && currentLat && currentLng) {
       lines.push({
         positions: [[currentLat, currentLng], destinoPrevisto],
         style: { color: '#f59e0b', weight: 3, dashArray: '5, 5' },
-        popup: `Previsão declarada: ${selectedDriver.local_disponibilidade || 'Destino relatado'}`
+        popup: `Local de liberação previsto: ${localLiberacaoPrevista(selectedDriver) || 'Destino relatado'}`
       });
     }
 
@@ -452,7 +455,7 @@ export const VehicleTrackingMap = () => {
       const currentLat = Number(currentCoords?.[0]);
       const currentLng = Number(currentCoords?.[1]);
 
-      const destinoPrevisto = coordenadasPorLocal(selectedDriver.local_disponibilidade);
+      const destinoPrevisto = coordenadasPorLocal(localLiberacaoPrevista(selectedDriver));
       if (destinoPrevisto) {
         defaultMarkers.push({
           id: 'driver-dest',
@@ -460,8 +463,8 @@ export const VehicleTrackingMap = () => {
           color: 'orange',
           size: 'medium',
           popup: {
-            title: 'Localização Prevista',
-            content: `${selectedDriver.local_disponibilidade || 'Destino relatado'}${selectedDriver.data_previsao_disponibilidade ? `\nPrevisto para: ${new Date(selectedDriver.data_previsao_disponibilidade).toLocaleString()}` : ''}`,
+            title: 'Localização Prevista de Liberação',
+            content: `${localLiberacaoPrevista(selectedDriver) || 'Destino relatado'}${selectedDriver.data_previsao_disponibilidade ? `\nPrevisto para: ${new Date(selectedDriver.data_previsao_disponibilidade).toLocaleString()}` : ''}`,
             image: undefined
           }
         });
@@ -1179,16 +1182,16 @@ export const VehicleTrackingMap = () => {
                           <p className="line-clamp-2 leading-relaxed">
                             {driver.localizacao_atual || 'Local desconhecido'}
                           </p>
-                          {isFuture && driver.local_disponibilidade && (
+                          {isFuture && localLiberacaoPrevista(driver) && (
                             <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-1 flex items-center gap-1">
-                              ↳ Estará em: {driver.local_disponibilidade}
+                              ↳ Ficará livre em: {localLiberacaoPrevista(driver)}
                             </p>
                           )}
-                          {driver.local_disponibilidade && (
+                          {(driver.local_destino_atual || localLiberacaoPrevista(driver)) && (
                             <p className="text-[10px] text-slate-500 mt-1">
                               {isFuture
-                                ? `Esse motorista informou que estaria nesse local na data prevista.`
-                                : `Último local previsto informado: ${driver.local_disponibilidade}`}
+                                ? `Esse motorista informou a futura liberação para ${localLiberacaoPrevista(driver)}.`
+                                : `Destino atual: ${driver.local_destino_atual || 'não informado'} · liberação: ${localLiberacaoPrevista(driver) || 'não informada'}`}
                             </p>
                           )}
                         </div>

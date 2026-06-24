@@ -839,7 +839,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
     const src = data.disponivel || {};
     setEditFormData({
       status: src.status || 'disponivel',
-      localizacao_atual: src.localizacao_atual || src.local_disponibilidade || '',
+      localizacao_atual: src.localizacao_atual || '',
+      local_destino_atual: src.local_destino_atual || src.localizacao_atual || '',
+      local_liberacao_prevista: src.local_liberacao_prevista || src.local_disponibilidade || src.localizacao_atual || '',
       latitude: src.latitude ?? '',
       longitude: src.longitude ?? '',
       data_previsao_disponibilidade: src.data_previsao_disponibilidade ? new Date(src.data_previsao_disponibilidade).toISOString().split('T')[0] : '',
@@ -867,10 +869,12 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
       const payload: any = {
         motorista_id: localDriverData.id,
         telefone: localDriverData.telefone, // Campo obrigatório no schema
-        status: editFormData.status || 'published',
+        status: editFormData.status || 'disponivel',
         disponivel: editFormData.status === 'disponivel', // Adding the boolean field logic
         localizacao_atual: editFormData.localizacao_atual,
-        local_disponibilidade: editFormData.localizacao_atual,
+        local_destino_atual: editFormData.local_destino_atual || editFormData.localizacao_atual,
+        local_liberacao_prevista: editFormData.local_liberacao_prevista || editFormData.localizacao_atual,
+        local_disponibilidade: editFormData.local_liberacao_prevista || editFormData.localizacao_atual,
         latitude: parseNumberOrUndefined(editFormData.latitude),
         longitude: parseNumberOrUndefined(editFormData.longitude),
         data_previsao_disponibilidade: editFormData.data_previsao_disponibilidade || null,
@@ -2186,8 +2190,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                             <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                             <SelectContent position="popper" className="z-[9999]">
                               <SelectItem value="disponivel">Disponível</SelectItem>
+                              <SelectItem value="retornando">Retornando</SelectItem>
+                              <SelectItem value="carregado">Carregado</SelectItem>
                               <SelectItem value="indisponivel">Indisponível</SelectItem>
-                              <SelectItem value="em_viagem">Em Viagem</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -2214,6 +2219,22 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                         </div>
                         <InputField label="Latitude" value={editFormData.latitude} onChange={(v: any) => setEditFormData({ ...editFormData, latitude: v })} />
                         <InputField label="Longitude" value={editFormData.longitude} onChange={(v: any) => setEditFormData({ ...editFormData, longitude: v })} />
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Destino da viagem atual</span>
+                          <Input
+                            value={editFormData.local_destino_atual || ''}
+                            placeholder="Ex: Campinas, SP"
+                            onChange={(e) => setEditFormData({ ...editFormData, local_destino_atual: e.target.value })}
+                          />
+                        </div>
+                        <div className="flex flex-col space-y-1.5">
+                          <span className="text-sm text-muted-foreground">Local onde ficará livre</span>
+                          <Input
+                            value={editFormData.local_liberacao_prevista || ''}
+                            placeholder="Ex: Campinas, SP"
+                            onChange={(e) => setEditFormData({ ...editFormData, local_liberacao_prevista: e.target.value })}
+                          />
+                        </div>
                         <div className="flex flex-col space-y-1.5 pt-1">
                           <span className="text-sm text-muted-foreground">Data Prevista de Liberação</span>
                           <Input 
@@ -2228,7 +2249,9 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
                     ) : (
                       <>
                         <FieldRow label="Status" value={data.disponivel?.status?.toUpperCase()} />
-                        <FieldRow label="Localização" value={data.disponivel?.localizacao_atual || data.disponivel?.local_disponibilidade} />
+                        <FieldRow label="Localização atual" value={data.disponivel?.localizacao_atual || ''} />
+                        <FieldRow label="Destino da viagem atual" value={data.disponivel?.local_destino_atual || ''} />
+                        <FieldRow label="Local onde ficará livre" value={data.disponivel?.local_liberacao_prevista || data.disponivel?.local_disponibilidade || ''} />
                         <FieldRow label="Lat/Long" value={`${data.disponivel?.latitude || ''}, ${data.disponivel?.longitude || ''}`} />
                         <FieldRow label="Previsão Liberação" value={data.disponivel?.data_previsao_disponibilidade ? new Date(data.disponivel.data_previsao_disponibilidade).toLocaleDateString('pt-BR') : ''} />
                         <div className="col-span-2"><FieldRow label="Obs" value={data.disponivel?.observacao} /></div>

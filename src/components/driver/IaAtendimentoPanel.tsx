@@ -137,6 +137,7 @@ export function IaAtendimentoPanel({ telefone, motoristaId, onUpdate }: IaAtendi
 
   const iaPausada = estado?.ia_pausada ?? false;
   const precisa = estado?.precisa_atendimento ?? false;
+  const modoGlobalDefaultOff = estado?.ia_modo_global === 'default_off';
 
   return (
     <Card className={precisa ? 'border-orange-400 shadow-sm' : undefined}>
@@ -182,11 +183,18 @@ export function IaAtendimentoPanel({ telefone, motoristaId, onUpdate }: IaAtendi
           <p className="text-xs text-muted-foreground">Motivo pausa: {estado.ia_pausa_motivo}</p>
         )}
 
+        {modoGlobalDefaultOff && (
+          <p className="text-xs text-muted-foreground">
+            Modo global: IA desligada por padrão para todos os contatos. Este motorista
+            {estado?.ia_liberada_contato ? ' foi liberado individualmente.' : ' ainda não foi liberado individualmente.'}
+          </p>
+        )}
+
         <div className="flex flex-wrap gap-2 pt-1">
           {iaPausada ? (
             <Button size="sm" variant="outline" onClick={() => void handleDespausar()} disabled={!!acao}>
               {acao === 'despausar' ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Reativar IA
+              {modoGlobalDefaultOff ? 'Liberar IA neste contato' : 'Reativar IA'}
             </Button>
           ) : (
             <Button size="sm" variant="outline" onClick={() => void handlePausar()} disabled={!!acao}>

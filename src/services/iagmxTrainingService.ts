@@ -54,12 +54,14 @@ export interface PropostaAprendizadoWhatsapp {
 }
 
 export interface WhatsappIaStatus {
+  titulo?: string;
+  descricao?: string;
   instance: string;
   state: string;
   conectado: boolean;
   motivoDesconexao?: string;
   podeEnviar: boolean;
-  alvo: 'ia_local' | 'chatwoot_futuro';
+  alvo: 'auxiliar_teste' | 'oficial_gmx';
   origem: string;
   servidor: string;
   numeroConectado?: string | null;
@@ -70,6 +72,8 @@ export interface WhatsappIaStatus {
   preparadoServidorExterno?: boolean;
   cooldownMs?: number;
   cooldownAte?: string;
+  permiteReconectar?: boolean;
+  permiteQr?: boolean;
 }
 
 export interface WhatsappIaQrCode {
@@ -82,6 +86,13 @@ export interface WhatsappIaQrCode {
   escopo?: string;
   cooldownMs?: number;
   cooldownAte?: string;
+  alvo?: 'auxiliar_teste' | 'oficial_gmx';
+}
+
+export interface WhatsappIaTargetsResponse {
+  itens: WhatsappIaStatus[];
+  escopo: string;
+  pausaGlobalInicial: boolean;
 }
 
 export async function listarTelefonesTreinadores() {
@@ -175,6 +186,30 @@ export async function obterWhatsappIaQrCode() {
 
 export async function reconectarWhatsappIa() {
   const res = await fetch(`${IAGMX_URL}/api/whatsapp/reconectar`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({}),
+  });
+  return parseJson<WhatsappIaQrCode>(res);
+}
+
+export async function listarWhatsappIaAlvos() {
+  const res = await fetch(`${IAGMX_URL}/api/whatsapp/alvos`, { headers: headers() });
+  return parseJson<WhatsappIaTargetsResponse>(res);
+}
+
+export async function obterWhatsappAlvoStatus(alvo: 'auxiliar_teste' | 'oficial_gmx') {
+  const res = await fetch(`${IAGMX_URL}/api/whatsapp/alvos/${alvo}/status`, { headers: headers() });
+  return parseJson<WhatsappIaStatus>(res);
+}
+
+export async function obterWhatsappAlvoQrCode(alvo: 'auxiliar_teste' | 'oficial_gmx') {
+  const res = await fetch(`${IAGMX_URL}/api/whatsapp/alvos/${alvo}/qrcode`, { headers: headers() });
+  return parseJson<WhatsappIaQrCode>(res);
+}
+
+export async function reconectarWhatsappAlvo(alvo: 'auxiliar_teste' | 'oficial_gmx') {
+  const res = await fetch(`${IAGMX_URL}/api/whatsapp/alvos/${alvo}/reconectar`, {
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({}),

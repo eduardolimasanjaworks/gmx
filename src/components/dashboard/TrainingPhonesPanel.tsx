@@ -5,16 +5,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { WhatsappTargetsPanel } from './WhatsappTargetsPanel';
 import {
   aprovarPendenciaAprendizadoWhatsapp,
   cancelarPendenciaAprendizadoWhatsapp,
@@ -25,16 +18,11 @@ import {
   listarAprendizadosWhatsapp,
   listarPendenciasAprendizadoWhatsapp,
   listarTelefonesTreinadores,
-  obterWhatsappIaQrCode,
-  obterWhatsappIaStatus,
-  reconectarWhatsappIa,
   type AprendizadoWhatsapp,
   type PropostaAprendizadoWhatsapp,
   type TelefoneTreinador,
-  type WhatsappIaQrCode,
-  type WhatsappIaStatus,
 } from '@/services/iagmxTrainingService';
-import { AlertTriangle, ChevronDown, Loader2, Plus, RefreshCw, Save, ShieldCheck, ShieldX, Smartphone, Trash2, Unplug } from 'lucide-react';
+import { ChevronDown, Loader2, Plus, Save, ShieldCheck, ShieldX, Trash2 } from 'lucide-react';
 
 const EMPTY_FORM = {
   telefone: '',
@@ -60,49 +48,6 @@ function telefoneValido(valor: string) {
   return digits.length >= 12 && digits.length <= 13;
 }
 
-function formatarNumeroConectado(valor?: string | null) {
-  if (!valor) return 'Aguardando conexao';
-  return formatarTelefone(valor);
-}
-
-function traduzirStatusWhatsapp(status?: WhatsappIaStatus | null) {
-  if (!status) return 'Carregando status';
-  if (status.conectado) return 'Conectado';
-  if (status.state === 'connecting') return 'Conectando';
-  if (status.state === 'not_found') return 'Instancia ainda nao criada';
-  if (status.state === 'close' || status.state === 'closed') return 'Desconectado';
-  return status.state || 'Status desconhecido';
-}
-
-function extrairAguardeSegundos(mensagem?: string) {
-  const match = mensagem?.match(/Aguarde\s+(\d+)s/i);
-  return match ? Number(match[1]) : 0;
-}
-
-const COOLDOWN_PADRAO_WHATSAPP = {
-  atualizar: 3000,
-  qr: 8000,
-  reconectar: 15000,
-} as const;
-
-function tituloAcaoWhatsapp(acao: 'atualizar' | 'qr' | 'reconectar') {
-  if (acao === 'atualizar') return 'Verificar agora se conectou';
-  if (acao === 'qr') return 'Abrir QR da conexao atual';
-  return 'Desconectar e gerar novo QR';
-}
-
-function tituloAcaoWhatsappEmEspera(acao: 'atualizar' | 'qr' | 'reconectar', segundos: number) {
-  if (acao === 'atualizar') return `Ja ja eu confiro de novo (${segundos}s)`;
-  if (acao === 'qr') return `Seguro mais um instante (${segundos}s)`;
-  return `Calma, vou reiniciar em ${segundos}s`;
-}
-
-function mensagemCooldownWhatsapp(acao: 'atualizar' | 'qr' | 'reconectar', segundos: number) {
-  if (acao === 'atualizar') return `Estou esperando ${segundos}s para consultar de novo sem sobrecarregar a conexao.`;
-  if (acao === 'qr') return `Estou segurando ${segundos}s antes de pedir outro QR para nao fazer spam na instancia.`;
-  return `Estou segurando ${segundos}s antes de reiniciar a conexao para evitar instabilidade desnecessaria.`;
-}
-
 export function TrainingPhonesPanel() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -112,56 +57,6 @@ export function TrainingPhonesPanel() {
   const [aprendizados, setAprendizados] = useState<AprendizadoWhatsapp[]>([]);
   const [pendencias, setPendencias] = useState<PropostaAprendizadoWhatsapp[]>([]);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
-  const [statusWhatsapp, setStatusWhatsapp] = useState<WhatsappIaStatus | null>(null);
-  const [loadingWhatsapp, setLoadingWhatsapp] = useState(true);
-  const [acaoWhatsapp, setAcaoWhatsapp] = useState<'atualizar' | 'qr' | 'reconectar' | null>(null);
-  const [erroWhatsapp, setErroWhatsapp] = useState<string | null>(null);
-  const [qrDialogOpen, setQrDialogOpen] = useState(false);
-  const [qrData, setQrData] = useState<WhatsappIaQrCode | null>(null);
-  const [ultimaConsultaWhatsapp, setUltimaConsultaWhatsapp] = useState<string | null>(null);
-  const [cooldownWhatsapp, setCooldownWhatsapp] = useState<Record<'atualizar' | 'qr' | 'reconectar', number>>({
-    atualizar: 0,
-    qr: 0,
-    reconectar: 0,
-  });
-  const [agoraCooldownWhatsapp, setAgoraCooldownWhatsapp] = useState(Date.now());
-
-  const aplicarCooldownWhatsapp = (
-    acao: 'atualizar' | 'qr' | 'reconectar',
-    cooldownAte?: string,
-    fallbackMs?: number,
-  ) => {
-    const alvo = cooldownAte ? new Date(cooldownAte).getTime() : Date.now() + (fallbackMs ?? 0);
-    setCooldownWhatsapp((atual) => ({
-      ...atual,
-      [acao]: Number.isFinite(alvo) ? Math.max(atual[acao], alvo) : atual[acao],
-    }));
-  };
-
-  const segundosRestantesWhatsapp = (acao: 'atualizar' | 'qr' | 'reconectar') =>
-    Math.max(0, Math.ceil((cooldownWhatsapp[acao] - agoraCooldownWhatsapp) / 1000));
-
-  const labelBotaoWhatsapp = (acao: 'atualizar' | 'qr' | 'reconectar') => {
-    const restante = segundosRestantesWhatsapp(acao);
-    return restante > 0 ? tituloAcaoWhatsappEmEspera(acao, restante) : tituloAcaoWhatsapp(acao);
-  };
-
-  const acaoCooldownAtivaWhatsapp = (['reconectar', 'qr', 'atualizar'] as const).find(
-    (acao) => segundosRestantesWhatsapp(acao) > 0,
-  );
-
-  const progressoCooldownWhatsapp = acaoCooldownAtivaWhatsapp
-    ? Math.max(
-        6,
-        Math.min(
-          100,
-          ((COOLDOWN_PADRAO_WHATSAPP[acaoCooldownAtivaWhatsapp] -
-            Math.max(0, cooldownWhatsapp[acaoCooldownAtivaWhatsapp] - agoraCooldownWhatsapp)) /
-            COOLDOWN_PADRAO_WHATSAPP[acaoCooldownAtivaWhatsapp]) *
-            100,
-        ),
-      )
-    : 0;
 
   const carregar = async () => {
     setLoading(true);
@@ -187,132 +82,9 @@ export function TrainingPhonesPanel() {
     }
   };
 
-  const carregarWhatsapp = async () => {
-    setLoadingWhatsapp(true);
-    setErroWhatsapp(null);
-    try {
-      const status = await obterWhatsappIaStatus();
-      setStatusWhatsapp(status);
-      setUltimaConsultaWhatsapp(new Date().toISOString());
-      return status;
-    } catch (error: any) {
-      const mensagem = error?.message || 'Nao foi possivel consultar a conexao da i.a';
-      setErroWhatsapp(mensagem);
-      throw error;
-    } finally {
-      setLoadingWhatsapp(false);
-      setAcaoWhatsapp(null);
-    }
-  };
-
   useEffect(() => {
     void carregar();
-    void carregarWhatsapp().catch(() => undefined);
   }, []);
-
-  useEffect(() => {
-    if (Object.values(cooldownWhatsapp).every((valor) => valor <= Date.now())) return;
-    const timer = window.setInterval(() => {
-      setAgoraCooldownWhatsapp(Date.now());
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [cooldownWhatsapp]);
-
-  useEffect(() => {
-    if (!qrDialogOpen || statusWhatsapp?.conectado || acaoWhatsapp !== null) return;
-    const timer = window.setInterval(() => {
-      void carregarWhatsapp().catch(() => undefined);
-    }, 4000);
-    return () => window.clearInterval(timer);
-  }, [qrDialogOpen, statusWhatsapp?.conectado, acaoWhatsapp]);
-
-  // Auto-refresh WhatsApp status every 30 seconds
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (acaoWhatsapp === null && !loadingWhatsapp) {
-        void carregarWhatsapp().catch(() => undefined);
-      }
-    }, 30000);
-    return () => window.clearInterval(timer);
-  }, [acaoWhatsapp, loadingWhatsapp]);
-
-  const atualizarWhatsapp = async () => {
-    setAcaoWhatsapp('atualizar');
-    try {
-      const status = await carregarWhatsapp();
-      aplicarCooldownWhatsapp('atualizar', status.cooldownAte, status.cooldownMs ?? 3000);
-      toast({
-        title: status.conectado ? 'Conexao confirmada' : 'Status conferido',
-        description: status.conectado
-          ? `Numero ${formatarNumeroConectado(status.numeroConectado)} pronto para responder`
-          : status.motivoDesconexao || 'A conexao ainda nao esta aberta neste momento',
-      });
-    } catch (error: any) {
-      const segundos = extrairAguardeSegundos(error?.message);
-      if (segundos > 0) aplicarCooldownWhatsapp('atualizar', undefined, segundos * 1000);
-      toast({
-        title: 'Falha ao atualizar conexao da i.a',
-        description: error?.message || 'Falha desconhecida',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const abrirQrCode = async () => {
-    setQrDialogOpen(true);
-    setQrData(null);
-    setAcaoWhatsapp('qr');
-    try {
-      const qr = await obterWhatsappIaQrCode();
-      setQrData(qr);
-      aplicarCooldownWhatsapp('qr', qr.cooldownAte, qr.cooldownMs ?? 8000);
-      if (qr.conectado) {
-        await carregarWhatsapp().catch(() => undefined);
-      }
-    } catch (error: any) {
-      const segundos = extrairAguardeSegundos(error?.message);
-      if (segundos > 0) aplicarCooldownWhatsapp('qr', undefined, segundos * 1000);
-      toast({
-        title: 'Falha ao gerar QR code',
-        description: error?.message || 'Falha desconhecida',
-        variant: 'destructive',
-      });
-      setQrDialogOpen(false);
-    } finally {
-      setAcaoWhatsapp(null);
-    }
-  };
-
-  const reconectarWhatsapp = async () => {
-    if (statusWhatsapp?.conectado) {
-      const confirmed = window.confirm(
-        'Aviso: O número já está conectado. Desconectar e gerar novo QR irá encerrar a sessão atual. Tem certeza?'
-      );
-      if (!confirmed) return;
-    }
-
-    setAcaoWhatsapp('reconectar');
-    setQrDialogOpen(true);
-    setQrData(null);
-    try {
-      const qr = await reconectarWhatsappIa();
-      setQrData(qr);
-      aplicarCooldownWhatsapp('reconectar', qr.cooldownAte, qr.cooldownMs ?? 15000);
-      await carregarWhatsapp().catch(() => undefined);
-      toast({ title: 'Nova conexao da i.a iniciada' });
-    } catch (error: any) {
-      const segundos = extrairAguardeSegundos(error?.message);
-      if (segundos > 0) aplicarCooldownWhatsapp('reconectar', undefined, segundos * 1000);
-      toast({
-        title: 'Falha ao reconectar a i.a',
-        description: error?.message || 'Falha desconhecida',
-        variant: 'destructive',
-      });
-      setQrDialogOpen(false);
-    } finally {
-      setAcaoWhatsapp(null);
-    }
-  };
 
   const salvarNovo = async () => {
     if (!telefoneValido(form.telefone)) {
@@ -441,136 +213,7 @@ export function TrainingPhonesPanel() {
           <CollapsibleContent className="space-y-6">
             <CardContent className="space-y-6 px-0 pb-0">
               <div className="rounded-lg border p-4 space-y-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="space-y-1">
-                    <h3 className="font-medium">Conexao da i.a no WhatsApp</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Use este QR code para conectar somente o numero controlado pela i.a neste servidor, sem misturar com a conexao externa do outro fluxo.
-                    </p>
-                  </div>
-                  <Badge variant={statusWhatsapp?.conectado ? 'default' : 'secondary'}>
-                    {traduzirStatusWhatsapp(statusWhatsapp)}
-                  </Badge>
-                </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-md border bg-muted/20 p-3">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Numero conectado</div>
-                    <div className="mt-2 text-sm font-medium break-all">
-                      {formatarNumeroConectado(statusWhatsapp?.numeroConectado)}
-                    </div>
-                  </div>
-                  <div className="rounded-md border bg-muted/20 p-3">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Instancia atual da i.a</div>
-                    <div className="mt-2 text-sm font-medium break-all">{statusWhatsapp?.instance || 'Aguardando leitura'}</div>
-                  </div>
-                  <div className="rounded-md border bg-muted/20 p-3">
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Ultima atualizacao</div>
-                    <div className="mt-2 text-sm font-medium">
-                      {statusWhatsapp?.atualizadoEm
-                        ? new Date(statusWhatsapp.atualizadoEm).toLocaleString('pt-BR')
-                        : 'Sem registro ainda'}
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <Smartphone className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div className="space-y-1">
-                      <div>
-                        {statusWhatsapp?.nomePerfil
-                          ? `Perfil conectado: ${statusWhatsapp.nomePerfil}`
-                          : 'O nome do perfil ainda nao foi informado por esta conexao.'}
-                      </div>
-                      <div>
-                        {ultimaConsultaWhatsapp
-                          ? `Ultima verificacao feita no painel: ${new Date(ultimaConsultaWhatsapp).toLocaleString('pt-BR')}`
-                          : 'O painel ainda nao concluiu uma verificacao desta conexao nesta sessao.'}
-                      </div>
-                      <div>
-                        {statusWhatsapp?.motivoDesconexao ||
-                          statusWhatsapp?.aviso ||
-                          'A interface controla apenas a conexao local da i.a. A integracao externa futura permanece separada.'}
-                      </div>
-                      {erroWhatsapp ? (
-                        <div className="flex items-center gap-2 text-destructive">
-                          <AlertTriangle className="h-4 w-4" />
-                          {erroWhatsapp}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void atualizarWhatsapp()}
-                    disabled={acaoWhatsapp !== null || loadingWhatsapp || segundosRestantesWhatsapp('atualizar') > 0}
-                    className="gap-2"
-                  >
-                    {acaoWhatsapp === 'atualizar' || loadingWhatsapp ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    {labelBotaoWhatsapp('atualizar')}
-                  </Button>
-                  {!statusWhatsapp?.conectado && (
-                    <Button
-                      type="button"
-                      onClick={() => void abrirQrCode()}
-                      disabled={acaoWhatsapp !== null || segundosRestantesWhatsapp('qr') > 0}
-                      className="gap-2"
-                    >
-                      {acaoWhatsapp === 'qr' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-                      {labelBotaoWhatsapp('qr')}
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant={statusWhatsapp?.conectado ? 'destructive' : 'default'}
-                    onClick={() => void reconectarWhatsapp()}
-                    disabled={acaoWhatsapp !== null || segundosRestantesWhatsapp('reconectar') > 0}
-                    className="gap-2"
-                  >
-                    {acaoWhatsapp === 'reconectar' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Unplug className="h-4 w-4" />
-                    )}
-                    {statusWhatsapp?.conectado
-                      ? 'Desconectar e reiniciar'
-                      : labelBotaoWhatsapp('reconectar')}
-                  </Button>
-                </div>
-                <div className="rounded-md border border-dashed bg-muted/10 p-3 text-xs text-muted-foreground space-y-2">
-                  <div>`Verificar agora se conectou` so confere a conexao e te responde aqui no painel.</div>
-                  <div>`Abrir QR da conexao atual` so busca o QR se a sessao ainda estiver desconectada.</div>
-                  <div>`Desconectar e gerar novo QR` encerra a sessao atual e abre um novo pareamento com seguranca.</div>
-                  {acaoCooldownAtivaWhatsapp ? (
-                    <div className="space-y-2 rounded-md border bg-background/70 p-3 text-sm">
-                      <div className="font-medium text-foreground">
-                        Calma, estou cuidando disso por aqui.
-                      </div>
-                      <div>
-                        {mensagemCooldownWhatsapp(
-                          acaoCooldownAtivaWhatsapp,
-                          segundosRestantesWhatsapp(acaoCooldownAtivaWhatsapp),
-                        )}
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${progressoCooldownWhatsapp}%` }}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-1 text-foreground">
-                      Pode usar os botoes normalmente. Se eu precisar segurar alguns segundos para proteger a conexao, eu te aviso aqui.
-                    </div>
-                  )}
-                </div>
+                <WhatsappTargetsPanel />
               </div>
 
               <div className="rounded-lg border p-4 space-y-4">
@@ -769,75 +412,6 @@ export function TrainingPhonesPanel() {
         </Collapsible>
       </CardHeader>
 
-      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>QR code da conexao da i.a</DialogTitle>
-            <DialogDescription>
-              Escaneie este QR somente no numero que deve ficar sob controle da i.a neste servidor.
-            </DialogDescription>
-          </DialogHeader>
-          {acaoWhatsapp === 'qr' || acaoWhatsapp === 'reconectar' ? (
-            <div className="flex min-h-[320px] items-center justify-center">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Gerando QR code...
-              </div>
-            </div>
-          ) : statusWhatsapp?.conectado ? (
-            <div className="space-y-3">
-              <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-                Numero conectado com sucesso. O painel confirmou que a sessao esta aberta nesta instancia.
-              </div>
-              <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                <div>Numero conectado: <span className="font-medium text-foreground">{formatarNumeroConectado(statusWhatsapp.numeroConectado)}</span></div>
-                <div>Perfil desta sessao: <span className="font-medium text-foreground">{statusWhatsapp.nomePerfil || 'Nao informado'}</span></div>
-                <div>Ultima verificacao do painel: <span className="font-medium text-foreground">{ultimaConsultaWhatsapp ? new Date(ultimaConsultaWhatsapp).toLocaleString('pt-BR') : 'agora'}</span></div>
-              </div>
-            </div>
-          ) : qrData?.conectado ? (
-            <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-              {qrData.mensagem || 'O numero da i.a ja esta conectado neste servidor.'}
-            </div>
-          ) : qrData?.base64 ? (
-            <div className="space-y-4">
-              <div className="flex justify-center rounded-lg border bg-white p-4">
-                <img
-                  src={qrData.base64.startsWith('data:') ? qrData.base64 : `data:image/png;base64,${qrData.base64}`}
-                  alt="QR code da conexao da i.a"
-                  className="max-h-[360px] w-full max-w-[360px] object-contain"
-                />
-              </div>
-              {qrData.pairingCode ? (
-                <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-                  Codigo de pareamento: <span className="font-medium text-foreground">{qrData.pairingCode}</span>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
-              QR code indisponivel no momento. Use reconectar para iniciar uma nova sessao.
-            </div>
-          )}
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void atualizarWhatsapp()}
-              disabled={acaoWhatsapp !== null || segundosRestantesWhatsapp('atualizar') > 0}
-            >
-              {labelBotaoWhatsapp('atualizar')}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void reconectarWhatsapp()}
-              disabled={acaoWhatsapp !== null || segundosRestantesWhatsapp('reconectar') > 0}
-            >
-              {labelBotaoWhatsapp('reconectar')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

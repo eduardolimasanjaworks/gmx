@@ -12,6 +12,9 @@ export interface EstadoAtendimentoIa {
   motorista_id: number | null;
   ia_pausada: boolean;
   ia_pausa_motivo?: string | null;
+  ia_modo_global?: 'default_on' | 'default_off';
+  ia_liberada_contato?: boolean;
+  ia_ativa_efetiva?: boolean;
   precisa_atendimento: boolean;
   precisa_atendimento_motivo?: string | null;
   ultima_intencao_whatsapp?: string | null;

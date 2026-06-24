@@ -30,8 +30,8 @@ export function buscarRotaNaLista(
     const ro = normalizarTextoRota(r.origem);
     const rd = normalizarTextoRota(r.destino);
     const rop = r.operacao ? normalizarTextoRota(r.operacao) : '';
-    const origemOk = ro.includes(o) || o.includes(ro);
-    const destinoOk = rd.includes(d) || d.includes(rd);
+    const origemOk = ro === o;
+    const destinoOk = rd === d;
     const opOk = !op || !rop || rop === op;
     return origemOk && destinoOk && opOk;
   });

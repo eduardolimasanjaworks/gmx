@@ -86,6 +86,11 @@ async function obterCoordenadasRota(
   destino_latitude?: number;
   destino_longitude?: number;
   evidencia?: string | null;
+  preferencia_proximidade?: 'agora' | 'coleta' | null;
+  gps_max_horas?: number | string | null;
+  passo_negociacao_modo?: 'proporcional' | 'fixo' | null;
+  passo_negociacao_valor?: number | string | null;
+  escalar_humano_no_teto?: boolean | null;
 } | null> {
   const origem_latitude = numeroOpcional(embarque.origem_latitude);
   const origem_longitude = numeroOpcional(embarque.origem_longitude);
@@ -114,6 +119,11 @@ async function obterCoordenadasRota(
         'destino_latitude',
         'destino_longitude',
         'evidencia',
+        'preferencia_proximidade',
+        'gps_max_horas',
+        'passo_negociacao_modo',
+        'passo_negociacao_valor',
+        'escalar_humano_no_teto',
       ],
       limit: 1,
     }),
@@ -125,6 +135,11 @@ async function obterCoordenadasRota(
     destino_latitude?: number | string | null;
     destino_longitude?: number | string | null;
     evidencia?: string | null;
+    preferencia_proximidade?: 'agora' | 'coleta' | null;
+    gps_max_horas?: number | string | null;
+    passo_negociacao_modo?: 'proporcional' | 'fixo' | null;
+    passo_negociacao_valor?: number | string | null;
+    escalar_humano_no_teto?: boolean | null;
   } | undefined;
 
   if (!rota) return null;
@@ -135,6 +150,11 @@ async function obterCoordenadasRota(
     destino_latitude: numeroOpcional(rota.destino_latitude),
     destino_longitude: numeroOpcional(rota.destino_longitude),
     evidencia: rota.evidencia ?? null,
+    preferencia_proximidade: rota.preferencia_proximidade ?? null,
+    gps_max_horas: rota.gps_max_horas ?? null,
+    passo_negociacao_modo: rota.passo_negociacao_modo ?? null,
+    passo_negociacao_valor: rota.passo_negociacao_valor ?? null,
+    escalar_humano_no_teto: rota.escalar_humano_no_teto ?? null,
   };
 }
 
@@ -168,6 +188,8 @@ export async function rankMotoristasParaEmbarque(
           'local_liberacao_prevista',
           'latitude',
           'longitude',
+          'local_liberacao_prevista_latitude',
+          'local_liberacao_prevista_longitude',
           'data_previsao_disponibilidade',
           'date_updated',
           'date_created',
@@ -284,15 +306,33 @@ export async function rankMotoristasParaEmbarque(
       typeof localLiberacaoPrevista === 'string' &&
       localLiberacaoPrevista.trim()
     ) {
-      const coordsPrev = coordenadasPorLocal(localLiberacaoPrevista);
-      if (coordsPrev) {
+      const coordsPrev = {
+        lat:
+          numeroOpcional((disp as Record<string, unknown>)?.local_liberacao_prevista_latitude) ??
+          coordenadasPorLocal(localLiberacaoPrevista)?.lat,
+        lng:
+          numeroOpcional((disp as Record<string, unknown>)?.local_liberacao_prevista_longitude) ??
+          coordenadasPorLocal(localLiberacaoPrevista)?.lng,
+      };
+      if (Number.isFinite(coordsPrev.lat) && Number.isFinite(coordsPrev.lng)) {
         motoristaData.latitude = coordsPrev.lat;
         motoristaData.longitude = coordsPrev.lng;
         motoristaData.data_ultima_atualizacao = dispEmRaw ?? motoristaData.data_ultima_atualizacao;
       }
     }
 
-    const regras = parseRotaRegras(rotaCoords?.evidencia);
+    const regras = parseRotaRegras(
+      rotaCoords
+        ? {
+            evidencia: rotaCoords.evidencia ?? null,
+            preferencia_proximidade: rotaCoords.preferencia_proximidade ?? null,
+            gps_max_horas: numeroOpcional(rotaCoords.gps_max_horas),
+            passo_negociacao_modo: rotaCoords.passo_negociacao_modo ?? null,
+            passo_negociacao_valor: numeroOpcional(rotaCoords.passo_negociacao_valor),
+            escalar_humano_no_teto: rotaCoords.escalar_humano_no_teto ?? null,
+          }
+        : undefined,
+    );
     const embarqueData = {
       id: String(embarque.id),
       origin: embarque.origin || '',

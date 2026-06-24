@@ -142,6 +142,11 @@ async function main() {
   await ensureField(token, 'config_rotas', 'km_rodado_terceiro', 'decimal');
   await ensureField(token, 'config_rotas', 'frete_terceiro_padrao', 'decimal');
   await ensureField(token, 'config_rotas', 'frete_terceiro_maximo', 'decimal');
+  await ensureField(token, 'config_rotas', 'preferencia_proximidade', 'string');
+  await ensureField(token, 'config_rotas', 'gps_max_horas', 'integer');
+  await ensureField(token, 'config_rotas', 'passo_negociacao_modo', 'string');
+  await ensureField(token, 'config_rotas', 'passo_negociacao_valor', 'decimal');
+  await ensureField(token, 'config_rotas', 'escalar_humano_no_teto', 'boolean');
   await ensurePermissions(token, 'config_rotas');
 
   console.log('telefones_notificacao...');
@@ -151,6 +156,26 @@ async function main() {
   await ensureField(token, 'telefones_notificacao', 'ativo', 'boolean');
   await ensureField(token, 'telefones_notificacao', 'observacao', 'text');
   await ensurePermissions(token, 'telefones_notificacao');
+
+  console.log('ofertas_intervencao_humana...');
+  await ensureCollection(token, 'ofertas_intervencao_humana', 'support_agent', 'Embarque #{{embarque_id}}');
+  await ensureField(token, 'ofertas_intervencao_humana', 'embarque_id', 'integer');
+  await ensureField(token, 'ofertas_intervencao_humana', 'motorista_id', 'integer');
+  await ensureField(token, 'ofertas_intervencao_humana', 'telefone', 'string');
+  await ensureField(token, 'ofertas_intervencao_humana', 'status', 'string');
+  await ensureField(token, 'ofertas_intervencao_humana', 'motivo', 'text');
+  await ensureField(token, 'ofertas_intervencao_humana', 'valor_ofertado', 'decimal');
+  await ensureField(token, 'ofertas_intervencao_humana', 'valor_pedido_motorista', 'decimal');
+  await ensureField(token, 'ofertas_intervencao_humana', 'valor_minimo', 'decimal');
+  await ensureField(token, 'ofertas_intervencao_humana', 'valor_maximo', 'decimal');
+  await ensureField(token, 'ofertas_intervencao_humana', 'origem', 'string');
+  await ensureField(token, 'ofertas_intervencao_humana', 'destino', 'string');
+  await ensureField(token, 'ofertas_intervencao_humana', 'assumido_por', 'string');
+  await ensureField(token, 'ofertas_intervencao_humana', 'assumido_em', 'timestamp');
+  await ensureField(token, 'ofertas_intervencao_humana', 'resolvido_em', 'timestamp');
+  await ensureField(token, 'ofertas_intervencao_humana', 'resolucao', 'string');
+  await ensureField(token, 'ofertas_intervencao_humana', 'observacao', 'text');
+  await ensurePermissions(token, 'ofertas_intervencao_humana');
 
   console.log('OK — config IA Directus');
 }

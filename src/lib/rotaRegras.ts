@@ -1,7 +1,7 @@
 /**
- * Regras operacionais embutidas na rota sem depender de schema novo.
- * Persistimos no campo textual existente com prefixo estável e parse seguro.
- * Isso permite evoluir matching e negociação com rollout progressivo.
+ * Leitura e normalizacao das regras operacionais da rota.
+ * Prioriza colunas reais do Directus e aceita legado em `evidencia`.
+ * A migracao fica compatível sem perder auditabilidade.
  */
 export type PreferenciaProximidade = 'agora' | 'coleta';
 export type PassoNegociacaoModo = 'proporcional' | 'fixo';
@@ -11,11 +11,16 @@ export interface RotaRegrasOperacionais {
   gps_max_horas?: number;
   passo_negociacao_modo?: PassoNegociacaoModo;
   passo_negociacao_valor?: number;
+  escalar_humano_no_teto?: boolean;
 }
 
 const PREFIXO = 'GMX_RULES::';
 
-export function parseRotaRegras(raw?: string | null): RotaRegrasOperacionais {
+export type RotaRegrasSource = RotaRegrasOperacionais & {
+  evidencia?: string | null;
+};
+
+export function parseRotaRegrasLegado(raw?: string | null): RotaRegrasOperacionais {
   const texto = String(raw ?? '').trim();
   if (!texto.startsWith(PREFIXO)) return {};
   try {
@@ -33,10 +38,44 @@ export function parseRotaRegras(raw?: string | null): RotaRegrasOperacionais {
         Number.isFinite(Number(parsed.passo_negociacao_valor)) && Number(parsed.passo_negociacao_valor) > 0
           ? Number(parsed.passo_negociacao_valor)
           : undefined,
+      escalar_humano_no_teto:
+        parsed.escalar_humano_no_teto === false ? false : parsed.escalar_humano_no_teto === true ? true : undefined,
     };
   } catch {
     return {};
   }
+}
+
+export function parseRotaRegras(source?: RotaRegrasSource | null): RotaRegrasOperacionais {
+  const legado = parseRotaRegrasLegado(source?.evidencia);
+  return {
+    preferencia_proximidade:
+      source?.preferencia_proximidade === 'agora'
+        ? 'agora'
+        : source?.preferencia_proximidade === 'coleta'
+          ? 'coleta'
+          : legado.preferencia_proximidade,
+    gps_max_horas:
+      Number.isFinite(Number(source?.gps_max_horas)) && Number(source?.gps_max_horas) > 0
+        ? Number(source?.gps_max_horas)
+        : legado.gps_max_horas,
+    passo_negociacao_modo:
+      source?.passo_negociacao_modo === 'fixo'
+        ? 'fixo'
+        : source?.passo_negociacao_modo === 'proporcional'
+          ? 'proporcional'
+          : legado.passo_negociacao_modo,
+    passo_negociacao_valor:
+      Number.isFinite(Number(source?.passo_negociacao_valor)) && Number(source?.passo_negociacao_valor) > 0
+        ? Number(source?.passo_negociacao_valor)
+        : legado.passo_negociacao_valor,
+    escalar_humano_no_teto:
+      source?.escalar_humano_no_teto === false
+        ? false
+        : source?.escalar_humano_no_teto === true
+          ? true
+          : legado.escalar_humano_no_teto,
+  };
 }
 
 export function stringifyRotaRegras(regras: RotaRegrasOperacionais): string {
@@ -45,6 +84,6 @@ export function stringifyRotaRegras(regras: RotaRegrasOperacionais): string {
   if (Number.isFinite(Number(regras.gps_max_horas)) && Number(regras.gps_max_horas) > 0) payload.gps_max_horas = Number(regras.gps_max_horas);
   if (regras.passo_negociacao_modo) payload.passo_negociacao_modo = regras.passo_negociacao_modo;
   if (Number.isFinite(Number(regras.passo_negociacao_valor)) && Number(regras.passo_negociacao_valor) > 0) payload.passo_negociacao_valor = Number(regras.passo_negociacao_valor);
+  if (typeof regras.escalar_humano_no_teto === 'boolean') payload.escalar_humano_no_teto = regras.escalar_humano_no_teto;
   return `${PREFIXO}${JSON.stringify(payload)}`;
 }
-

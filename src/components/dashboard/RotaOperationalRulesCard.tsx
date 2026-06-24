@@ -1,14 +1,15 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import type { RotaRegrasOperacionais } from '@/lib/rotaRegras';
-import { parseRotaRegras, stringifyRotaRegras } from '@/lib/rotaRegras';
+import type { RotaRegrasOperacionais, RotaRegrasSource } from '@/lib/rotaRegras';
+import { parseRotaRegras } from '@/lib/rotaRegras';
 
 export type RotaRegrasDraft = {
   preferencia_proximidade: 'coleta' | 'agora';
   gps_max_horas: string;
   passo_negociacao_modo: 'proporcional' | 'fixo';
   passo_negociacao_valor: string;
+  escalar_humano_no_teto: boolean;
 };
 
 export const EMPTY_REGRAS_DRAFT: RotaRegrasDraft = {
@@ -16,37 +17,40 @@ export const EMPTY_REGRAS_DRAFT: RotaRegrasDraft = {
   gps_max_horas: '24',
   passo_negociacao_modo: 'proporcional',
   passo_negociacao_valor: '100',
+  escalar_humano_no_teto: true,
 };
 
-export function regrasDraftFromEvidence(raw?: string | null): RotaRegrasDraft {
-  const regras = parseRotaRegras(raw);
+export function regrasDraftFromSource(source?: RotaRegrasSource | null): RotaRegrasDraft {
+  const regras = parseRotaRegras(source);
   return {
     preferencia_proximidade: regras.preferencia_proximidade === 'agora' ? 'agora' : 'coleta',
     gps_max_horas: String(regras.gps_max_horas ?? 24),
     passo_negociacao_modo: regras.passo_negociacao_modo === 'fixo' ? 'fixo' : 'proporcional',
     passo_negociacao_valor: String(regras.passo_negociacao_valor ?? 100),
+    escalar_humano_no_teto: regras.escalar_humano_no_teto !== false,
   };
 }
 
-export function rulesDraftToEvidence(draft: RotaRegrasDraft): string {
-  const payload: RotaRegrasOperacionais = {
+export function rulesDraftToFields(draft: RotaRegrasDraft): RotaRegrasOperacionais {
+  return {
     preferencia_proximidade: draft.preferencia_proximidade,
     gps_max_horas: Number(draft.gps_max_horas),
     passo_negociacao_modo: draft.passo_negociacao_modo,
     passo_negociacao_valor: Number(draft.passo_negociacao_valor),
+    escalar_humano_no_teto: draft.escalar_humano_no_teto,
   };
-  return stringifyRotaRegras(payload);
 }
 
-export function resumoRegrasRota(raw?: string | null): string {
-  const regras = parseRotaRegras(raw);
+export function resumoRegrasRota(source?: RotaRegrasSource | null): string {
+  const regras = parseRotaRegras(source);
   const proximidade = regras.preferencia_proximidade === 'agora' ? 'proximidade agora' : 'proximidade na coleta';
   const gps = `${regras.gps_max_horas ?? 24}h de GPS`;
   const passo =
     regras.passo_negociacao_modo === 'fixo'
       ? `passo fixo R$ ${Number(regras.passo_negociacao_valor ?? 100).toLocaleString('pt-BR')}`
       : 'passo proporcional';
-  return `${proximidade} · ${gps} · ${passo}`;
+  const humano = regras.escalar_humano_no_teto === false ? 'sem escalar no teto' : 'escala humano no teto';
+  return `${proximidade} · ${gps} · ${passo} · ${humano}`;
 }
 
 export function RotaOperationalRulesCard(props: {
@@ -67,7 +71,7 @@ export function RotaOperationalRulesCard(props: {
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <div className="space-y-1">
           <Label className="text-xs">Prioridade de proximidade</Label>
           <div className="flex gap-2">
@@ -146,8 +150,32 @@ export function RotaOperationalRulesCard(props: {
             Ao bater o teto, a regra continua escalando para humano. O sistema não recusa sozinho.
           </p>
         </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs">Escalonamento no teto</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={draft.escalar_humano_no_teto ? 'default' : 'outline'}
+              onClick={() => set({ escalar_humano_no_teto: true })}
+            >
+              Escalar humano
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={!draft.escalar_humano_no_teto ? 'default' : 'outline'}
+              onClick={() => set({ escalar_humano_no_teto: false })}
+            >
+              Fechar na IA
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Define se o teto obrigatoriamente vira caso humano ou se a IA pode encerrar no valor maximo.
+          </p>
+        </div>
       </div>
     </div>
   );
 }
-

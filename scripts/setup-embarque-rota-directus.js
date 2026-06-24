@@ -104,6 +104,10 @@ async function main() {
         { text: 'Correlacionada', value: 'correlacionada' },
         { text: 'Pendente', value: 'pendente' },
         { text: 'Manual', value: 'manual' },
+        { text: 'Ofertado', value: 'ofertado' },
+        { text: 'Aceito', value: 'aceito' },
+        { text: 'Recusado', value: 'recusado' },
+        { text: 'Aguardando humano', value: 'aguardando_humano' },
       ],
     },
     note: 'Estado da correlação com config_rotas',
@@ -128,6 +132,27 @@ async function main() {
   });
   await ensureField(token, 'embarques', 'oferta_motorista_id', 'integer', {
     note: 'cadastro_motorista.id do motorista que recebeu o disparo',
+  });
+  await ensureField(token, 'embarques', 'accepted_motorista_id', 'integer', {
+    note: 'cadastro_motorista.id do motorista que aceitou a oferta',
+  });
+  await ensureField(token, 'embarques', 'ultimo_evento_oferta_em', 'timestamp', {
+    note: 'Última mudança relevante no fluxo de oferta',
+  });
+  await ensureField(token, 'embarques', 'needs_manual_review', 'boolean', {
+    note: 'Sinaliza que a oferta aguarda ação humana',
+  });
+  await ensureField(token, 'embarques', 'manual_review_completed', 'boolean', {
+    note: 'Sinaliza que a revisão humana já foi concluída',
+  });
+  await ensureField(token, 'embarques', 'manual_review_owner', 'string', {
+    note: 'Responsável humano pela revisão da oferta',
+  });
+  await ensureField(token, 'embarques', 'manual_review_at', 'timestamp', {
+    note: 'Quando a revisão humana foi aberta ou concluída',
+  });
+  await ensureField(token, 'embarques', 'manual_review_note', 'text', {
+    note: 'Observação operacional da revisão humana',
   });
 
   console.log('embarque_rota_log — auditoria...');

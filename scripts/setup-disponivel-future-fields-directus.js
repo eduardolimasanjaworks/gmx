@@ -64,6 +64,31 @@ async function main() {
     display_name: 'Local liberação prevista',
     note: 'Cidade/UF onde o motorista ficará livre para nova carga',
   });
+  await ensureField(token, 'disponivel', 'local_liberacao_prevista_latitude', 'decimal', {
+    interface: 'input',
+    display_name: 'Latitude liberação prevista',
+    note: 'Latitude resolvida para a localização futura',
+  });
+  await ensureField(token, 'disponivel', 'local_liberacao_prevista_longitude', 'decimal', {
+    interface: 'input',
+    display_name: 'Longitude liberação prevista',
+    note: 'Longitude resolvida para a localização futura',
+  });
+  await ensureField(token, 'disponivel', 'local_liberacao_prevista_fonte', 'string', {
+    interface: 'input',
+    display_name: 'Fonte liberação prevista',
+    note: 'Origem da coordenada futura: mapa_estatico, nominatim ou manual',
+  });
+  await ensureField(token, 'disponivel', 'local_liberacao_prevista_geocoded_at', 'timestamp', {
+    interface: 'datetime',
+    display_name: 'Liberação prevista geocoded at',
+    note: 'Quando a coordenada futura foi resolvida',
+  });
+  await ensureField(token, 'disponivel', 'gps_timestamp', 'timestamp', {
+    interface: 'datetime',
+    display_name: 'GPS timestamp',
+    note: 'Quando o GPS atual foi informado pelo motorista ou sistema',
+  });
 
   console.log('OK - campos futuros da disponibilidade garantidos');
 }
@@ -72,4 +97,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

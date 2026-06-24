@@ -35,6 +35,7 @@ import { ShipmentTableView } from "@/components/shipment/ShipmentTableView";
 import { ShipmentViewControls } from "@/components/shipment/ShipmentViewControls";
 import { DriverProfileDialog } from "@/components/driver/DriverProfileDialog";
 import { CreateShipmentDialog } from "@/components/shipment/CreateShipmentDialog";
+import { OfertaFilaHumanaPanel } from "@/components/dashboard/OfertaFilaHumanaPanel";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useNavigate } from "react-router-dom";
 import {
@@ -545,6 +546,8 @@ export const ShipmentBoard = () => {
             </div>
           </div>
         </div>
+
+        <OfertaFilaHumanaPanel />
 
         <ShipmentViewControls
           viewMode={viewMode}

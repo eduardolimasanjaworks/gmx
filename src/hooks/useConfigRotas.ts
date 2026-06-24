@@ -38,9 +38,24 @@ export interface ConfigRota {
   km_rodado_terceiro?: number | null;
   frete_terceiro_padrao?: number | null;
   frete_terceiro_maximo?: number | null;
+  preferencia_proximidade?: 'agora' | 'coleta' | null;
+  gps_max_horas?: number | null;
+  passo_negociacao_modo?: 'proporcional' | 'fixo' | null;
+  passo_negociacao_valor?: number | null;
+  escalar_humano_no_teto?: boolean | null;
 }
 
 export type ConfigRotaInput = Omit<ConfigRota, 'id'>;
+
+function aplicarDefaultsRegras(input: Partial<ConfigRotaInput>): Partial<ConfigRotaInput> {
+  return {
+    preferencia_proximidade: input.preferencia_proximidade ?? 'coleta',
+    gps_max_horas: input.gps_max_horas ?? 24,
+    passo_negociacao_modo: input.passo_negociacao_modo ?? 'proporcional',
+    passo_negociacao_valor: input.passo_negociacao_valor ?? 100,
+    escalar_humano_no_teto: input.escalar_humano_no_teto ?? true,
+  };
+}
 
 export function useConfigRotas() {
   const queryClient = useQueryClient();
@@ -59,6 +74,7 @@ export function useConfigRotas() {
     await directus.request(
       createItem('config_rotas', {
         ...input,
+        ...aplicarDefaultsRegras(input),
         operacao: input.operacao?.toUpperCase(),
         ativo: input.ativo ?? true,
       }),
@@ -71,6 +87,7 @@ export function useConfigRotas() {
     await directus.request(
       updateItem('config_rotas', id, {
         ...input,
+        ...aplicarDefaultsRegras(input),
         operacao: input.operacao?.toUpperCase(),
       }),
     );

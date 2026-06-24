@@ -10,9 +10,9 @@ import {
   EMPTY_REGRAS_DRAFT,
   RotaOperationalRulesCard,
   type RotaRegrasDraft,
-  regrasDraftFromEvidence,
+  regrasDraftFromSource,
   resumoRegrasRota,
-  rulesDraftToEvidence,
+  rulesDraftToFields,
 } from '@/components/dashboard/RotaOperationalRulesCard';
 import { useConfigRotas, type ConfigRota, type ConfigRotaInput } from '@/hooks/useConfigRotas';
 import { useTiposOperacao } from '@/hooks/useTiposOperacao';
@@ -356,7 +356,7 @@ export function RotasCrudPanel() {
     try {
       await createRota({
         ...montarPayload(novo),
-        evidencia: rulesDraftToEvidence(novoRegras),
+        ...rulesDraftToFields(novoRegras),
       });
       setNovo(EMPTY_DRAFT);
       setNovoRegras(EMPTY_REGRAS_DRAFT);
@@ -368,7 +368,7 @@ export function RotasCrudPanel() {
   const iniciarEdicao = (rota: ConfigRota) => {
     setEditandoId(rota.id);
     setEdicao(toDraft(rota));
-    setEdicaoRegras(regrasDraftFromEvidence(rota.evidencia));
+    setEdicaoRegras(regrasDraftFromSource(rota));
   };
 
   const salvarEdicao = async (id: number) => {
@@ -377,7 +377,7 @@ export function RotasCrudPanel() {
     try {
       await updateRota(id, {
         ...montarPayload(edicao),
-        evidencia: rulesDraftToEvidence(edicaoRegras),
+        ...rulesDraftToFields(edicaoRegras),
       });
       setEditandoId(null);
       setEdicao(EMPTY_DRAFT);
@@ -684,7 +684,7 @@ export function RotasCrudPanel() {
                           ))}
                           <td className="py-3 pr-3">
                             <div className="max-w-[250px] text-xs text-muted-foreground leading-relaxed">
-                              {resumoRegrasRota(rota.evidencia)}
+                              {resumoRegrasRota(rota)}
                             </div>
                           </td>
                           <td className="py-3 pr-3">

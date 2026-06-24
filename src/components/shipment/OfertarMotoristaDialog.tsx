@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,11 @@ import {
   type HistoricoOfertaNominalResumo,
 } from '@/services/iagmxOfertaHistoricoService';
 import type { MatchingScore } from '@/lib/matchingAlgorithm';
+import { useConfigRotas } from '@/hooks/useConfigRotas';
+import {
+  listarRotasCompativeis,
+  resolverOfertaManual,
+} from '@/lib/oferta-rota-manual';
 
 export interface EmbarqueOferta {
   id: string;
@@ -53,6 +58,9 @@ export function OfertarMotoristaDialog({
 }: OfertarMotoristaDialogProps) {
   const [enviando, setEnviando] = useState(false);
   const [indice, setIndice] = useState(0);
+  const [rotaManualId, setRotaManualId] = useState<number | null>(null);
+  const [valorManual, setValorManual] = useState<string>('');
+  const { rotas } = useConfigRotas();
 
   const { data: ranking = [], isLoading } = useQuery({
     queryKey: ['rank-motoristas', embarque?.id],
@@ -68,26 +76,63 @@ export function OfertarMotoristaDialog({
 
   const principal: MatchingScore | undefined = ranking[indice];
   const proximo: MatchingScore | undefined = ranking[indice + 1];
-
-  const valorOferta = Number(
-    embarque?.valor_minimo ??
-      embarque?.valor_ofertado ??
-      embarque?.valor_maximo ??
-      0,
+  const rotasCompativeis = useMemo(
+    () => listarRotasCompativeis(rotas, embarque),
+    [rotas, embarque],
+  );
+  const ofertaManual = resolverOfertaManual(
+    embarque,
+    rotasCompativeis,
+    rotaManualId,
+    valorManual === '' ? null : Number(valorManual),
   );
 
+  useEffect(() => {
+    if (!embarque) {
+      setRotaManualId(null);
+      setValorManual('');
+      return;
+    }
+    setRotaManualId(embarque.config_rota_id ?? rotasCompativeis[0]?.id ?? null);
+    setValorManual(
+      String(
+        Number(
+          embarque.valor_minimo ??
+            embarque.valor_ofertado ??
+            rotasCompativeis[0]?.valor_minimo ??
+            embarque.valor_maximo ??
+            0,
+        ),
+      ),
+    );
+  }, [embarque?.id, embarque?.config_rota_id, rotasCompativeis, rotasCompativeis[0]?.id]);
+
   const preview =
-    embarque &&
+    ofertaManual &&
     montarPreviewMensagemOferta({
-      origem: embarque.origin,
-      destino: embarque.destination,
-      valorOfertado: Number(valorOferta),
-      operacao: embarque.operacao,
+      origem: ofertaManual.origem,
+      destino: ofertaManual.destino,
+      valorOfertado: Number(ofertaManual.valorOfertado),
+      operacao: ofertaManual.operacao,
       produto: embarque.produto_predominante,
     });
 
   const autorizar = async () => {
-    if (!embarque || !principal) return;
+    if (!embarque || !principal || !ofertaManual) return;
+    if (
+      ofertaManual.valorMinimo != null &&
+      ofertaManual.valorOfertado < Number(ofertaManual.valorMinimo)
+    ) {
+      toast.error('O valor ofertado nao pode ficar abaixo do minimo da rota');
+      return;
+    }
+    if (
+      ofertaManual.valorMaximo != null &&
+      ofertaManual.valorOfertado > Number(ofertaManual.valorMaximo)
+    ) {
+      toast.error('O valor ofertado nao pode passar do maximo da rota');
+      return;
+    }
     setEnviando(true);
     try {
       const telefone = await obterTelefoneMotorista(principal.motorista_id);
@@ -98,15 +143,15 @@ export function OfertarMotoristaDialog({
 
       const resultado = await dispararOfertaIagmx({
         embarqueId: embarque.id,
-        configRotaId: embarque.config_rota_id,
+        configRotaId: ofertaManual.configRotaId,
         motoristaId: principal.motorista_id,
         telefone,
-        origem: embarque.origin,
-        destino: embarque.destination,
-        valorOfertado: Number(valorOferta),
-        valorMinimo: embarque.valor_minimo,
-        valorMaximo: embarque.valor_maximo,
-        operacao: embarque.operacao,
+        origem: ofertaManual.origem,
+        destino: ofertaManual.destino,
+        valorOfertado: Number(ofertaManual.valorOfertado),
+        valorMinimo: ofertaManual.valorMinimo,
+        valorMaximo: ofertaManual.valorMaximo,
+        operacao: ofertaManual.operacao,
         produto: embarque.produto_predominante,
       });
 
@@ -360,19 +405,57 @@ export function OfertarMotoristaDialog({
             </div>
 
             <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Rota e valor do convite
+              </p>
+              <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+                <label className="block text-xs text-muted-foreground">
+                  Rota existente
+                  <select
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={rotaManualId ?? ''}
+                    onChange={(event) => setRotaManualId(event.target.value ? Number(event.target.value) : null)}
+                  >
+                    {rotasCompativeis.map((rota) => (
+                      <option key={rota.id} value={rota.id}>
+                        #{rota.id} · {rota.origem} → {rota.destino} · min {Number(rota.valor_minimo).toLocaleString('pt-BR')} · max {Number(rota.valor_maximo).toLocaleString('pt-BR')}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-xs text-muted-foreground">
+                  Valor ofertado no WhatsApp
+                  <input
+                    type="number"
+                    className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={valorManual}
+                    onChange={(event) => setValorManual(event.target.value)}
+                  />
+                </label>
+                {ofertaManual && (
+                  <p className="text-xs text-muted-foreground">
+                    Disparo fixado em `config_rota_id` {ofertaManual.configRotaId ?? '—'} · {ofertaManual.origem} → {ofertaManual.destino}
+                    {ofertaManual.valorMinimo != null ? ` · min ${Number(ofertaManual.valorMinimo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}` : ''}
+                    {ofertaManual.valorMaximo != null ? ` · max ${Number(ofertaManual.valorMaximo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}` : ''}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
               <p className="text-xs font-medium text-muted-foreground mb-2">Prévia da mensagem</p>
               <pre className="text-xs whitespace-pre-wrap bg-muted p-3 rounded-md border max-h-40 overflow-y-auto">
                 {preview}
               </pre>
             </div>
 
-            {(embarque?.valor_minimo != null || embarque?.valor_maximo != null) && (
+            {(ofertaManual?.valorMinimo != null || ofertaManual?.valorMaximo != null) && (
               <p className="text-xs text-muted-foreground">
                 Faixa negociação IA:{' '}
-                {embarque.valor_minimo != null &&
-                  `mín ${Number(embarque.valor_minimo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`}
-                {embarque.valor_maximo != null &&
-                  ` · máx ${Number(embarque.valor_maximo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`}
+                {ofertaManual?.valorMinimo != null &&
+                  `mín ${Number(ofertaManual.valorMinimo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`}
+                {ofertaManual?.valorMaximo != null &&
+                  ` · máx ${Number(ofertaManual.valorMaximo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`}
               </p>
             )}
           </div>

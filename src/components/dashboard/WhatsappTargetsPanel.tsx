@@ -209,7 +209,7 @@ export function WhatsappTargetsPanel() {
                 {status.permiteQr !== false ? (
                   <Button type="button" onClick={() => void abrirQr(target)} disabled={acao[target] !== null || segundosRestantes(target, 'qr') > 0} className="gap-2">
                     {acao[target] === 'qr' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-                  {segundosRestantes(target, 'qr') > 0 ? `Seguro mais um instante (${segundosRestantes(target, 'qr')}s)` : 'Abrir QR da conexao atual'}
+                  {segundosRestantes(target, 'qr') > 0 ? `Seguro mais um instante (${segundosRestantes(target, 'qr')}s)` : 'Desconectar e gerar QR agora'}
                   </Button>
                 ) : null}
                 <Button type="button" variant="destructive" onClick={() => void reconectarTarget(target)} disabled={!status.permiteReconectar || acao[target] !== null || segundosRestantes(target, 'reconectar') > 0} className="gap-2">
@@ -252,7 +252,7 @@ export function WhatsappTargetsPanel() {
       </div>
       <div className="rounded-md border border-dashed bg-muted/10 p-3 text-xs text-muted-foreground space-y-2">
         <div><code>Verificar agora se conectou</code> so confere o estado atual do alvo.</div>
-        <div><code>Abrir QR da conexao atual</code> tenta abrir o QR sem derrubar a sessao e, se o upstream travar, devolve aviso operacional em vez de fingir conexao.</div>
+        <div><code>Desconectar e gerar QR agora</code> derruba a sessao atual e tenta forcar um novo QR de forma deterministica.</div>
         <div><code>Desconectar e gerar novo QR</code> so fica liberado para o numero oficial GMX.</div>
         <div className="flex items-center gap-2 text-foreground"><AlertTriangle className="h-4 w-4" /> O numero auxiliar de teste nao pode ser reconectado por este painel.</div>
       </div>

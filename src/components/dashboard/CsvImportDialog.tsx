@@ -284,12 +284,12 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
                                         <div className="text-xs text-muted-foreground">
                                             Usada apenas quando a linha nao trouxer operacao (ou quando o campo nao estiver mapeado).
                                         </div>
-                                        <Select value={defaultOperacao} onValueChange={setDefaultOperacao}>
+                                        <Select value={defaultOperacao || "none"} onValueChange={(val) => setDefaultOperacao(val === "none" ? "" : val)}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Nao definir" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">Nao definir</SelectItem>
+                                                <SelectItem value="none">Nao definir</SelectItem>
                                                 {operacoes.map((op: string) => (
                                                     <SelectItem key={op} value={op}>
                                                         {op}
@@ -304,12 +304,12 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
                                         <div className="text-xs text-muted-foreground">
                                             Se selecionada, força esta rota para todos os embarques importados neste arquivo.
                                         </div>
-                                        <Select value={defaultRotaId} onValueChange={setDefaultRotaId}>
+                                        <Select value={defaultRotaId || "none"} onValueChange={(val) => setDefaultRotaId(val === "none" ? "" : val)}>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Automatica pela origem/destino" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="">Automatica pela origem/destino</SelectItem>
+                                                <SelectItem value="none">Automatica pela origem/destino</SelectItem>
                                                 {rotasOperacao.map((r: any) => (
                                                     <SelectItem key={String(r.id)} value={String(r.id)}>
                                                         {String(r.origem || '').trim()} → {String(r.destino || '').trim()}

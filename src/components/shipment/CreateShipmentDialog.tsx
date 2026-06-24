@@ -183,13 +183,13 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
               <Label>Operação</Label>
               <Select
                 value={formData.operacao}
-                onValueChange={(val) => setFormData({ ...formData, operacao: val, config_rota_id: "" })}
+                onValueChange={(val) => setFormData({ ...formData, operacao: val === "none" ? "" : val, config_rota_id: "" })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a operação" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Não definir</SelectItem>
+                  <SelectItem value="none">Não definir</SelectItem>
                   {tipos
                     .filter((t: any) => t?.ativo !== false)
                     .map((t: any) => String(t?.nome || '').trim())
@@ -208,14 +208,15 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
               <Select
                 value={formData.config_rota_id}
                 onValueChange={(val) => {
-                  const rota = rotas.find((r: any) => String(r?.id) === String(val)) || null;
-                  if (!val) {
+                  const actualVal = val === "none" ? "" : val;
+                  const rota = rotas.find((r: any) => String(r?.id) === String(actualVal)) || null;
+                  if (!actualVal) {
                     setFormData((s) => ({ ...s, config_rota_id: "" }));
                     return;
                   }
                   setFormData((s) => ({
                     ...s,
-                    config_rota_id: String(val),
+                    config_rota_id: String(actualVal),
                     origin: rota?.origem ? String(rota.origem).trim() : s.origin,
                     destination: rota?.destino ? String(rota.destino).trim() : s.destination,
                     operacao:
@@ -228,7 +229,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
                   <SelectValue placeholder="Automática pela origem/destino" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Automática pela origem/destino</SelectItem>
+                  <SelectItem value="none">Automática pela origem/destino</SelectItem>
                   {rotas
                     .filter((r: any) => r?.ativo !== false)
                     .filter((r: any) => !formData.operacao || String(r?.operacao || '').toUpperCase() === formData.operacao.toUpperCase())

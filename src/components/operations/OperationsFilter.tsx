@@ -37,19 +37,17 @@ export function OperationsFilter({ value, onChange, className }: OperationsFilte
     [tipos],
   );
 
+  const [hasInitialized, setHasInitialized] = useState(false);
+
   useEffect(() => {
     if (tiposAtivos.length === 0) return;
-    const atuais = new Set(value.map(normalizeOperationName));
-    const faltantes = tiposAtivos.filter((t) => !atuais.has(t.nome));
-    const semNenhumSelecionado = value.length === 0;
-    if (semNenhumSelecionado) {
-      onChange(tiposAtivos.map((t) => t.nome));
-      return;
+    if (!hasInitialized) {
+      if (value.length === 0) {
+        onChange(tiposAtivos.map((t) => t.nome));
+      }
+      setHasInitialized(true);
     }
-    if (faltantes.length > 0 && value.length >= tiposAtivos.length - faltantes.length) {
-      onChange([...value, ...faltantes.map((t) => t.nome)]);
-    }
-  }, [tiposAtivos, value, onChange]);
+  }, [tiposAtivos, hasInitialized, value.length, onChange]);
 
   const toggleTipo = (nome: string) => {
     const normalized = normalizeOperationName(nome);

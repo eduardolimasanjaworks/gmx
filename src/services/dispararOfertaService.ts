@@ -97,7 +97,6 @@ export async function dispararOfertaIagmx(input: DispararOfertaInput): Promise<D
     const { updateEmbarque } = await import('@/lib/embarques');
     await updateEmbarque(String(input.embarqueId), {
       status: 'sent',
-      driver_id: parseInt(input.motoristaId, 10),
       oferta_disparada_em: new Date().toISOString(),
       oferta_motorista_id: parseInt(input.motoristaId, 10),
       valor_ofertado: input.valorOfertado,

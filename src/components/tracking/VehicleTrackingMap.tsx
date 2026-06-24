@@ -82,6 +82,7 @@ function coordenadasPorLocal(local?: string | null): [number, number] | null {
 }
 
 export const VehicleTrackingMap = () => {
+  const ENABLE_SAVED_LOCATIONS = false;
   const [searchParams] = useSearchParams();
   const urlDate = searchParams.get('load_date');
   const urlLat = searchParams.get('load_lat');
@@ -144,6 +145,15 @@ export const VehicleTrackingMap = () => {
 
   const statusNormalizado = (driver: any): string => normalizarTexto(driver?.status || '');
 
+  const parseCoord = (value: unknown): number | null => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const t = String(value).trim().replace(',', '.');
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+
   const dataFiltroReferencia = new Date(timeTravelEndDate ?? timeTravelDate ?? new Date());
   dataFiltroReferencia.setHours(23, 59, 59, 999);
 
@@ -158,15 +168,23 @@ export const VehicleTrackingMap = () => {
 
   const coordenadasMotorista = (driver: any): [number, number] | null => {
     if (usarPosicaoPrevista(driver)) {
-      const prevLat = Number(driver?.local_liberacao_prevista_latitude);
-      const prevLng = Number(driver?.local_liberacao_prevista_longitude);
-      if (Number.isFinite(prevLat) && Number.isFinite(prevLng)) return [prevLat, prevLng];
+      const prevLat = parseCoord(driver?.local_liberacao_prevista_latitude);
+      const prevLng = parseCoord(driver?.local_liberacao_prevista_longitude);
+      if (prevLat != null && prevLng != null) return [prevLat, prevLng];
       const prev = coordenadasPorLocal(localLiberacaoPrevista(driver));
       if (prev) return prev;
     }
-    const lat = Number(driver?.latitude);
-    const lng = Number(driver?.longitude);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    const lat =
+      parseCoord(driver?.latitude) ??
+      parseCoord(driver?.lat) ??
+      parseCoord(driver?.motorista_id?.latitude) ??
+      parseCoord(driver?.motorista_id?.lat);
+    const lng =
+      parseCoord(driver?.longitude) ??
+      parseCoord(driver?.lng) ??
+      parseCoord(driver?.motorista_id?.longitude) ??
+      parseCoord(driver?.motorista_id?.lng);
+    if (lat != null && lng != null) return [lat, lng];
     const atual = coordenadasPorLocal(driver?.localizacao_atual);
     if (atual) return atual;
     return coordenadasPorLocal(localLiberacaoPrevista(driver));
@@ -393,7 +411,7 @@ export const VehicleTrackingMap = () => {
 
   const { data: savedLocations = [], isLoading: isLoadingLocs } = useQuery({
     queryKey: ['saved-locations', user?.id],
-    enabled: !!user?.id,
+    enabled: ENABLE_SAVED_LOCATIONS && !!user?.id,
     queryFn: async () => {
       try {
         const results = await directus.request(readItems('locais_salvos', {
@@ -614,12 +632,17 @@ export const VehicleTrackingMap = () => {
         setMapZoom(13);
         setSavedFactoryName(factoryName.trim() || 'Sua Fábrica/Empresa');
         setIsSearchingFactory(false);
-        setTempFactory({
-          nome: factoryName.trim() || 'Sua Fábrica/Empresa',
-          latitude: newPoint[0],
-          longitude: newPoint[1]
-        });
-        setIsDropdownOpen(true);
+        if (ENABLE_SAVED_LOCATIONS) {
+          setTempFactory({
+            nome: factoryName.trim() || 'Sua Fábrica/Empresa',
+            latitude: newPoint[0],
+            longitude: newPoint[1]
+          });
+          setIsDropdownOpen(true);
+        } else {
+          setTempFactory(null);
+          setIsDropdownOpen(false);
+        }
         setFactorySearchTerm("");
         setFactoryName("");
       } else {
@@ -663,6 +686,7 @@ export const VehicleTrackingMap = () => {
 
   const createLocationMutation = useMutation({
     mutationFn: async (factoryData: any) => {
+      if (!ENABLE_SAVED_LOCATIONS) throw new Error("Fábricas salvas desativadas");
       if (!user) throw new Error("Sem usuário logado");
       return await directus.request(createItem('locais_salvos', {
         nome: factoryData.nome,
@@ -697,6 +721,7 @@ export const VehicleTrackingMap = () => {
 
   const updateLocationMutation = useMutation({
     mutationFn: async ({ id, nome }: { id: string | number; nome: string }) => {
+      if (!ENABLE_SAVED_LOCATIONS) throw new Error("Fábricas salvas desativadas");
       return await directus.request(updateItem('locais_salvos', id, { nome }));
     },
     onSuccess: () => {
@@ -711,6 +736,7 @@ export const VehicleTrackingMap = () => {
 
   const deleteLocationMutation = useMutation({
     mutationFn: async (id: string | number) => {
+      if (!ENABLE_SAVED_LOCATIONS) throw new Error("Fábricas salvas desativadas");
       return await directus.request(deleteItem('locais_salvos', id));
     },
     onSuccess: (data, id) => {
@@ -931,6 +957,7 @@ export const VehicleTrackingMap = () => {
           {/* Right Group: Clear Filters & Saved Locations */}
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto mt-4 md:mt-0">
             {/* 4. Dropdown de Fábricas Salvas */}
+            {ENABLE_SAVED_LOCATIONS && (
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full sm:w-auto bg-orange-50/50 hover:bg-orange-100/80 text-orange-700 border-orange-200">
@@ -1026,12 +1053,14 @@ export const VehicleTrackingMap = () => {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
 
         </CardContent>
       </Card>
 
       {/* Editor Modal para o Nome da Fábrica */}
+      {ENABLE_SAVED_LOCATIONS && (
       <Dialog open={isEditingLoc} onOpenChange={setIsEditingLoc}>
         <DialogContent>
           <DialogHeader>
@@ -1061,6 +1090,7 @@ export const VehicleTrackingMap = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Main Content Grid */}
       <div className="flex flex-col lg:flex-row gap-6">

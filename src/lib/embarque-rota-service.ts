@@ -141,7 +141,7 @@ export async function correlacionarEAtualizarEmbarque(
 /** Cria embarques a partir de linhas CSV e tenta correlacionar cada um */
 export async function criarEmbarquesDoCsv(
   rows: CsvEmbarqueRow[],
-  opts?: { usuario?: string },
+  opts?: { usuario?: string; defaultOperacao?: string; rotaIdManual?: number },
 ): Promise<{ total: number; correlacionados: number; pendentes: number }> {
   const rotas = await listarRotasAtivas();
   let correlacionados = 0;
@@ -153,8 +153,11 @@ export async function criarEmbarquesDoCsv(
       continue;
     }
 
+    const operacaoEfetiva =
+      row.operacao?.trim() || opts?.defaultOperacao?.trim() || inferirOperacao(row.produto);
     const resultado = resolverCorrelacao(row.origem, row.destino, rotas, {
-      operacao: row.operacao?.trim() || inferirOperacao(row.produto),
+      operacao: operacaoEfetiva,
+      rotaIdManual: opts?.rotaIdManual,
     });
 
     const embarque = (await directus.request(
@@ -163,7 +166,7 @@ export async function criarEmbarquesDoCsv(
         destination: row.destino.trim(),
         produto_predominante: row.produto?.trim() || null,
         cargo_type: row.produto?.trim() || null,
-        operacao: row.operacao?.trim() || inferirOperacao(row.produto) || null,
+        operacao: operacaoEfetiva || null,
         tipo_veiculo: row.tipo_veiculo?.trim() || null,
         placa_cavalo: row.placa_cavalo?.trim() || null,
         quantidade_kg: numeroOpcional(row.quantidade_kg),
@@ -191,10 +194,20 @@ export async function criarEmbarquesDoCsv(
 
     await registrarEmbarqueRotaLog({
       embarqueId: embarque.id,
-      acao: resultado.rota ? 'correlacao_automatica' : 'sem_rota',
+      acao: opts?.rotaIdManual
+        ? 'correlacao_manual'
+        : resultado.rota
+          ? 'correlacao_automatica'
+          : 'sem_rota',
       configRotaIdDepois: resultado.rota?.id ?? null,
       usuario: opts?.usuario,
-      detalhes: { origem: row.origem, destino: row.destino, pedido: row.pedido },
+      detalhes: {
+        origem: row.origem,
+        destino: row.destino,
+        pedido: row.pedido,
+        operacao: operacaoEfetiva,
+        rotaIdManual: opts?.rotaIdManual ?? null,
+      },
     });
   }
 

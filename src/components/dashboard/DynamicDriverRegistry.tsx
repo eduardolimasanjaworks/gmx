@@ -37,6 +37,9 @@ export const DynamicDriverRegistry = () => {
   const [autoRefresh, setAutoRefresh] = useState(false);
 
   const [startInEditMode, setStartInEditMode] = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<
+    'geral' | 'docs' | 'fotos' | 'disponibilidade' | undefined
+  >(undefined);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -285,9 +288,14 @@ export const DynamicDriverRegistry = () => {
     return <div className="p-8 text-center">Carregando...</div>;
   }
 
-  const abrirDriver = (driver: any, editMode = false) => {
+  const abrirDriver = (
+    driver: any,
+    editMode = false,
+    initialTab?: 'geral' | 'docs' | 'fotos' | 'disponibilidade',
+  ) => {
     setSelectedDriver(driver);
     setStartInEditMode(editMode);
+    setProfileInitialTab(initialTab);
     setIsProfileOpen(true);
   };
 
@@ -365,6 +373,7 @@ export const DynamicDriverRegistry = () => {
               name: driver.nome,
             },
             false,
+            'docs',
           )
         }
       />
@@ -542,11 +551,13 @@ export const DynamicDriverRegistry = () => {
           setIsProfileOpen(open);
           if (!open) {
             setStartInEditMode(false);
+            setProfileInitialTab(undefined);
           }
         }}
         driverName={selectedDriver?.nome || selectedDriver?.name || null}
         driverData={selectedDriver}
         initialEditMode={startInEditMode}
+        initialTab={profileInitialTab}
         onUpdate={(newDriver) => {
           fetchDrivers();
           if (newDriver) {

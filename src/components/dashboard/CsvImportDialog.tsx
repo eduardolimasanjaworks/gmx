@@ -6,9 +6,12 @@ import Papa from "papaparse";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFollow } from "@/hooks/useFollow";
+import { useTiposOperacao } from "@/hooks/useTiposOperacao";
+import { useConfigRotas } from "@/hooks/useConfigRotas";
 import { parseCsvRows, csvRowsToFollowPayload } from "@/lib/csvFollowParser";
 import { criarEmbarquesDoCsv } from "@/lib/embarque-rota-service";
 import { CsvColumnMapper } from "@/components/dashboard/CsvColumnMapper";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     inferirCsvColumnMapping,
     mapCsvRowsToEmbarques,
@@ -34,11 +37,22 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
     const [parsedRows, setParsedRows] = useState<Record<string, unknown>[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
     const [mapping, setMapping] = useState<CsvColumnMapping | null>(null);
+    const [defaultOperacao, setDefaultOperacao] = useState<string>("");
+    const [defaultRotaId, setDefaultRotaId] = useState<string>("");
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { importFollow } = useFollow();
+    const { tipos = [] } = useTiposOperacao();
+    const { rotas = [] } = useConfigRotas();
     const queryClient = useQueryClient();
 
     const isEmbarques = mode === "embarques";
+    const operacoes = tipos
+        .filter((t: any) => t?.ativo !== false)
+        .map((t: any) => String(t?.nome || '').trim())
+        .filter(Boolean);
+    const rotasOperacao = rotas
+        .filter((r: any) => r?.ativo !== false)
+        .filter((r: any) => !defaultOperacao || String(r?.operacao || '').toUpperCase() === defaultOperacao.toUpperCase());
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -69,6 +83,8 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
         setHeaders([]);
         setMapping(null);
         setIsParsing(false);
+        setDefaultOperacao("");
+        setDefaultRotaId("");
     };
 
     const parseFileRows = (file: File): Promise<Record<string, unknown>[]> =>
@@ -139,7 +155,17 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
 
             if (isEmbarques) {
                 const mappedRows = mapCsvRowsToEmbarques(rows, mapping!);
-                const stats = await criarEmbarquesDoCsv(mappedRows, { usuario: "portal" });
+                const op = defaultOperacao.trim() || undefined;
+                const rotaIdManual = defaultRotaId ? Number(defaultRotaId) : undefined;
+                const enrichedRows = mappedRows.map((row) => ({
+                    ...row,
+                    operacao: row.operacao?.trim() ? row.operacao : op,
+                }));
+                const stats = await criarEmbarquesDoCsv(enrichedRows, {
+                    usuario: "portal",
+                    defaultOperacao: op,
+                    rotaIdManual,
+                });
                 await queryClient.invalidateQueries({ queryKey: ["embarques"] });
                 toast.success("Embarques importados!", {
                     description: `${stats.total} linhas — ${stats.correlacionados} com rota, ${stats.pendentes} pendentes de correlacao.`,
@@ -239,6 +265,51 @@ export function CsvImportDialog({ open, onOpenChange, mode = "follow" }: CsvImpo
                                         setMapping((atual) => ({ ...(atual || inferirCsvColumnMapping(headers)), [campo]: coluna }))
                                     }
                                 />
+                            )}
+
+                            {isEmbarques && !isParsing && headers.length > 0 && mapping && (
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    <div className="space-y-1.5 rounded-md border p-3">
+                                        <div className="text-sm font-medium">Operacao (fallback)</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            Usada apenas quando a linha nao trouxer operacao (ou quando o campo nao estiver mapeado).
+                                        </div>
+                                        <Select value={defaultOperacao} onValueChange={setDefaultOperacao}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Nao definir" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">Nao definir</SelectItem>
+                                                {operacoes.map((op: string) => (
+                                                    <SelectItem key={op} value={op}>
+                                                        {op}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-1.5 rounded-md border p-3">
+                                        <div className="text-sm font-medium">Rota (fallback)</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            Se selecionada, força esta rota para todos os embarques importados neste arquivo.
+                                        </div>
+                                        <Select value={defaultRotaId} onValueChange={setDefaultRotaId}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Automatica pela origem/destino" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">Automatica pela origem/destino</SelectItem>
+                                                {rotasOperacao.map((r: any) => (
+                                                    <SelectItem key={String(r.id)} value={String(r.id)}>
+                                                        {String(r.origem || '').trim()} → {String(r.destino || '').trim()}
+                                                        {r.operacao ? ` (${String(r.operacao).trim()})` : ''}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     )}

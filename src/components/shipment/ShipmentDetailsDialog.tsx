@@ -27,6 +27,8 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
   const [deliveryReceipts, setDeliveryReceipts] = useState<any[]>([]);
   const [paymentReceipts, setPaymentReceipts] = useState<any[]>([]);
   const [shipmentDocuments, setShipmentDocuments] = useState<any[]>([]);
+  const [offerHistory, setOfferHistory] = useState<any[]>([]);
+  const [routeLogs, setRouteLogs] = useState<any[]>([]);
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editedData, setEditedData] = useState({
     origin: "",
@@ -45,9 +47,12 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
   });
   const [uploading, setUploading] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
   const paymentFileRef = useRef<HTMLInputElement>(null);
   const deliveryFileRef = useRef<HTMLInputElement>(null);
   const documentFileRef = useRef<HTMLInputElement>(null);
+  const emailAttachmentRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { refreshToken } = useAuth();
 
@@ -56,6 +61,8 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       fetchDeliveryReceipts();
       fetchPaymentReceipts();
       fetchShipmentDocuments();
+      fetchOfferHistory();
+      fetchRouteLogs();
       setEditedData({
         origin: shipment.origin || "",
         destination: shipment.destination || "",
@@ -72,8 +79,129 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         diariaFim: shipment.data_agendada_termino ? new Date(shipment.data_agendada_termino).toISOString().slice(0, 16) : "",
       });
       setIsEditingDetails(false);
+      setEmailDraft(shipment.email_content || "");
     }
   }, [shipment?.id, open]);
+
+  const fetchOfferHistory = async () => {
+    if (!shipment?.id) return;
+    try {
+      const rows = await directus.request(
+        readItems('historico_ofertas' as any, {
+          filter: { embarque_id: { _eq: shipment.id } },
+          sort: ['-created_at' as any, '-date_created' as any],
+          limit: 100,
+          fields: ['*'] as any,
+        }),
+      );
+      setOfferHistory(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      console.error('Error fetching historico_ofertas:', err);
+      setOfferHistory([]);
+    }
+  };
+
+  const fetchRouteLogs = async () => {
+    if (!shipment?.id) return;
+    try {
+      const rows = await directus.request(
+        readItems('embarque_rota_log' as any, {
+          filter: { embarque_id: { _eq: shipment.id } },
+          sort: ['-date_created' as any],
+          limit: 200,
+          fields: ['*'] as any,
+        }),
+      );
+      setRouteLogs(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      console.error('Error fetching embarque_rota_log:', err);
+      setRouteLogs([]);
+    }
+  };
+
+  const salvarEmailConteudo = async () => {
+    if (!shipment?.id) return;
+    setSavingEmail(true);
+    try {
+      await updateEmbarque(String(shipment.id), {
+        email_content: emailDraft || null,
+      });
+      toast({ title: "Email salvo", description: "Conteúdo do email atualizado no embarque" });
+    } catch (err: any) {
+      console.error('Error saving email_content:', err);
+      toast({ title: "Falha ao salvar email", description: err?.message || "Nao foi possivel salvar", variant: "destructive" });
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleEmailPaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (!item.type.startsWith('image/')) continue;
+      const file = item.getAsFile();
+      if (!file) continue;
+      e.preventDefault();
+      const titulo = `Email confirmacao (${new Date().toLocaleString('pt-BR')})`;
+      await handleFileUpload(file, 'shipment-documents', 'shipment_documents', {
+        document_title: titulo,
+        document_type: 'email_attachment_image',
+      });
+      await fetchShipmentDocuments();
+      return;
+    }
+  };
+
+  const timelineItems = (() => {
+    const itens: Array<{ ts: number; titulo: string; detalhe?: string }> = [];
+
+    const push = (date: string | null | undefined, titulo: string, detalhe?: string) => {
+      const d = date ? new Date(date) : null;
+      const ts = d && Number.isFinite(d.getTime()) ? d.getTime() : Date.now();
+      itens.push({ ts, titulo, detalhe });
+    };
+
+    if (shipment?.oferta_disparada_em) push(shipment.oferta_disparada_em, 'Oferta disparada');
+    if (shipment?.ultimo_evento_oferta_em) push(shipment.ultimo_evento_oferta_em, `Status oferta: ${shipment.rota_status || '-'}`);
+
+    for (const row of routeLogs) {
+      push(
+        row?.date_created || row?.date_updated || null,
+        `Rota: ${row?.acao || 'evento'}`,
+        row?.detalhes ? JSON.stringify(row.detalhes) : undefined,
+      );
+    }
+
+    for (const row of offerHistory) {
+      const acao = row?.acao || row?.tipo || row?.evento || 'evento';
+      const valor = row?.valor_ofertado ?? row?.valorAceito ?? row?.valor_aceito;
+      push(
+        row?.created_at || row?.date_created || null,
+        `Oferta: ${acao}`,
+        valor != null ? `valor: ${valor}` : undefined,
+      );
+    }
+
+    for (const p of paymentReceipts) {
+      push(p?.date_created || null, 'Comprovante de pagamento anexado', p?.file_name || undefined);
+    }
+    for (const d of deliveryReceipts) {
+      push(d?.date_created || null, 'Canhoto anexado', d?.file_name || undefined);
+    }
+    for (const doc of shipmentDocuments) {
+      if (/email_attachment/i.test(doc?.document_type || '')) {
+        push(doc?.date_created || null, 'Anexo do email adicionado', doc?.file_name || doc?.document_title);
+      } else if (doc?.document_type && doc?.document_type !== 'generic') {
+        push(doc?.date_created || null, `Documento (${doc.document_type})`, doc?.file_name || undefined);
+      } else if (doc?.document_title) {
+        push(doc?.date_created || null, `Documento: ${doc.document_title}`, doc?.file_name || undefined);
+      }
+    }
+
+    itens.sort((a, b) => b.ts - a.ts);
+    return itens;
+  })();
 
   const fetchDeliveryReceipts = async () => {
     if (!shipment?.id) return;

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,6 +106,7 @@ interface DriverProfileDialogProps {
   driverName: string | null;
   driverData?: any;
   initialEditMode?: boolean;
+  initialTab?: 'geral' | 'docs' | 'fotos' | 'disponibilidade';
   onUpdate?: (newDriver?: any) => void;
 }
 
@@ -244,7 +245,15 @@ const CpfInputField = ({ label, value, onChange, referenceCpf }: any) => {
   );
 };
 
-export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData, initialEditMode = false, onUpdate }: DriverProfileDialogProps) => {
+export const DriverProfileDialog = ({
+  open,
+  onOpenChange,
+  driverName,
+  driverData,
+  initialEditMode = false,
+  initialTab,
+  onUpdate,
+}: DriverProfileDialogProps) => {
   const { refreshToken, logout, token } = useAuth();
   const { tipos: tiposOperacao = [] } = useTiposOperacao();
   const [data, setData] = useState({
@@ -369,6 +378,7 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
   const { toast } = useToast();
 
   const tabStorageKey = localDriverData?.id ? `driver-profile-tab:${localDriverData.id}` : null;
+  const lastOpenRef = useRef(false);
 
   const parseNumberOrUndefined = (val: unknown) => {
     if (val === null || val === undefined) return undefined;
@@ -799,9 +809,24 @@ export const DriverProfileDialog = ({ open, onOpenChange, driverName, driverData
 
   useEffect(() => {
     if (open) {
-      try { if (tabStorageKey) { const s = window.localStorage.getItem(tabStorageKey); if (s) setActiveTab(s); } } catch { }
+      const isFirstOpen = lastOpenRef.current === false;
+      lastOpenRef.current = true;
+      if (isFirstOpen && initialTab) {
+        setActiveTab(initialTab);
+        try {
+          if (tabStorageKey) window.localStorage.setItem(tabStorageKey, initialTab);
+        } catch {}
+        return;
+      }
+      try {
+        if (tabStorageKey) {
+          const s = window.localStorage.getItem(tabStorageKey);
+          if (s) setActiveTab(s);
+        }
+      } catch {}
     } else { setActiveTab("geral"); }
-  }, [open, tabStorageKey]);
+    if (!open) lastOpenRef.current = false;
+  }, [open, tabStorageKey, initialTab]);
 
   const handleTabChange = (next: string) => { setActiveTab(next); try { if (tabStorageKey) window.localStorage.setItem(tabStorageKey, next); } catch { } };
 

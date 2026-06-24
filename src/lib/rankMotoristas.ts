@@ -44,6 +44,23 @@ function numeroOpcional(value: unknown): number | undefined {
   return Number.isFinite(numero) ? numero : undefined;
 }
 
+type Coords = { lat: number; lng: number };
+
+const CITY_COORDS: Record<string, Coords> = { 'GUARULHOS_SP': { lat: -23.4543, lng: -46.5337 }, 'CAMPINAS_SP': { lat: -22.9099, lng: -47.0626 }, 'SAO PAULO_SP': { lat: -23.5505, lng: -46.6333 }, 'RIO DE JANEIRO_RJ': { lat: -22.9068, lng: -43.1729 }, 'BELO HORIZONTE_MG': { lat: -19.9167, lng: -43.9345 }, 'CURITIBA_PR': { lat: -25.4284, lng: -49.2733 }, 'PORTO ALEGRE_RS': { lat: -30.0346, lng: -51.2177 }, 'GOIANIA_GO': { lat: -16.6869, lng: -49.2648 }, 'BRASILIA_DF': { lat: -15.7939, lng: -47.8828 } };
+
+function normalizarLocalParaChave(local: string): string | null {
+  const t = String(local ?? '').replace(/[→]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  const m = t.match(/^(.*?)[,/\- ]\s*([A-Z]{2})$/);
+  if (!m) return null;
+  return `${m[1].trim().replace(/\s+/g, ' ').toUpperCase()}_${m[2].trim().toUpperCase()}`;
+}
+
+function coordenadasPorLocal(local?: string | null): Coords | null {
+  const chave = local ? normalizarLocalParaChave(local) : null;
+  return chave ? (CITY_COORDS[chave] ?? null) : null;
+}
+
 function statusElegivelDisponibilidade(item: Record<string, unknown>): boolean {
   const disponivel = item.disponivel === true;
   const status = String(item.status ?? '').toLowerCase();
@@ -122,6 +139,8 @@ export async function rankMotoristasParaEmbarque(
 ): Promise<MatchingScore[]> {
   const limiteFinal = Math.max(1, limite);
   const operacaoEmbarque = normalizarOperacao(embarque.operacao);
+  const dataColeta = new Date(embarque.pickup_date || embarque.created_at || new Date().toISOString());
+  const dataColetaOk = !Number.isNaN(dataColeta.getTime());
   const [disponibilidades, rotaCoords] = await Promise.all([
     directus.request(
       readItems('disponivel', {
@@ -213,6 +232,28 @@ export async function rankMotoristasParaEmbarque(
       gr_aprovada: true,
       operacoes_elegiveis: operacoesElegiveis,
     };
+
+    const dispEmRaw =
+      typeof disp?.data_previsao_disponibilidade === 'string'
+        ? disp.data_previsao_disponibilidade
+        : null;
+    const dispEm = dispEmRaw ? new Date(dispEmRaw) : null;
+    const dispEmOk = dispEm != null && !Number.isNaN(dispEm.getTime());
+
+    if (
+      dataColetaOk &&
+      dispEmOk &&
+      dataColeta.getTime() >= (dispEm as Date).getTime() &&
+      typeof disp?.local_disponibilidade === 'string' &&
+      disp.local_disponibilidade.trim()
+    ) {
+      const coordsPrev = coordenadasPorLocal(disp.local_disponibilidade);
+      if (coordsPrev) {
+        motoristaData.latitude = coordsPrev.lat;
+        motoristaData.longitude = coordsPrev.lng;
+        motoristaData.data_ultima_atualizacao = dispEmRaw ?? motoristaData.data_ultima_atualizacao;
+      }
+    }
 
     const embarqueData = {
       id: String(embarque.id),

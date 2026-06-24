@@ -69,11 +69,12 @@ export function OfertarMotoristaDialog({
   const principal: MatchingScore | undefined = ranking[indice];
   const proximo: MatchingScore | undefined = ranking[indice + 1];
 
-  const valorOferta =
-    embarque?.valor_ofertado ??
-    embarque?.valor_maximo ??
+  const valorOferta = Number(
     embarque?.valor_minimo ??
-    0;
+      embarque?.valor_ofertado ??
+      embarque?.valor_maximo ??
+      0,
+  );
 
   const preview =
     embarque &&

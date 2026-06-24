@@ -229,6 +229,16 @@ function calcularScoreLocalizacao(
         };
     }
 
+    const coletaDate = new Date(embarque.data_coleta);
+    const coletaOk = !Number.isNaN(coletaDate.getTime());
+    const dispDate = motorista.disponivel_em ? new Date(motorista.disponivel_em) : null;
+    const dispOk = dispDate != null && !Number.isNaN(dispDate.getTime());
+    const previsaoUsada =
+        coletaOk &&
+        dispOk &&
+        coletaDate.getTime() >= (dispDate as Date).getTime() &&
+        Boolean(motorista.localizacao_prevista);
+
     const motoristaCoords =
         Number.isFinite(motorista.latitude) && Number.isFinite(motorista.longitude)
             ? { lat: Number(motorista.latitude), lng: Number(motorista.longitude) }
@@ -258,8 +268,10 @@ function calcularScoreLocalizacao(
     if (distancia > 500) score = 30;
     if (distancia > 1000) score = 10;
 
-    let complemento = 'comparando o ultimo GPS valido com a origem da carga';
-    if (motorista.data_ultima_atualizacao) {
+    let complemento = previsaoUsada
+        ? `previsao para a coleta em ${formatarDataHora(embarque.data_coleta)}${motorista.localizacao_prevista ? ` · local previsto: ${motorista.localizacao_prevista}` : ''}`
+        : 'comparando o ultimo GPS valido com a origem da carga';
+    if (!previsaoUsada && motorista.data_ultima_atualizacao) {
         const horasDesdeGps =
             (Date.now() - new Date(motorista.data_ultima_atualizacao).getTime()) / (1000 * 60 * 60);
         if (Number.isFinite(horasDesdeGps) && horasDesdeGps > 24) {
@@ -267,7 +279,7 @@ function calcularScoreLocalizacao(
             complemento = `ultimo GPS atualizado ha ${horasDesdeGps.toFixed(0)}h`;
         }
     }
-    if (motorista.disponivel_em && new Date(motorista.disponivel_em).getTime() > Date.now()) {
+    if (!previsaoUsada && motorista.disponivel_em && new Date(motorista.disponivel_em).getTime() > Date.now()) {
         score = Math.max(0, score - 5);
         complemento += motorista.localizacao_prevista
             ? ` · previsao futura em ${motorista.localizacao_prevista}`

@@ -44,15 +44,16 @@ export function camposEmbarqueDaRota(
   valorOfertado?: number | null,
   rotaStatus: RotaStatus = 'correlacionada',
 ): Record<string, unknown> {
+  const min = Number(rota.valor_minimo);
   const max = Number(rota.valor_maximo);
   const oferta =
-    valorOfertado != null && Number.isFinite(valorOfertado) ? valorOfertado : max;
+    valorOfertado != null && Number.isFinite(valorOfertado) ? valorOfertado : min;
 
   return {
     config_rota_id: rota.id,
     rota_status: rotaStatus,
     operacao: rota.operacao ?? null,
-    valor_minimo: Number(rota.valor_minimo),
+    valor_minimo: min,
     valor_maximo: max,
     valor_ofertado: oferta,
   };

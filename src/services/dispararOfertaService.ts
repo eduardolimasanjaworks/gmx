@@ -30,6 +30,13 @@ export interface DispararOfertaResult {
   filaId?: string;
 }
 
+function saudacaoHorarioAgora(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h <= 11) return 'Bom dia';
+  if (h >= 12 && h <= 17) return 'Boa tarde';
+  return 'Boa noite';
+}
+
 export function montarPreviewMensagemOferta(input: {
   origem: string;
   destino: string;
@@ -42,15 +49,16 @@ export function montarPreviewMensagemOferta(input: {
     ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
     : '—';
 
+  const saudacao = saudacaoHorarioAgora();
   const linhas = [
-    'Adriano - GMX / CargoX',
+    saudacao,
     '',
-    `Temos carga ${input.origem} → ${input.destino}`,
+    `Temos ${input.origem} → ${input.destino}`,
+    `Valor: ${valorFmt}`,
+    '',
+    'Tem interesse?',
   ];
-  if (input.produto?.trim()) linhas.push(`Produto: ${input.produto.trim()}`);
-  if (input.operacao?.trim()) linhas.push(`Operação: ${input.operacao.trim()}`);
-  linhas.push(`Valor: ${valorFmt}`, '', 'Tem interesse?');
-  return linhas.join('\n');
+  return linhas.join('\n').trim();
 }
 
 export async function dispararOfertaIagmx(input: DispararOfertaInput): Promise<DispararOfertaResult> {

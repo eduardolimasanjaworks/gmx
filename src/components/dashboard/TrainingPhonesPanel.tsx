@@ -82,24 +82,6 @@ export function TrainingPhonesPanel() {
     }
   };
 
-  const carregarWhatsapp = async () => {
-    setLoadingWhatsapp(true);
-    setErroWhatsapp(null);
-    try {
-      const status = await obterWhatsappIaStatus();
-      setStatusWhatsapp(status);
-      setUltimaConsultaWhatsapp(new Date().toISOString());
-      return status;
-    } catch (error: any) {
-      const mensagem = error?.message || 'Nao foi possivel consultar a conexao da i.a';
-      setErroWhatsapp(mensagem);
-      throw error;
-    } finally {
-      setLoadingWhatsapp(false);
-      setAcaoWhatsapp(null);
-    }
-  };
-
   useEffect(() => {
     void carregar();
   }, []);

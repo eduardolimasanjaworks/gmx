@@ -10,7 +10,7 @@ import { MapPin, Package, DollarSign, Calendar, Mail, FileText, Upload, Eye, Dow
 import { OcrDocumentViewer } from "@/components/dashboard/OcrDocumentViewer";
 import { uploadPublicFile, deletePublicFileByUrl } from "@/lib/publicUpload";
 import { uploadToDirectus } from "@/lib/directusUpload";
-import { directus, publicDirectus } from "@/lib/directus";
+import { directus } from "@/lib/directus";
 import { readItems, createItem, updateItem, deleteItem, uploadFiles, deleteFile } from "@directus/sdk";
 import { updateEmbarque } from "@/lib/embarques";
 import { useToast } from "@/hooks/use-toast";
@@ -232,7 +232,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     if (!shipment?.id) return;
 
     try {
-      const data = await publicDirectus.request(readItems('delivery_receipts', {
+      const data = await directus.request(readItems('delivery_receipts', {
         filter: { shipment_id: { _eq: shipment.id } },
         sort: ['-date_created' as any],
         fields: ['*']
@@ -249,7 +249,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         try {
           await refreshToken();
           // Retry a requisição após renovar o token
-          const data = await publicDirectus.request(readItems('delivery_receipts', {
+          const data = await directus.request(readItems('delivery_receipts', {
             filter: { shipment_id: { _eq: shipment.id } },
             sort: ['-date_created' as any],
             fields: ['*']
@@ -278,7 +278,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     if (!shipment?.id) return;
 
     try {
-      const data = await publicDirectus.request(readItems('payment_receipts', {
+      const data = await directus.request(readItems('payment_receipts', {
         filter: { shipment_id: { _eq: shipment.id } },
         sort: ['-date_created' as any],
         fields: ['*']
@@ -294,7 +294,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         try {
           await refreshToken();
           // Retry a requisição após renovar o token
-          const data = await publicDirectus.request(readItems('payment_receipts', {
+          const data = await directus.request(readItems('payment_receipts', {
             filter: { shipment_id: { _eq: shipment.id } },
             sort: ['-date_created' as any],
             fields: ['*']
@@ -323,7 +323,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
     if (!shipment?.id) return;
 
     try {
-      const data = await publicDirectus.request(readItems('shipment_documents', {
+      const data = await directus.request(readItems('shipment_documents', {
         filter: { shipment_id: { _eq: shipment.id } },
         sort: ['-date_created' as any],
         fields: ['*']
@@ -339,7 +339,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
         try {
           await refreshToken();
           // Retry a requisição após renovar o token
-          const data = await publicDirectus.request(readItems('shipment_documents', {
+          const data = await directus.request(readItems('shipment_documents', {
             filter: { shipment_id: { _eq: shipment.id } },
             sort: ['-date_created' as any],
             fields: ['*']
@@ -372,32 +372,9 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       // Directus Files via /api (funciona no nginx do portal); fallback local em directusUpload
       const publicUrl = await uploadToDirectus(file, `shipments/${shipment.id}/${tableName}`);
 
-      await publicDirectus.request(createItem(tableName, {
-        shipment_id: shipment.id,
-        file_url: publicUrl,
-        file_name: file.name,
-        file_size: file.size,
-        ...additionalData
-      }));
-
-      toast({ title: "Upload realizado", description: "Arquivo enviado com sucesso" });
-
-      if (tableName === 'payment_receipts') await fetchPaymentReceipts();
-      if (tableName === 'delivery_receipts') await fetchDeliveryReceipts();
-      if (tableName === 'shipment_documents') await fetchShipmentDocuments();
-      return;
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // 1. Upload file to Directus
-      const fileResult = await directus.request(uploadFiles(formData));
-      const fileId = fileResult.id;
-
-      // 2. Create record in target table linking the file (Directus)
       await directus.request(createItem(tableName, {
         shipment_id: shipment.id,
-        file: fileId,
+        file_url: publicUrl,
         file_name: file.name,
         file_size: file.size,
         ...additionalData
@@ -465,7 +442,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
       const fileId = fileUrl.split('/').pop();
 
       // 1. Delete the record in the table (delivery_receipts, etc)
-      await publicDirectus.request(deleteItem(tableName, id));
+      await directus.request(deleteItem(tableName, id));
 
       // 2. Delete the actual file if we have the ID (and it looks like a valid UUID/ID)
       await deletePublicFileByUrl(fileUrl);

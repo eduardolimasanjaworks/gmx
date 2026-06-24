@@ -47,6 +47,10 @@ function formatarData(valor?: string | null) {
   return new Date(valor).toLocaleString('pt-BR');
 }
 
+function dadosResiduais(status?: WhatsappIaStatus | null) {
+  return Boolean(status && !status.conectado && (status.state === 'stale_open' || status.podeEnviar === false));
+}
+
 export function WhatsappTargetsPanel() {
   const { toast } = useToast();
   const [targets, setTargets] = useState<WhatsappIaStatus[]>([]);
@@ -56,6 +60,7 @@ export function WhatsappTargetsPanel() {
     oficial_gmx: null,
   });
   const [qrData, setQrData] = useState<Partial<Record<TargetId, WhatsappIaQrCode | null>>>({});
+  const [feedback, setFeedback] = useState<Partial<Record<TargetId, string | null>>>({});
   const [qrOpen, setQrOpen] = useState<Partial<Record<TargetId, boolean>>>({});
   const [cooldown, setCooldown] = useState<Record<string, number>>({});
   const [agora, setAgora] = useState(Date.now());
@@ -109,6 +114,7 @@ export function WhatsappTargetsPanel() {
     setAcao((prev) => ({ ...prev, [target]: 'atualizar' }));
     try {
       const status = await obterWhatsappAlvoStatus(target);
+      setFeedback((prev) => ({ ...prev, [target]: null }));
       setTargets((prev) => prev.map((item) => (item.alvo === target ? status : item)));
       aplicarCooldown(target, 'atualizar', status.cooldownAte, status.cooldownMs);
       toast({
@@ -128,9 +134,11 @@ export function WhatsappTargetsPanel() {
     try {
       const qr = await obterWhatsappAlvoQrCode(target);
       setQrData((prev) => ({ ...prev, [target]: qr }));
+      setFeedback((prev) => ({ ...prev, [target]: null }));
       aplicarCooldown(target, 'qr', qr.cooldownAte, qr.cooldownMs);
       await atualizarTarget(target);
     } catch (error: any) {
+      setFeedback((prev) => ({ ...prev, [target]: error?.message || 'Falha ao abrir o QR deste alvo.' }));
       toast({ title: 'Falha ao abrir QR', description: error?.message, variant: 'destructive' });
     } finally {
       setAcao((prev) => ({ ...prev, [target]: null }));
@@ -143,6 +151,7 @@ export function WhatsappTargetsPanel() {
     try {
       const qr = await reconectarWhatsappAlvo(target);
       setQrData((prev) => ({ ...prev, [target]: qr }));
+      setFeedback((prev) => ({ ...prev, [target]: null }));
       aplicarCooldown(target, 'reconectar', qr.cooldownAte, qr.cooldownMs);
       await atualizarTarget(target);
       toast({
@@ -150,6 +159,7 @@ export function WhatsappTargetsPanel() {
         description: qr.base64 ? 'O novo pareamento ja esta pronto.' : 'Ainda nao existe QR utilizavel para este alvo.',
       });
     } catch (error: any) {
+      setFeedback((prev) => ({ ...prev, [target]: error?.message || 'Falha ao reconectar este alvo.' }));
       toast({ title: 'Falha ao reconectar alvo', description: error?.message, variant: 'destructive' });
     } finally {
       setAcao((prev) => ({ ...prev, [target]: null }));
@@ -182,13 +192,14 @@ export function WhatsappTargetsPanel() {
                 <Badge variant={status.conectado ? 'default' : 'secondary'}>{traduzirStatus(status)}</Badge>
               </div>
               <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-md border bg-muted/20 p-3"><div className="text-xs uppercase tracking-wide text-muted-foreground">Numero conectado</div><div className="mt-2 text-sm font-medium break-all">{formatarNumero(status.numeroConectado)}</div></div>
+                <div className="rounded-md border bg-muted/20 p-3"><div className="text-xs uppercase tracking-wide text-muted-foreground">{dadosResiduais(status) ? 'Ultimo numero visto' : 'Numero conectado'}</div><div className="mt-2 text-sm font-medium break-all">{dadosResiduais(status) && !status.numeroConectado ? 'Sem conexao valida' : formatarNumero(status.numeroConectado)}</div></div>
                 <div className="rounded-md border bg-muted/20 p-3"><div className="text-xs uppercase tracking-wide text-muted-foreground">Instancia atual</div><div className="mt-2 text-sm font-medium break-all">{status.instance}</div></div>
-                <div className="rounded-md border bg-muted/20 p-3"><div className="text-xs uppercase tracking-wide text-muted-foreground">Ultima atualizacao</div><div className="mt-2 text-sm font-medium">{formatarData(status.atualizadoEm)}</div></div>
+                <div className="rounded-md border bg-muted/20 p-3"><div className="text-xs uppercase tracking-wide text-muted-foreground">{dadosResiduais(status) ? 'Ultimo registro residual' : 'Ultima atualizacao'}</div><div className="mt-2 text-sm font-medium">{formatarData(status.atualizadoEm)}</div></div>
               </div>
               <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground space-y-1">
-                <div>{status.nomePerfil ? `Perfil conectado: ${status.nomePerfil}` : 'Perfil ainda nao identificado por esta conexao.'}</div>
+                <div>{status.nomePerfil ? `${dadosResiduais(status) ? 'Ultimo perfil visto' : 'Perfil conectado'}: ${status.nomePerfil}` : 'Perfil ainda nao identificado por esta conexao.'}</div>
                 <div>{status.motivoDesconexao || status.aviso || 'Sem observacoes adicionais para este alvo.'}</div>
+                {feedback[target] ? <div className="text-foreground">Aviso operacional: {feedback[target]}</div> : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" onClick={() => void atualizarTarget(target)} disabled={acao[target] !== null || segundosRestantes(target, 'atualizar') > 0} className="gap-2">
@@ -198,7 +209,7 @@ export function WhatsappTargetsPanel() {
                 {status.permiteQr !== false ? (
                   <Button type="button" onClick={() => void abrirQr(target)} disabled={acao[target] !== null || segundosRestantes(target, 'qr') > 0} className="gap-2">
                     {acao[target] === 'qr' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-                    {segundosRestantes(target, 'qr') > 0 ? `Seguro mais um instante (${segundosRestantes(target, 'qr')}s)` : 'Abrir QR da conexao atual'}
+                  {segundosRestantes(target, 'qr') > 0 ? `Seguro mais um instante (${segundosRestantes(target, 'qr')}s)` : 'Abrir QR da conexao atual'}
                   </Button>
                 ) : null}
                 <Button type="button" variant="destructive" onClick={() => void reconectarTarget(target)} disabled={!status.permiteReconectar || acao[target] !== null || segundosRestantes(target, 'reconectar') > 0} className="gap-2">
@@ -227,7 +238,7 @@ export function WhatsappTargetsPanel() {
                       {qr.pairingCode ? <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">Codigo de pareamento: <span className="font-medium text-foreground">{qr.pairingCode}</span></div> : null}
                     </div>
                   ) : (
-                    <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">{qr?.mensagem || 'QR code indisponivel no momento para este alvo.'}</div>
+                    <div className="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">{feedback[target] || qr?.mensagem || 'QR code indisponivel no momento para este alvo.'}</div>
                   )}
                   <DialogFooter className="gap-2 sm:gap-0">
                     <Button type="button" variant="outline" onClick={() => void atualizarTarget(target)}>Verificar agora se conectou</Button>
@@ -241,7 +252,7 @@ export function WhatsappTargetsPanel() {
       </div>
       <div className="rounded-md border border-dashed bg-muted/10 p-3 text-xs text-muted-foreground space-y-2">
         <div><code>Verificar agora se conectou</code> so confere o estado atual do alvo.</div>
-        <div><code>Abrir QR da conexao atual</code> tenta abrir o QR sem derrubar a sessao.</div>
+        <div><code>Abrir QR da conexao atual</code> tenta abrir o QR sem derrubar a sessao e, se o upstream travar, devolve aviso operacional em vez de fingir conexao.</div>
         <div><code>Desconectar e gerar novo QR</code> so fica liberado para o numero oficial GMX.</div>
         <div className="flex items-center gap-2 text-foreground"><AlertTriangle className="h-4 w-4" /> O numero auxiliar de teste nao pode ser reconectado por este painel.</div>
       </div>

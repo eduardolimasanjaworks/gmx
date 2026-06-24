@@ -28,7 +28,9 @@ export function useEmbarques() {
           id: String(item.id),
           driver: item.driver_id ? {
             id: item.driver_id.id,
-            name: item.driver_id.name || item.driver_id.nome || 'Motorista'
+            name: item.driver_id.name || item.driver_id.nome || 'Motorista',
+            tipo_veiculo: item.driver_id.tipo_veiculo || item.driver_id.vehicle_type || null,
+            telefone: item.driver_id.telefone || null,
           } : undefined,
           // Regra operacional: cargas canceladas vão para coluna finalizadas
           status: item.status === 'cancelled' ? 'delivered' : item.status,
@@ -53,7 +55,9 @@ export function useEmbarques() {
               id: String(item.id),
               driver: item.driver_id ? {
                 id: item.driver_id.id,
-                name: item.driver_id.name || item.driver_id.nome || 'Motorista'
+              name: item.driver_id.name || item.driver_id.nome || 'Motorista',
+              tipo_veiculo: item.driver_id.tipo_veiculo || item.driver_id.vehicle_type || null,
+              telefone: item.driver_id.telefone || null,
               } : undefined,
               status: item.status === 'cancelled' ? 'delivered' : item.status,
               driver_id: typeof item.driver_id === 'object' ? item.driver_id?.id : item.driver_id

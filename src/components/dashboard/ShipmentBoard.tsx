@@ -133,6 +133,7 @@ export const ShipmentBoard = () => {
   const [focusColumn, setFocusColumn] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+  const [selectedDriverData, setSelectedDriverData] = useState<any>(null);
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
   const [shipmentToStart, setShipmentToStart] = useState<any>(null);
@@ -183,7 +184,10 @@ export const ShipmentBoard = () => {
     // Correctly identifying drop target data
     const overData = over.data.current;
 
-    if (!activeData || !overData) return;
+    if (!activeData || !overData) {
+      setActiveShipment(null);
+      return;
+    }
 
     const activeStatus = activeData.status;
     const overStatus = resolveDropStatus(over.id, overData); // Handle dropping on card or column
@@ -269,7 +273,8 @@ export const ShipmentBoard = () => {
         ...embarque,
         deadline: formatDistanceToNow(embarque.created_at, { addSuffix: true, locale: ptBR }),
         hasPaymentProof: false,
-        driver: embarque.driver?.name,
+        driver_name: embarque.driver?.name || embarque.driver_name || null,
+        tipo_veiculo: embarque.driver?.tipo_veiculo || embarque.tipo_veiculo || null,
         pickupDate: formatDate(embarque.pickup_date),
         deliveryDate: formatDate(embarque.delivery_date),
         actual_arrival: embarque.actual_arrival ? formatDistanceToNow(embarque.actual_arrival, { addSuffix: true, locale: ptBR }) : undefined,
@@ -292,8 +297,16 @@ export const ShipmentBoard = () => {
     setDialogOpen(true);
   };
 
-  const handleDriverClick = (driverName: string) => {
-    setSelectedDriver(driverName);
+  const handleDriverClick = (driverOrName: any) => {
+    if (typeof driverOrName === 'string') {
+      setSelectedDriver(driverOrName);
+      setSelectedDriverData(null);
+      setDriverDialogOpen(true);
+      return;
+    }
+    const name = driverOrName?.name || driverOrName?.nome || null;
+    setSelectedDriver(name);
+    setSelectedDriverData(driverOrName || null);
     setDriverDialogOpen(true);
   };
 
@@ -442,6 +455,7 @@ export const ShipmentBoard = () => {
           open={driverDialogOpen}
           onOpenChange={setDriverDialogOpen}
           driverName={selectedDriver}
+          driverData={selectedDriverData || undefined}
         />
 
         <AlertDialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
@@ -603,6 +617,7 @@ export const ShipmentBoard = () => {
                             onViewDetails={handleViewDetails}
                             onConfirmGMX={handleConfirmGMX}
                             onStartRide={handleStartRide}
+                            onOpenDriver={handleDriverClick}
                           />
                         </DraggableShipmentCard>
                       ))}

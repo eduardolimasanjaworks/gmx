@@ -20,6 +20,7 @@ import {
   Settings,
   ClipboardList,
   Activity,
+  MessagesSquare,
   Book,
   LogOut,
   User as UserIcon,
@@ -72,6 +73,7 @@ const Dashboard = () => {
     { id: 'rotas', label: 'Rotas', icon: RouteIcon, perm: 'embarques' },
     { id: 'shipments', label: 'Embarques', icon: Package, perm: 'embarques' },
     { id: 'history', label: 'Histórico', icon: History, perm: 'historico' },
+    { id: 'conversas', label: 'Conversas', icon: MessagesSquare, perm: 'dashboard' },
     { id: 'operators', label: 'Operadores', icon: Activity, perm: 'usuarios', disabled: true },
     { id: 'users', label: 'Usuários', icon: Settings, perm: 'usuarios' },
     { id: 'stats', label: 'Dashboard', icon: BarChart3, perm: 'dashboard' },
@@ -261,6 +263,18 @@ const Dashboard = () => {
               {activeTab === 'tracking' && hasPermission('disponiveis') && (
                 <TabsContent value="tracking" className="space-y-6 mt-0">
                   <VehicleTrackingMap />
+                </TabsContent>
+              )}
+
+              {activeTab === 'conversas' && hasPermission('dashboard') && (
+                <TabsContent value="conversas" className="space-y-6 mt-0">
+                  <div className="overflow-hidden rounded-lg border bg-background h-[calc(100vh-220px)]">
+                    <iframe
+                      src="https://chat.sanjaworks.com"
+                      title="Conversas"
+                      className="h-full w-full"
+                    />
+                  </div>
                 </TabsContent>
               )}
 

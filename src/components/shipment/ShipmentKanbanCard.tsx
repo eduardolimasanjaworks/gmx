@@ -18,6 +18,7 @@ interface Props {
   onViewDetails?: (shipment: any) => void;
   onConfirmGMX?: (shipment: any) => void;
   onStartRide?: (shipment: any) => void;
+  onOpenDriver?: (driver: any) => void;
   preview?: boolean;
   zIndex?: number;
 }
@@ -29,10 +30,15 @@ export function ShipmentKanbanCard({
   onViewDetails,
   onConfirmGMX,
   onStartRide,
+  onOpenDriver,
   preview = false,
   zIndex,
 }: Props) {
   const interactive = !preview;
+  const driverName =
+    shipment.driver_name || shipment.driver?.name || shipment.driver || 'Aguardando Motorista';
+  const vehicleType =
+    shipment.tipo_veiculo || shipment.driver?.tipo_veiculo || shipment.vehicle_type || shipment.vehicleType || '-';
 
   return (
     <div className={cn('group relative', preview && 'rotate-2 scale-[1.01]')} style={zIndex ? { zIndex } : undefined}>
@@ -52,7 +58,27 @@ export function ShipmentKanbanCard({
         <CardHeader className="p-3 pb-0">
           <div className="flex items-start justify-between">
             <div>
-              <h4 className="font-bold text-sm text-foreground">{shipment.driver || 'Aguardando Motorista'}</h4>
+              <div className="flex items-center gap-2">
+                {interactive && shipment.driver?.id ? (
+                  <button
+                    type="button"
+                    className="font-bold text-sm text-foreground underline-offset-2 hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenDriver?.(shipment.driver);
+                    }}
+                  >
+                    {driverName}
+                  </button>
+                ) : (
+                  <h4 className="font-bold text-sm text-foreground">{driverName}</h4>
+                )}
+                {vehicleType && vehicleType !== '-' && (
+                  <Badge variant="secondary" className="h-5 text-[10px]">
+                    {vehicleType}
+                  </Badge>
+                )}
+              </div>
               {shipment.rota_status === 'pendente' && (
                 <span className="mt-1 block w-fit rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                   Rota pendente
@@ -113,10 +139,10 @@ export function ShipmentKanbanCard({
             </p>
             <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <Truck className="h-3 w-3" />
-              Tipo Veículo: {shipment.tipo_veiculo || shipment.vehicle_type || '-'}
+              Tipo Veículo: {vehicleType}
             </p>
             <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              Motorista: {shipment.driver_name || shipment.driver || '-'}
+              Motorista: {driverName}
             </p>
             <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <Package className="h-3 w-3" />

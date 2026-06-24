@@ -151,6 +151,9 @@ export const VehicleTrackingMap = () => {
 
   const coordenadasMotorista = (driver: any): [number, number] | null => {
     if (usarPosicaoPrevista(driver)) {
+      const prevLat = Number(driver?.local_liberacao_prevista_latitude);
+      const prevLng = Number(driver?.local_liberacao_prevista_longitude);
+      if (Number.isFinite(prevLat) && Number.isFinite(prevLng)) return [prevLat, prevLng];
       const prev = coordenadasPorLocal(localLiberacaoPrevista(driver));
       if (prev) return prev;
     }

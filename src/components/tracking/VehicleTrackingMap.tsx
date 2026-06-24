@@ -317,6 +317,7 @@ export const VehicleTrackingMap = () => {
       const filtro = new Set(selectedOperations.map(normalizarOperacao));
       filtered = filtered.filter((d: any) => {
         const operacoes = extrairOperacoesDriver(d);
+        if (operacoes.length === 0) return true;
         return operacoes.some((op) => filtro.has(op));
       });
     }

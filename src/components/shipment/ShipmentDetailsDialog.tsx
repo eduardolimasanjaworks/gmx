@@ -517,7 +517,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm text-muted-foreground">Tipo de Carga</label>
+                        <label className="text-sm text-muted-foreground">Operação</label>
                         <Input
                           value={editedData.cargo}
                           onChange={(e) => setEditedData(prev => ({ ...prev, cargo: e.target.value }))}
@@ -653,7 +653,7 @@ export const ShipmentDetailsDialog = ({ open, onOpenChange, shipment }: Shipment
                       <div className="flex items-start gap-2">
                         <Package className="h-5 w-5 text-primary mt-1" />
                         <div>
-                          <p className="text-sm text-muted-foreground">Tipo de Carga</p>
+                          <p className="text-sm text-muted-foreground">Operação</p>
                           <p className="font-medium">{shipment.cargo}</p>
                         </div>
                       </div>

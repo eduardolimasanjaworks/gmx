@@ -14,7 +14,7 @@ export function normalizarTextoRota(s: string): string {
     .trim();
 }
 
-/** Match flexível (substring) — mesma regra do iagmx rotas-gmx.ts */
+/** Match por rota e operação exata normalizada. */
 export function buscarRotaNaLista(
   opts: { origem: string; destino: string; operacao?: string },
   rotas: ConfigRota[],
@@ -32,7 +32,7 @@ export function buscarRotaNaLista(
     const rop = r.operacao ? normalizarTextoRota(r.operacao) : '';
     const origemOk = ro.includes(o) || o.includes(ro);
     const destinoOk = rd.includes(d) || d.includes(rd);
-    const opOk = !op || !rop || rop.includes(op) || op.includes(rop);
+    const opOk = !op || !rop || rop === op;
     return origemOk && destinoOk && opOk;
   });
 

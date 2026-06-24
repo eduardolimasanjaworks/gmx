@@ -146,7 +146,7 @@ export function CreateShipmentDialog({ open, onOpenChange }: CreateShipmentDialo
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-            <Label htmlFor="cargo_type">Tipo de Carga</Label>
+            <Label htmlFor="cargo_type">Operação</Label>
             <Input
               id="cargo_type"
               placeholder="Ex: Arroz, Eletrônicos, etc."

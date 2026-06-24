@@ -4,6 +4,7 @@
 import { directus } from '@/lib/directus';
 import { readItems } from '@directus/sdk';
 import { calcularMatchingScore, type MatchingScore } from '@/lib/matchingAlgorithm';
+import { parseRotaRegras } from '@/lib/rotaRegras';
 
 export interface EmbarqueParaRank {
   id: string | number;
@@ -84,6 +85,7 @@ async function obterCoordenadasRota(
   origem_longitude?: number;
   destino_latitude?: number;
   destino_longitude?: number;
+  evidencia?: string | null;
 } | null> {
   const origem_latitude = numeroOpcional(embarque.origem_latitude);
   const origem_longitude = numeroOpcional(embarque.origem_longitude);
@@ -111,6 +113,7 @@ async function obterCoordenadasRota(
         'origem_longitude',
         'destino_latitude',
         'destino_longitude',
+        'evidencia',
       ],
       limit: 1,
     }),
@@ -121,6 +124,7 @@ async function obterCoordenadasRota(
     origem_longitude?: number | string | null;
     destino_latitude?: number | string | null;
     destino_longitude?: number | string | null;
+    evidencia?: string | null;
   } | undefined;
 
   if (!rota) return null;
@@ -130,6 +134,7 @@ async function obterCoordenadasRota(
     origem_longitude: numeroOpcional(rota.origem_longitude),
     destino_latitude: numeroOpcional(rota.destino_latitude),
     destino_longitude: numeroOpcional(rota.destino_longitude),
+    evidencia: rota.evidencia ?? null,
   };
 }
 
@@ -206,13 +211,14 @@ export async function rankMotoristasParaEmbarque(
     if (operacaoEmbarque && !operacoesElegiveis.includes(operacaoEmbarque)) {
       continue;
     }
+    const coordsAtual = coordenadasPorLocal(String(disp?.localizacao_atual ?? `${motorista.cidade}, ${motorista.estado}`));
     const motoristaData = {
       id: String(motorista.id),
       nome: `${motorista.nome} ${motorista.sobrenome || ''}`.trim(),
       localizacao_atual: disp?.localizacao_atual || `${motorista.cidade}, ${motorista.estado}`,
       localizacao_prevista: disp?.local_disponibilidade || undefined,
-      latitude: numeroOpcional(disp?.latitude),
-      longitude: numeroOpcional(disp?.longitude),
+      latitude: numeroOpcional(disp?.latitude) ?? coordsAtual?.lat,
+      longitude: numeroOpcional(disp?.longitude) ?? coordsAtual?.lng,
       status: disp?.status || 'indisponivel',
       disponivel_em:
         typeof disp?.data_previsao_disponibilidade === 'string'
@@ -255,6 +261,7 @@ export async function rankMotoristasParaEmbarque(
       }
     }
 
+    const regras = parseRotaRegras(rotaCoords?.evidencia);
     const embarqueData = {
       id: String(embarque.id),
       origin: embarque.origin || '',
@@ -270,6 +277,8 @@ export async function rankMotoristasParaEmbarque(
       valor_frete: embarque.total_value ?? undefined,
       data_coleta: embarque.pickup_date || embarque.created_at || new Date().toISOString(),
       urgencia: 'media' as const,
+      preferencia_proximidade: regras.preferencia_proximidade,
+      gps_max_horas: regras.gps_max_horas,
     };
 
     const score = calcularMatchingScore(embarqueData, motoristaData);

@@ -54,6 +54,33 @@ function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon
   return R * c;
 }
 
+const CITY_COORDS: Record<string, [number, number]> = {
+  'GUARULHOS_SP': [-23.4543, -46.5337],
+  'CAMPINAS_SP': [-22.9099, -47.0626],
+  'SAO PAULO_SP': [-23.5505, -46.6333],
+  'RIO DE JANEIRO_RJ': [-22.9068, -43.1729],
+  'BELO HORIZONTE_MG': [-19.9167, -43.9345],
+  'CURITIBA_PR': [-25.4284, -49.2733],
+  'PORTO ALEGRE_RS': [-30.0346, -51.2177],
+  'GOIANIA_GO': [-16.6869, -49.2648],
+  'BRASILIA_DF': [-15.7939, -47.8828],
+  'SALVADOR_BA': [-12.9777, -38.5016],
+  'RECIFE_PE': [-8.0578, -34.8829],
+  'FORTALEZA_CE': [-3.7319, -38.5267],
+};
+
+function normalizarLocalChave(local: string): string | null {
+  const t = String(local || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const m = t.match(/^(.*?)[,/\- ]\s*([A-Z]{2})$/);
+  if (!m) return null;
+  return `${m[1].trim()}_${m[2].trim()}`;
+}
+
+function coordenadasPorLocal(local?: string | null): [number, number] | null {
+  const chave = local ? normalizarLocalChave(local) : null;
+  return chave ? CITY_COORDS[chave] || null : null;
+}
+
 export const VehicleTrackingMap = () => {
   const [searchParams] = useSearchParams();
   const urlDate = searchParams.get('load_date');
@@ -78,6 +105,10 @@ export const VehicleTrackingMap = () => {
     urlLat && urlLng ? [Number(urlLat), Number(urlLng)] : null
   );
   const [isSelectingOrigin, setIsSelectingOrigin] = useState(false);
+  const [showDisponivel, setShowDisponivel] = useState(true);
+  const [showRetornando, setShowRetornando] = useState(true);
+  const [showCarregado, setShowCarregado] = useState(true);
+  const [showSomentePrevistos, setShowSomentePrevistos] = useState(false);
 
   // Busca de Fábrica/Empresa
   const [isSearchingFactory, setIsSearchingFactory] = useState(false);
@@ -103,6 +134,37 @@ export const VehicleTrackingMap = () => {
   const { refreshToken, user } = useAuth();
 
   const normalizarOperacao = (value: unknown): string => String(value ?? '').trim().toUpperCase();
+
+  const statusNormalizado = (driver: any): string => String(driver?.status || '').trim().toLowerCase();
+
+  const dataFiltroReferencia = timeTravelDate ? new Date(timeTravelDate) : null;
+  if (dataFiltroReferencia) dataFiltroReferencia.setHours(23, 59, 59, 999);
+
+  const usarPosicaoPrevista = (driver: any): boolean => {
+    if (!driver?.data_previsao_disponibilidade || !driver?.local_disponibilidade || !dataFiltroReferencia) return false;
+    const previsao = new Date(driver.data_previsao_disponibilidade);
+    return !Number.isNaN(previsao.getTime()) && previsao <= dataFiltroReferencia;
+  };
+
+  const coordenadasMotorista = (driver: any): [number, number] | null => {
+    if (usarPosicaoPrevista(driver)) {
+      const prev = coordenadasPorLocal(driver.local_disponibilidade);
+      if (prev) return prev;
+    }
+    const lat = Number(driver?.latitude);
+    const lng = Number(driver?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    const atual = coordenadasPorLocal(driver?.localizacao_atual);
+    if (atual) return atual;
+    return coordenadasPorLocal(driver?.local_disponibilidade);
+  };
+
+  const corStatus = (driver: any): string => {
+    const st = statusNormalizado(driver);
+    if (st === 'carregado') return 'slate';
+    if (st === 'retornando') return 'amber';
+    return usarPosicaoPrevista(driver) ? 'indigo' : 'green';
+  };
 
   const extrairOperacoesDriver = (driver: any): string[] => {
     const fontes = [
@@ -160,8 +222,10 @@ export const VehicleTrackingMap = () => {
 
     return Array.from(latestStatusMap.values())
       .filter((item: any) => {
-        // Só exibe motoristas marcados como disponíveis
-        if (item.disponivel !== true) return false;
+        const st = statusNormalizado(item);
+        const elegivelStatus =
+          item.disponivel === true || st === 'disponivel' || st === 'retornando' || st === 'carregado';
+        if (!elegivelStatus) return false;
 
         // Quando "Viagem no Tempo" está ativa, aplicar regra temporal:
         if (timeTravelDate) {
@@ -169,16 +233,12 @@ export const VehicleTrackingMap = () => {
           endOfSelectedDay.setHours(23, 59, 59, 999);
 
           if (item.data_previsao_disponibilidade) {
-            // Motorista com data futura: só aparece a partir da data prevista
             const previsao = new Date(item.data_previsao_disponibilidade);
             return previsao <= endOfSelectedDay;
-          } else {
-            // Motorista sem data futura: aparece se o registro foi criado até o dia selecionado
-            const criado = new Date(item.date_created);
-            return criado <= endOfSelectedDay;
           }
+          const criado = new Date(item.date_created);
+          return criado <= endOfSelectedDay;
         }
-
         return true;
       });
   };
@@ -203,6 +263,13 @@ export const VehicleTrackingMap = () => {
   const allAvailableDrivers = useMemo(() => {
     let filtered = [...fetchedDrivers];
 
+    filtered = filtered.filter((d: any) => {
+      const st = statusNormalizado(d);
+      if (st === 'carregado') return showCarregado;
+      if (st === 'retornando') return showRetornando;
+      return showDisponivel;
+    });
+
     if (selectedOperations.length > 0) {
       const filtro = new Set(selectedOperations.map(normalizarOperacao));
       filtered = filtered.filter((d: any) => {
@@ -211,35 +278,39 @@ export const VehicleTrackingMap = () => {
       });
     }
 
+    if (showSomentePrevistos) {
+      filtered = filtered.filter((d: any) => Boolean(d.local_disponibilidade) && Boolean(d.data_previsao_disponibilidade));
+    }
+
     if (originPoint) {
       const MAX_KM = radiusKm[0];
       filtered = filtered.filter((d: any) => {
-        if (!d.latitude || !d.longitude) return false;
+        const coords = coordenadasMotorista(d);
+        if (!coords) return false;
         const dist = getDistanceFromLatLonInKm(
           originPoint[0], originPoint[1],
-          Number(d.latitude), Number(d.longitude)
+          coords[0], coords[1]
         );
         return dist <= MAX_KM;
       });
     }
 
     return filtered;
-  }, [fetchedDrivers, originPoint, radiusKm, selectedOperations]);
+  }, [fetchedDrivers, originPoint, radiusKm, selectedOperations, showCarregado, showDisponivel, showRetornando, showSomentePrevistos]);
 
   // Apenas os motoristas com coordenadas GPS vão para o mapa
-  const drivers = allAvailableDrivers.filter((d: any) =>
-    d.latitude && d.longitude &&
-    !isNaN(Number(d.latitude)) && !isNaN(Number(d.longitude))
-  );
+  const drivers = allAvailableDrivers
+    .map((d: any) => ({ driver: d, coords: coordenadasMotorista(d) }))
+    .filter((item) => Boolean(item.coords));
 
-  const markers = drivers.map((d: any) => ({
+  const markers = drivers.map(({ driver: d, coords }) => ({
     id: d.id,
-    position: [Number(d.latitude), Number(d.longitude)] as [number, number],
-    color: 'blue',
+    position: coords as [number, number],
+    color: corStatus(d),
     size: 'medium',
     popup: {
       title: `${d.motorista_id?.nome || 'Motorista'} ${d.motorista_id?.sobrenome || ''}`,
-      content: `${d.localizacao_atual || 'Localização não informada'}\nVeículo: ${d.motorista_id?.tipo_veiculo || 'N/A'}`,
+      content: `${d.localizacao_atual || 'Localização não informada'}\nStatus: ${String(d.status || 'disponivel')}${usarPosicaoPrevista(d) && d.local_disponibilidade ? `\nPosição prevista: ${d.local_disponibilidade}` : ''}`,
       image: d.motorista_id?.foto ? `https://gmx.sanjaworks.com/api/assets/${d.motorista_id.foto}` : undefined
     },
     driverData: d
@@ -329,8 +400,9 @@ export const VehicleTrackingMap = () => {
     const lines: any[] = [];
     if (!selectedDriver) return lines;
 
-    const currentLat = Number(selectedDriver.latitude);
-    const currentLng = Number(selectedDriver.longitude);
+    const currentCoords = coordenadasMotorista(selectedDriver);
+    const currentLat = Number(currentCoords?.[0]);
+    const currentLng = Number(currentCoords?.[1]);
 
     // 1. Draw Path History
     if (driverHistory.length > 0) {
@@ -359,11 +431,12 @@ export const VehicleTrackingMap = () => {
     }
 
     // 3. Draw Future Path to the next defined destination of the Driver (if he is moving somewhere else)
-    if (selectedDriver.destino_lat && selectedDriver.destino_lng && currentLat && currentLng) {
+    const destinoPrevisto = coordenadasPorLocal(selectedDriver.local_disponibilidade);
+    if (destinoPrevisto && currentLat && currentLng) {
       lines.push({
-        positions: [[currentLat, currentLng], [Number(selectedDriver.destino_lat), Number(selectedDriver.destino_lng)]],
+        positions: [[currentLat, currentLng], destinoPrevisto],
         style: { color: '#f59e0b', weight: 3, dashArray: '5, 5' },
-        popup: 'Indo para o próximo Destino'
+        popup: `Previsão declarada: ${selectedDriver.local_disponibilidade || 'Destino relatado'}`
       });
     }
 
@@ -375,19 +448,20 @@ export const VehicleTrackingMap = () => {
     const defaultMarkers: any[] = [...markers];
 
     if (selectedDriver) {
-      const currentLat = Number(selectedDriver.latitude);
-      const currentLng = Number(selectedDriver.longitude);
+      const currentCoords = coordenadasMotorista(selectedDriver);
+      const currentLat = Number(currentCoords?.[0]);
+      const currentLng = Number(currentCoords?.[1]);
 
-      // Add driver's planned destination pin if it exists
-      if (selectedDriver.destino_lat && selectedDriver.destino_lng) {
+      const destinoPrevisto = coordenadasPorLocal(selectedDriver.local_disponibilidade);
+      if (destinoPrevisto) {
         defaultMarkers.push({
           id: 'driver-dest',
-          position: [Number(selectedDriver.destino_lat), Number(selectedDriver.destino_lng)],
+          position: destinoPrevisto,
           color: 'orange',
           size: 'medium',
           popup: {
-            title: 'Destino Final do Motorista',
-            content: selectedDriver.destino_atual || 'Destino Relatado',
+            title: 'Localização Prevista',
+            content: `${selectedDriver.local_disponibilidade || 'Destino relatado'}${selectedDriver.data_previsao_disponibilidade ? `\nPrevisto para: ${new Date(selectedDriver.data_previsao_disponibilidade).toLocaleString()}` : ''}`,
             image: undefined
           }
         });
@@ -742,6 +816,16 @@ export const VehicleTrackingMap = () => {
               <OperationsFilter value={selectedOperations} onChange={setSelectedOperations} className="h-9" />
             </div>
 
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Status</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button variant={showDisponivel ? "secondary" : "outline"} size="sm" onClick={() => setShowDisponivel((v) => !v)}>Disponível</Button>
+                <Button variant={showRetornando ? "secondary" : "outline"} size="sm" onClick={() => setShowRetornando((v) => !v)}>Retornando</Button>
+                <Button variant={showCarregado ? "secondary" : "outline"} size="sm" onClick={() => setShowCarregado((v) => !v)}>Carregado</Button>
+                <Button variant={showSomentePrevistos ? "secondary" : "outline"} size="sm" onClick={() => setShowSomentePrevistos((v) => !v)}>Só previstos</Button>
+              </div>
+            </div>
+
             {/* 2. Ponto de Origem */}
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ponto de Busca (Fábrica)</Label>
@@ -1019,19 +1103,21 @@ export const VehicleTrackingMap = () => {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Truck className="h-5 w-5 text-primary" />
-                  {originPoint ? 'Motoristas no Raio' : 'Motoristas Disponíveis'}
+                  {originPoint ? 'Motoristas no Raio' : 'Motoristas no Mapa'}
                 </CardTitle>
                 <Badge variant="outline">{allAvailableDrivers.length}</Badge>
               </div>
             </CardHeader>
             <CardContent className="p-3 overflow-y-auto grow space-y-3 bg-slate-50/30 dark:bg-slate-950/30">
               {allAvailableDrivers.map((driver: any) => {
-                const hasGps = driver.latitude && driver.longitude;
+                const hasGps = Boolean(coordenadasMotorista(driver));
                 const operacoes = extrairOperacoesDriver(driver);
+                const status = statusNormalizado(driver);
                 // calculate dist if origin is set to show in UI
                 let distLabel = "";
                 if (originPoint && hasGps) {
-                  const dist = getDistanceFromLatLonInKm(originPoint[0], originPoint[1], Number(driver.latitude), Number(driver.longitude));
+                  const coords = coordenadasMotorista(driver);
+                  const dist = coords ? getDistanceFromLatLonInKm(originPoint[0], originPoint[1], coords[0], coords[1]) : 0;
                   distLabel = `${Math.round(dist)} km`;
                 }
 
@@ -1065,8 +1151,11 @@ export const VehicleTrackingMap = () => {
                             Previsão
                           </Badge>
                         )}
+                        <Badge variant="outline" className="text-[9px] uppercase tracking-wider">
+                          {status || 'disponivel'}
+                        </Badge>
                         {!hasGps && (
-                          <Badge variant="outline" className="text-[9px] bg-slate-50 text-slate-500 uppercase tracking-wider">Sem GPS</Badge>
+                          <Badge variant="outline" className="text-[9px] bg-slate-50 text-slate-500 uppercase tracking-wider">Sem GPS preciso</Badge>
                         )}
                       </div>
                     </div>
@@ -1093,6 +1182,13 @@ export const VehicleTrackingMap = () => {
                           {isFuture && driver.local_disponibilidade && (
                             <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-1 flex items-center gap-1">
                               ↳ Estará em: {driver.local_disponibilidade}
+                            </p>
+                          )}
+                          {driver.local_disponibilidade && (
+                            <p className="text-[10px] text-slate-500 mt-1">
+                              {isFuture
+                                ? `Esse motorista informou que estaria nesse local na data prevista.`
+                                : `Último local previsto informado: ${driver.local_disponibilidade}`}
                             </p>
                           )}
                         </div>

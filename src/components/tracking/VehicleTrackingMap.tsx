@@ -95,10 +95,10 @@ export const VehicleTrackingMap = () => {
 
   // Filters State
   const [timeTravelDate, setTimeTravelDate] = useState<Date | undefined>(
-    urlDate ? new Date(urlDate) : new Date()
+    urlDate ? new Date(urlDate) : undefined
   );
   const [timeTravelEndDate, setTimeTravelEndDate] = useState<Date | undefined>(
-    urlDate ? new Date(urlDate) : new Date()
+    urlDate ? new Date(urlDate) : undefined
   );
   const [radiusKm, setRadiusKm] = useState<number[]>([150]); // Default slightly larger for loads
   const [originPoint, setOriginPoint] = useState<[number, number] | null>(
@@ -135,16 +135,23 @@ export const VehicleTrackingMap = () => {
 
   const normalizarOperacao = (value: unknown): string => String(value ?? '').trim().toUpperCase();
 
-  const statusNormalizado = (driver: any): string => String(driver?.status || '').trim().toLowerCase();
+  const normalizarTexto = (value: unknown): string =>
+    String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
 
-  const dataFiltroReferencia = timeTravelDate ? new Date(timeTravelDate) : null;
-  if (dataFiltroReferencia) dataFiltroReferencia.setHours(23, 59, 59, 999);
+  const statusNormalizado = (driver: any): string => normalizarTexto(driver?.status || '');
+
+  const dataFiltroReferencia = new Date(timeTravelEndDate ?? timeTravelDate ?? new Date());
+  dataFiltroReferencia.setHours(23, 59, 59, 999);
 
   const localLiberacaoPrevista = (driver: any): string =>
     String(driver?.local_liberacao_prevista || driver?.local_disponibilidade || '').trim();
 
   const usarPosicaoPrevista = (driver: any): boolean => {
-    if (!driver?.data_previsao_disponibilidade || !localLiberacaoPrevista(driver) || !dataFiltroReferencia) return false;
+    if (!driver?.data_previsao_disponibilidade || !localLiberacaoPrevista(driver)) return false;
     const previsao = new Date(driver.data_previsao_disponibilidade);
     return !Number.isNaN(previsao.getTime()) && previsao <= dataFiltroReferencia;
   };
@@ -192,9 +199,11 @@ export const VehicleTrackingMap = () => {
     let filterQuery: any = undefined;
 
     if (timeTravelDate || timeTravelEndDate) {
-      const startOfDay = new Date(timeTravelDate || new Date());
+      const startBase = timeTravelDate ?? timeTravelEndDate;
+      const endBase = timeTravelEndDate ?? timeTravelDate;
+      const startOfDay = new Date(startBase || new Date());
       startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(timeTravelEndDate || timeTravelDate || new Date());
+      const endOfDay = new Date(endBase || startOfDay);
       endOfDay.setHours(23, 59, 59, 999);
 
       filterQuery = {
@@ -234,8 +243,8 @@ export const VehicleTrackingMap = () => {
         if (!elegivelStatus) return false;
 
         // Quando "Viagem no Tempo" está ativa, aplicar regra temporal:
-        if (timeTravelDate) {
-          const endOfSelectedDay = new Date(timeTravelDate);
+        if (timeTravelDate || timeTravelEndDate) {
+          const endOfSelectedDay = new Date(timeTravelEndDate ?? timeTravelDate ?? new Date());
           endOfSelectedDay.setHours(23, 59, 59, 999);
 
           if (item.data_previsao_disponibilidade) {
@@ -393,10 +402,6 @@ export const VehicleTrackingMap = () => {
         }));
         return results;
       } catch (err: any) {
-        // #region debug-point D:locais-salvos-read-error
-        fetch('http://127.0.0.1:7777/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'gmx-iagmx-integration', runId: 'pre-fix', hypothesisId: 'D', location: 'gmx/src/components/tracking/VehicleTrackingMap.tsx:savedLocations', msg: '[DEBUG] Directus negou leitura de locais_salvos', data: { userId: user?.id ?? null, error: err?.message ?? String(err), errors: err?.errors ?? null }, ts: Date.now() }) }).catch(() => {});
-        // #endregion
-        console.error("Directus Erro Locais (read):", err, err.errors);
         return [];
       }
     }
@@ -1069,7 +1074,7 @@ export const VehicleTrackingMap = () => {
                   Rastreamento
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  {timeTravelDate && (
+                  {(timeTravelDate || timeTravelEndDate) && (
                     <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200 flex items-center gap-1">
                       <CalendarIcon className="w-3 h-3" />
                       Visualizando Histórico

@@ -11,6 +11,13 @@ export interface ContatoProativoLote {
   criterios_json: string | null;
 }
 
+export interface CriteriosGeracao {
+  limite?: number;
+  janela_em_carga_horas?: number;
+  janela_padrao_horas?: number;
+  considerar_compromissos_futuros?: boolean;
+}
+
 export interface ContatoProativoItem {
   id: number;
   lote_id: number;
@@ -38,6 +45,9 @@ export interface ContatoProativoItem {
   disparado_por: string | null;
   erro_envio: string | null;
   adiar_ate: string | null;
+  em_carga: boolean;
+  ultima_abordagem_em: string | null;
+  frequencia_categoria: 'diario' | 'padrao';
 }
 
 export interface ContatoProativoHistoricoItem extends ContatoProativoItem {
@@ -71,10 +81,11 @@ export async function fetchContatoProativoAtual(): Promise<ContatoProativoSnapsh
   return parseJson<ContatoProativoSnapshot>(res);
 }
 
-export async function gerarContatoProativo(): Promise<ContatoProativoSnapshot> {
+export async function gerarContatoProativo(criterios?: CriteriosGeracao): Promise<ContatoProativoSnapshot> {
   const res = await fetch(`${IAGMX_URL}/api/contato-proativo/gerar`, {
     method: 'POST',
     headers: headers(),
+    body: JSON.stringify(criterios ?? {}),
   });
   return parseJson<ContatoProativoSnapshot>(res);
 }

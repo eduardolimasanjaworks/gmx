@@ -39,7 +39,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { OperationsFilter } from "@/components/operations/OperationsFilter";
 import { fetchAddressByCep } from "@/lib/cepLookup";
-import { ContatoProativoPanel } from "@/components/dashboard/ContatoProativoPanel";
+import { ContatoProativoPanelV2 } from "@/features/contato-proativo/ContatoProativoPanelV2";
 
 // Haversine formula
 function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -1153,7 +1153,7 @@ export const VehicleTrackingMap = () => {
               )}
             </CardContent>
           </Card>
-          <ContatoProativoPanel className="mt-6" />
+          <ContatoProativoPanelV2 className="mt-6" />
         </div>
 
         {/* Drivers List */}

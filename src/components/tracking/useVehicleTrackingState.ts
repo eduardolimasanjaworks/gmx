@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { readItems } from '@directus/sdk';
 import { directus, directusAdminItems } from '@/lib/directus';
@@ -54,16 +54,9 @@ export function useVehicleTrackingState() {
   const [factoryName, setFactoryName] = useState('');
   const [savedFactoryName, setSavedFactoryName] = useState('Sua Fábrica/Empresa');
   const [isSearching, setIsSearching] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [tempFactory, setTempFactory] = useState<unknown>(null);
-  const [showAllLocations, setShowAllLocations] = useState(false);
   const [selectedOperations, setSelectedOperations] = useState<string[]>([]);
-  const [isEditingLoc, setIsEditingLoc] = useState(false);
-  const [editingLocId, setEditingLocId] = useState<string | number | null>(null);
-  const [editingLocName, setEditingLocName] = useState('');
 
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const { refreshToken, user } = useAuth();
 
   const dataFiltroReferencia = useMemo(() => {
@@ -244,13 +237,6 @@ export function useVehicleTrackingState() {
         setMapZoom(13);
         setSavedFactoryName(factoryName.trim() || 'Sua Fábrica/Empresa');
         setIsSearchingFactory(false);
-        if (ENABLE_SAVED_LOCATIONS) {
-          setTempFactory({ nome: factoryName.trim() || 'Sua Fábrica/Empresa', latitude: newPoint[0], longitude: newPoint[1] });
-          setIsDropdownOpen(true);
-        } else {
-          setTempFactory(null);
-          setIsDropdownOpen(false);
-        }
         setFactorySearchTerm('');
         setFactoryName('');
       } else {
@@ -267,9 +253,7 @@ export function useVehicleTrackingState() {
     const lat = Number(loc.latitude);
     const lng = Number(loc.longitude);
     if (!isNaN(lat) && !isNaN(lng)) {
-      setOriginPoint([lat, lng]);
-      setMapCenter([lat, lng]);
-      setMapZoom(13);
+      setOriginPoint([lat, lng]); setMapCenter([lat, lng]); setMapZoom(13);
       setSavedFactoryName(String(loc.nome || 'Fábrica Salva'));
       toast({ title: 'Fábrica Selecionada', description: `Buscando motoristas perto de ${loc.nome}` });
     }
@@ -293,13 +277,7 @@ export function useVehicleTrackingState() {
     factoryName, setFactoryName,
     savedFactoryName,
     isSearching,
-    isDropdownOpen, setIsDropdownOpen,
-    tempFactory, setTempFactory,
-    showAllLocations, setShowAllLocations,
     selectedOperations, setSelectedOperations,
-    isEditingLoc, setIsEditingLoc,
-    editingLocId, setEditingLocId,
-    editingLocName, setEditingLocName,
     fetchedDrivers, isLoading, isError,
     allAvailableDrivers, drivers, markers,
     driverHistory, savedLocations, isLoadingLocs,
